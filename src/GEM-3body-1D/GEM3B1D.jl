@@ -7,17 +7,11 @@
 ## 07.09.24 first version
 ## 29.09.24 first alpha version, needs a lot of debugging and testing
 
-module GEM3b1D # 1D?
+module GEM3B1D # 1D?
 
-using LinearAlgebra,Printf
-using StaticArrays
+using StaticArrays: SMatrix,MMatrix
 using Interpolations
-#using SharedArrays
-#using Base.Threads
-#using Distributed
-#using PartialWaveFunctions
-using SpecialFunctions
-using QuadGK
+using Printf: @printf
 
 include("sanitycheck.jl")
 include("size_estimate.jl")
@@ -27,7 +21,7 @@ include("precomputation.jl")
 include("interpolationNshoulder.jl")
 include("fillTVS.jl")
 include("solveHS.jl")
-include("eigen2step.jl")
+include("../common/eigen2step.jl")
 #include("wavefunction.jl")
 #include("observables.jl")
 
@@ -35,7 +29,7 @@ export GEM_solve
 #export wavefun
 
 # gaussopt=[bool,v0,mu_g] for central gauss interaction: V(r) = v0*exp(-mu_g*r^2)
-function GEM_solve(phys_params, num_params, observ_params, wf_bool;csm_bool = 0, gaussopt=[[[0,-1.0,1.0]],[[0,-1.0,1.0]],[[0,-1.0,1.0]]], coulopt=[[[0,-1.0]],[[0,-1.0]],[[0,-1.0]]])
+function GEM3B1D_solve(phys_params, num_params, observ_params, wf_bool;csm_bool = 0, gaussopt=[[[0,-1.0,1.0]],[[0,-1.0,1.0]],[[0,-1.0,1.0]]], coulopt=[[[0,-1.0]],[[0,-1.0]],[[0,-1.0]]])
     
     ## 1. interpretation of inputs
     show_details_bool = 0

@@ -10,7 +10,8 @@
 
 module ISGL
 
-using LinearAlgebra,StaticArrays,Interpolations,SharedArrays,QuadGK, Printf, SpecialFunctions,PartialWaveFunctions, WignerSymbols, OffsetArrays
+using LinearAlgebra,StaticArrays,OffsetArrays,Interpolations, SpecialFunctions,QuadGK,PartialWaveFunctions, WignerSymbols
+using Printf: @printf
 
 # try to make use of multiple dispatch for different potential types
 ## where should this part be placed ideally?
@@ -45,7 +46,7 @@ include("precomputation.jl")
 include("interpolationNshoulder.jl")
 include("fillTVS.jl")
 include("solveHS.jl")
-include("eigen2step.jl")
+include("../common/eigen2step.jl")
 #include("wavefunction.jl")
 include("observables.jl")
 

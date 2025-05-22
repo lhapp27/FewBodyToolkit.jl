@@ -6,11 +6,11 @@
 
 module GEM1D
 
-using LinearAlgebra, SpecialFunctions, QuadGK, GSL, Optim
+#using LinearAlgebra, SpecialFunctions, QuadGK, GSL, Optim
 
-include("eigen2step.jl")
+include("../common/eigen2step.jl")
 include("MatrixElements1D.jl")
-include("optim_v0_scatt.jl")
+include("optimV0.jl")
 include("wavefunctions.jl")
 
 export GEM_solve

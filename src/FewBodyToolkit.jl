@@ -1,5 +1,7 @@
 module FewBodyToolkit
 
+using LinearAlgebra, SpecialFunctions, QuadGK, Optim, Roots, StaticArrays, Interpolations, HypergeometricFunctions, PartialWaveFunctions, WignerSymbols, OffsetArrays, GSL, Printf
+
 ### GEM-2body
 include("GEM-2body/GEM1D.jl")
 include("GEM-2body/GEM2D.jl")

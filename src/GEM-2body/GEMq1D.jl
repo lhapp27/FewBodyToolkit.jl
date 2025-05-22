@@ -7,12 +7,12 @@
 
 module GEMq1D
 
-using LinearAlgebra
+#= using LinearAlgebra
 using SpecialFunctions
 using QuadGK
-using HypergeometricFunctions
+using HypergeometricFunctions =#
 
-include("eigen2step.jl")
+include("../common/eigen2step.jl")
 include("MatrixElementsq1D.jl")
 
 export GEM_solveq1D
@@ -82,7 +82,7 @@ function GEM_solveq1D!(prealloc_arrs,phys_params,num_params,ho_params,wf_bool,cr
     # Destructuring struct:
     (;hbar,mass_arr,vint_arr,lmax) = phys_params
     vint = vint_arr[1];
-    (;gem_params,omega_cr,threshold=threshold) = num_params
+    (;gem_params,omega_cr,threshold) = num_params
     (;nmax,r1,rnmax) = gem_params
 
     (;nhomax,mho,omega_ho) = ho_params

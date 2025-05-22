@@ -2,3 +2,18 @@ name = "FewBodyToolkit"
 uuid = "28c40a4d-cd08-48a0-9e99-cc2df8099be4"
 authors = ["lhapp27 <lucas.happ@riken.jp>"]
 version = "0.1.0"
+
+[deps]
+GSL = "92c85e6c-cbff-5e0c-80f7-495c94daaecd"
+HypergeometricFunctions = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+PartialWaveFunctions = "793d2195-304b-438e-bbb1-bc33c872ac39"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
+Roots = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+WignerSymbols = "9f57e263-0b3d-5e2e-b1be-24f2bb48858b"

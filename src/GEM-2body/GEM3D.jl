@@ -4,10 +4,11 @@
 
 module GEM3D
 
-using LinearAlgebra, SpecialFunctions, QuadGK, Optim, Roots, StaticArrays, Printf
+#using LinearAlgebra, SpecialFunctions, QuadGK, Optim, Roots, StaticArrays, Printf
+using Printf: @printf
 
 include("../common/eigen2step.jl")
-include("optim_v0_scatt.jl")
+include("optimV0.jl")
 include("MatrixElements.jl")
 include("wavefunctions.jl")
 

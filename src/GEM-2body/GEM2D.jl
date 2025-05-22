@@ -5,10 +5,10 @@
 
 module GEM2D
 
-using LinearAlgebra, SpecialFunctions, QuadGK, Optim, Roots, StaticArrays
+#using LinearAlgebra, SpecialFunctions, QuadGK, Optim, Roots, StaticArrays
 
-include("eigen2step.jl")
-include("optim_v0_scatt.jl")
+include("../common/eigen2step.jl")
+include("optimV0.jl")
 include("MatrixElements2D.jl")
 include("wavefunctions.jl")
 
