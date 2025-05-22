@@ -1,0 +1,4 @@
+name = "FewBodyToolkit"
+uuid = "28c40a4d-cd08-48a0-9e99-cc2df8099be4"
+authors = ["lhapp27 <lucas.happ@riken.jp>"]
+version = "0.1.0"
