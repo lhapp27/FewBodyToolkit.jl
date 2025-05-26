@@ -3,15 +3,12 @@ module FewBodyToolkit
 using LinearAlgebra, SpecialFunctions, QuadGK, Optim, Roots, StaticArrays, Interpolations, HypergeometricFunctions, PartialWaveFunctions, WignerSymbols, OffsetArrays, GSL, Printf
 
 ### GEM-2body
-include("GEM-2body/GEM1D.jl")
-include("GEM-2body/GEM2D.jl")
-include("GEM-2body/GEM3D.jl")
-include("GEM-2body/GEMq1D.jl")
+include("GEM-2body/GEM2B.jl")
+using .GEM2B
 
-using .GEM1D
-using .GEM2D
-using .GEM3D
-using .GEMq1D
+# q1D currently unsupported
+#include("GEM-2body/GEMq1D.jl")
+#using .GEMq1D
 
 ### GEM-3body-1D
 include("GEM-3body-1D/GEM3B1D.jl")
