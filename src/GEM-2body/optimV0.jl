@@ -1,4 +1,34 @@
 # for finding a the value of v0 to achieve the energy target_e2 for the state defined by stateindex (with intermediate optimization of parameters)
+
+"""
+    v0GEMOptim(phys_params, num_params, stateindex, target_e2; cr_bool=0, rtol=1e-4, atol=10*eps(), g_tol=1e-9, output=false)
+
+Finds a value `v0crit` to globally scale the potential in order to achieve the target energy `target_e2` for the state specified by `stateindex`. Additionally, performs intermediate optimization of Gaussian Expansion Method (GEM) parameters.
+
+# Arguments
+- `phys_params::NamedTuple`: Physical parameters including `hbar`, `mur`, `vint_arr`, `lmax`, `lmin`, and `dim`.
+- `num_params::NamedTuple`: Numerical parameters including `gem_params`, `omega_cr`, `theta_csm`, and `threshold`.
+- `stateindex::Int`: Index of the state to optimize, where `1` indicates the ground state.
+- `target_e2::Float64`: Target energy value.
+
+# Keyword Arguments
+- `cr_bool::Int`: Use complex rotation (default: 0).
+- `rtol::Float64`: Relative tolerance for energy convergence (default: 1e-4).
+- `atol::Float64`: Absolute tolerance for energy convergence (default: 10*eps()).
+- `g_tol::Float64`: Tolerance for the optimizer (default: 1e-9).
+- `output::Bool`: If true, prints intermediate optimization results (default: false).
+
+# Returns
+- `phys_params::NamedTuple`: Updated physical parameters with optimized potential.
+- `num_params::NamedTuple`: Updated numerical parameters with optimized GEM ranges.
+- `v0crit::Float64`: The value to scale the potential with, to achieve the target energy. This is **not** the overall value of `v0` but rather a scaling factor for the potential.
+
+# Examples
+```julia
+phys_params_scaled,num_params_optimized,scalingfactor = v0GEMOptim(phys_params, num_params, 1, -2.5)
+"""
+
+
 function v0GEMOptim(phys_params, num_params, stateindex, target_e2; cr_bool = 0, rtol=10^-4, atol = 10*eps(), g_tol=10^-9,output=false)
     
     # desctructuring:
@@ -32,7 +62,31 @@ function v0GEMOptim(phys_params, num_params, stateindex, target_e2; cr_bool = 0,
     return phys_params,num_params,v0crit
 end
 
-# for optimizing GEM ranges of specific state defined by stateindex (1 = ground state)
+"""
+    GEM_Optim_2B(phys_params, num_params, stateindex; cr_bool=0, g_tol=1e-9)
+
+Optimize the ranges used in the Gaussian Expansion Method (GEM) for a specific 2-body state.
+
+# Arguments
+- `phys_params::NamedTuple`: Physical parameters such as `hbar`, `mur`, `vint_arr`, `lmax`, `lmin`, and `dim`.
+- `num_params::NamedTuple`: Numerical parameters such as `gem_params`, `omega_cr`, `theta_csm`, and `threshold`.
+- `stateindex::Int`: An integer specifying the index of the state to optimize (e.g., `1` for the ground state).
+
+# Keyword Arguments
+- `cr_bool::Int=0`: Indicates whether to use complex rotation.
+- `g_tol::Float64=1e-9`: A value specifying the tolerance for the optimizer.
+
+# Returns
+- A vector containing:
+  - Optimized GEM parameters: `[r1, rnmax]`.
+  - The energy value of the optimized state.
+
+# Examples
+```julia
+r1opt,rnmaxopt,energy = GEM_Optim_2B(phys_params, num_params, 1) # optimize for the ground state
+r1opt,rnmaxopt,energy = GEM_Optim_2B(phys_params, num_params, 3; cr_bool = 1) # optimize for the third state (2nd excited) using complex-ranged basis functions
+"""
+
 function GEM_Optim_2B(phys_params, num_params, stateindex; cr_bool=0, g_tol=10^-9)
     
     (;gem_params,omega_cr,theta_csm,threshold) = num_params

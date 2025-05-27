@@ -16,11 +16,46 @@ include("MatrixElements123D.jl")
 include("wavefunctions.jl")
 
 export GEM_solve
-export make_phys_params2B,make_num_params2B
-export PreallocStruct2B
+export make_phys_params2B,make_num_params2B,PreallocStruct2B
 export v0GEMOptim,GEM_Optim_2B
-export MatrixS,MatrixT,MatrixV
-export buildnu,wavefun_arr,wavefun_point
+export wavefun_arr,wavefun_point
+
+"""
+    GEM_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
+
+Solves two-body quantum mechanical problems using the Gaussian Expansion Method (GEM).
+
+# Arguments
+- `phys_params`: Physical parameters describing the two-body system:
+    + `hbar::Float64`: reduced Planck constant 
+    + `mur::Float64`: reduced mass 
+    + `vint_arr=Vector{Any}`: a vector of interactions
+    + `lmax::Int`: power of `r^lmax` in the basis functions; indicator for the angular momentum in 3D
+    + `dim::Int`: the spatial dimension
+- `num_params`: Numerical parameters struct containing information on the set of basis functions:
+    + `gem_params::NamedTuple`: (number of basis functions, smallest and largest range parameters).
+    + `theta_csm::Float64`: Complex scaling angle (in radians) for the Complex Scaling Method.
+    + `omega_cr::Float64`: Parameter controlling the frequency for complex-ranged basis functions.
+    + `threshold::Float64`: Numerical threshold generalized eigenvalue solver.
+
+# Keywords
+- `wf_bool=0`: Whether to return wavefunctions (0: energies only, 1: energies and wavefunctions)
+- `cr_bool=0`: Whether to use complex rotation method (0: no, 1: yes)
+- `csm_bool=0`: Whether to use complex scaling method (0: no, 1: yes)
+
+# Returns
+- `energies`: Array of energy eigenvalues
+- `wavefunctions`: (Optional) Array of eigenvectors if wf_bool=1
+
+# Example
+```julia
+phys_params = make_phys_params2B(hbar=1.0, mur=1.0, vint_arr=[GaussianPotential(-1.0, 0.5)], lmax=0, dim=3)
+num_params = make_num_params2B(gem_params=(nmax=5, r1=1.0, rnmax=10.0), omega_cr=0.5, theta_csm=0.0, threshold=1e-10)
+energies = GEM_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
+# or with wavefunctions:
+energies, wavefunctions = GEM_solve(phys_params, num_params; wf_bool=1)
+# Note: The function can handle 1D, 2D, or 3D problems based on the `dim` parameter in `phys_params`.
+"""
 
 
 function GEM_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
