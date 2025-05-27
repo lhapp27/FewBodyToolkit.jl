@@ -44,7 +44,9 @@ end =#
 norm(nu,lmax,gamma_dict,dim) = (2*(2*nu)^(lmax+dim/2)/gamma_dict[lmax+dim/2])^(1/2) # result for integration over [0,\infty); in 1D we therefore need an additional factor 1/sqrt(2), but this is taken care of in element_V
 integrand(r,lmax,nu1,nu2,vint,dim) = r^(2*lmax+(dim-1))*exp(-(nu1+nu2)*r^2)*vint(r)
 
-function element_V(vint::GaussianPotential,lmax,nu1,nu2,gamma_dict,buf,dim) #gaussian interaction
+function element_V(vint::GaussianPotential,lmax,nu1,nu2,gamma_dict,buf,dim,lower_limit,dimfac) #gaussian interaction
+    v0 = vint.v0
+    mu_g = vint.mu_g
     return v0*(2*(nu1*nu2)^(1/2)/(nu1+nu2+mu_g))^(lmax+dim/2)
 end
 

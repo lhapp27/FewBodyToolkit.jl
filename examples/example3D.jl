@@ -1,7 +1,8 @@
 # Example file for using the 2-body GEM program for a 3D system
-#=
+#= these two lines should be called from the parent directory:
 using Pkg; Pkg.activate(".")
-using FewBodyToolkit.GEM2B =#
+using FewBodyToolkit.GEM2B
+=#
 
 using Printf, BenchmarkTools, Interpolations
 
@@ -14,8 +15,7 @@ Z = 1.0
 function v_coulomb(r)
     return -Z/r
 end
-vint_arr=[v_coulomb] # pair-interactions of particles [V12]. Needs to be defined as a function.
-phys_params = make_phys_params2B(;mur,vint_arr,dim=3)
+phys_params = make_phys_params2B(;mur,vint_arr=[v_coulomb],dim=3)
 
 #interpolation example:
 r_arr = 0.001:0.01:20.01

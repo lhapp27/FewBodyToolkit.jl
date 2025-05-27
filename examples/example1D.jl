@@ -1,9 +1,8 @@
-# Example file for using the 2-body GEM program
-# these two lines should be called from the parent directory
-#=
+# Example file for using the 2-body GEM program for a 1D system
+#= these two lines should be called from the parent directory:
 using Pkg; Pkg.activate(".")
-using FewBodyToolkit.GEM2B =#
-#println("module GEM2B loaded.")
+using FewBodyToolkit.GEM2B
+=#
 
 using Printf, Interpolations, BenchmarkTools
 
@@ -13,13 +12,11 @@ using Printf, Interpolations, BenchmarkTools
 # Physical parameters
 mass_arr=[1.0,Inf] # array of masses of particles [m1,m2]
 mur = 1/(1/mass_arr[1]+1/mass_arr[2]) # reduced mass
-
-# r-interaction:
 lambda=8.0
+
 function v_poschl(r)
     return -lambda*(lambda+1)/2/mur*1/cosh(r)^2
 end
-
 phys_params = make_phys_params2B(;mur,vint_arr=[v_poschl],dim=1)
 
 #interpolation example:

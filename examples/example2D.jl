@@ -1,7 +1,8 @@
 # Example file for using the 2-body GEM program for a 2D system
-#=
+#= these two lines should be called from the parent directory:
 using Pkg; Pkg.activate(".")
-using FewBodyToolkit.GEM2B =#
+using FewBodyToolkit.GEM2B
+=#
 
 using Printf, BenchmarkTools, Interpolations
 
@@ -14,8 +15,7 @@ omega = 2.0
 function v_ho(r)
     return 0.5*mur*omega^2*r^2
 end
-vint_arr=[v_ho] # pair-interactions of particles [V12]. Needs to be defined as a function.
-phys_params = make_phys_params2B(;mur,vint_arr,dim=2)
+phys_params = make_phys_params2B(;mur,vint_arr=[v_ho],dim=2)
 
 #interpolation example:
 r_arr = 0.0:0.5:20.0
