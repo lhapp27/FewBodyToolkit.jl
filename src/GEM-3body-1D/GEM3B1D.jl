@@ -22,8 +22,6 @@ include("interpolationNshoulder.jl")
 include("fillTVS.jl")
 include("solveHS.jl")
 include("../common/eigen2step.jl")
-#include("wavefunction.jl")
-#include("observables.jl")
 
 export GEM_solve
 #export wavefun

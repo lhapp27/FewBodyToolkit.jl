@@ -5,23 +5,24 @@
 module GEM2B
 
 #using LinearAlgebra, SpecialFunctions, QuadGK, Optim, Roots, StaticArrays, Printf
+using .. FewBodyToolkit
 using SpecialFunctions, QuadGK, GSL, LinearAlgebra, Optim, StaticArrays, Roots
 using Printf: @printf
 
 include("auxiliary.jl")
 include("../common/eigen2step.jl")
-include("../common/potentialtypes.jl")
+#include("../common/potentialtypes.jl")
 include("optimV0.jl")
 include("MatrixElements123D.jl")
 include("wavefunctions.jl")
 
-export GEM_solve
+export GEM2B_solve
 export make_phys_params2B,make_num_params2B,PreallocStruct2B
 export v0GEMOptim,GEM_Optim_2B
 export wavefun_arr,wavefun_point
 
 """
-    GEM_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
+    GEM2B_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
 
 Solves two-body quantum mechanical problems using the Gaussian Expansion Method (GEM).
 
@@ -51,20 +52,18 @@ Solves two-body quantum mechanical problems using the Gaussian Expansion Method 
 ```julia
 phys_params = make_phys_params2B(hbar=1.0, mur=1.0, vint_arr=[GaussianPotential(-1.0, 0.5)], lmax=0, dim=3)
 num_params = make_num_params2B(gem_params=(nmax=5, r1=1.0, rnmax=10.0), omega_cr=0.5, theta_csm=0.0, threshold=1e-10)
-energies = GEM_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
+energies = GEM2B_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
 # or with wavefunctions:
-energies, wavefunctions = GEM_solve(phys_params, num_params; wf_bool=1)
+energies, wavefunctions = GEM2B_solve(phys_params, num_params; wf_bool=1)
 # Note: The function can handle 1D, 2D, or 3D problems based on the `dim` parameter in `phys_params`.
 """
-
-
-function GEM_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
+function GEM2B_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
         
     # preallocations:
     prealloc_arrs = PreallocStruct2B(num_params, cr_bool, csm_bool)
     
     # function call with preallocations:
-    GEM_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_bool)
+    GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_bool)
     
     if wf_bool == 0
         return prealloc_arrs.energies
@@ -76,7 +75,7 @@ function GEM_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
 end
 
 # function with preallocated arrays:
-function GEM_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_bool)
+function GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_bool)
     
     (;nu_arr,S,T,V,energies,wavefunctions) = prealloc_arrs
     
@@ -184,7 +183,7 @@ end
 
 
 ## Coupled-channel version:
-function GEM_solveCC(phys_params, num_params, WCC, DCC; wf_bool=0, cr_bool=0, csm_bool=0, diff_bool=0)
+function GEM2B_solveCC(phys_params, num_params, WCC, DCC; wf_bool=0, cr_bool=0, csm_bool=0, diff_bool=0)
     if cr_bool == 1 && csm_bool == 1
         error("Currently only either CSM or CR are supported, but not both simultaneously.")
     end

@@ -2,6 +2,11 @@ module FewBodyToolkit
 
 using LinearAlgebra, SpecialFunctions, QuadGK, Optim, Roots, StaticArrays, Interpolations, HypergeometricFunctions, PartialWaveFunctions, WignerSymbols, OffsetArrays, GSL, Printf
 
+### common types and functions
+include("common/potentialtypes.jl")
+include("common/eigen2step.jl")
+export PotentialFunction, CentralPotential, GaussianPotential, SpinOrbitPotential
+
 ### GEM-2body
 include("GEM-2body/GEM2B.jl")
 using .GEM2B

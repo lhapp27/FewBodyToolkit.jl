@@ -27,8 +27,6 @@ Finds a value `v0crit` to globally scale the potential in order to achieve the t
 ```julia
 phys_params_scaled,num_params_optimized,scalingfactor = v0GEMOptim(phys_params, num_params, 1, -2.5)
 """
-
-
 function v0GEMOptim(phys_params, num_params, stateindex, target_e2; cr_bool = 0, rtol=10^-4, atol = 10*eps(), g_tol=10^-9,output=false)
     
     # desctructuring:
@@ -86,13 +84,12 @@ Optimize the ranges used in the Gaussian Expansion Method (GEM) for a specific 2
 r1opt,rnmaxopt,energy = GEM_Optim_2B(phys_params, num_params, 1) # optimize for the ground state
 r1opt,rnmaxopt,energy = GEM_Optim_2B(phys_params, num_params, 3; cr_bool = 1) # optimize for the third state (2nd excited) using complex-ranged basis functions
 """
-
 function GEM_Optim_2B(phys_params, num_params, stateindex; cr_bool=0, g_tol=10^-9)
     
     (;gem_params,omega_cr,theta_csm,threshold) = num_params
     (;nmax,r1,rnmax) = gem_params
     
-    target(x) = GEM2B.GEM_solve(phys_params, (gem_params = (nmax, r1 = x[1], rnmax = x[2]), omega_cr, theta_csm, threshold); cr_bool)[stateindex]
+    target(x) = GEM2B.GEM2B_solve(phys_params, (gem_params = (nmax, r1 = x[1], rnmax = x[2]), omega_cr, theta_csm, threshold); cr_bool)[stateindex]
     
     init = [r1,rnmax] # arbitrary! Change in case the optimization fails
     opt = optimize(target, init, method=NelderMead(), show_trace = false, store_trace=false, extended_trace=false, g_tol=g_tol);
@@ -109,7 +106,7 @@ function find_v0crit(phys_params, num_params, stateindex, target_e2; cr_bool=0)
             return v0*vint(r)
         end
         
-        return real(GEM2B.GEM_solve((hbar,mur,vint_arr=[vint_local],lmax,min,dim), num_params; cr_bool)[stateindex]) - target_e2;
+        return real(GEM2B.GEM2B_solve((hbar,mur,vint_arr=[vint_local],lmax,min,dim), num_params; cr_bool)[stateindex]) - target_e2;
     end
     
     v0crit = find_zeros(fun1,(0, 200))[1];

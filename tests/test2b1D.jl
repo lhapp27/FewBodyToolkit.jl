@@ -41,31 +41,31 @@ end
 ## Tests via Poschl-Teller:
 #1. Is the output for csm_bool = 0 the same as before?
 println("\ncsm_bool = 0:")
-energies_arr = GEM2B.GEM_solve(phys_params,num_params;cr_bool=0,csm_bool=0)
+energies_arr = GEM2B.GEM2B_solve(phys_params,num_params;cr_bool=0,csm_bool=0)
 comparison(energies_arr,lambda)
 
 
 #1b. Is the output for csm_bool = 0 the same as before? with cr
 println("\ncsm_bool = 0, cr_bool = 1:")
-energies_arr = GEM2B.GEM_solve(phys_params,num_params;cr_bool=1,csm_bool=0)
+energies_arr = GEM2B.GEM2B_solve(phys_params,num_params;cr_bool=1,csm_bool=0)
 comparison(energies_arr,lambda)
 
 #2. Does  csm_bool = 1, theta_csm = 0.0 recover the old results?
 println("\ncsm_bool = 1, theta_csm = 0.0:")
-energies_arr = GEM2B.GEM_solve(phys_params,num_params;cr_bool=0,csm_bool=1)
+energies_arr = GEM2B.GEM2B_solve(phys_params,num_params;cr_bool=0,csm_bool=1)
 comparison(energies_arr,lambda)
 
 #3. Any bugs with theta_csm != 0.0?
 println("\ncsm_bool = 1, theta_csm = $(num_params.theta_csm):")
-energies_arr = GEM2B.GEM_solve(phys_params,num_params;cr_bool=0,csm_bool=1)
+energies_arr = GEM2B.GEM2B_solve(phys_params,num_params;cr_bool=0,csm_bool=1)
 comparison(energies_arr,lambda)
 
 #4. check functionality of gaussopt
 println("\n gaussopt = 0: csm_bool = 1, theta_csm = $(num_params.theta_csm)")
-energies_arr = GEM2B.GEM_solve(phys_paramsg,num_params;cr_bool=0,csm_bool=1)
+energies_arr = GEM2B.GEM2B_solve(phys_paramsg,num_params;cr_bool=0,csm_bool=1)
 comparison(energies_arr,lambda;gauss_bool=1)
 println("\n gaussopt = 1: csm_bool = 1, theta_csm = $(num_params.theta_csm)")
-energies_arr = GEM2B.GEM_solve(phys_paramsg2,num_params;cr_bool=0,csm_bool=1)
+energies_arr = GEM2B.GEM2B_solve(phys_paramsg2,num_params;cr_bool=0,csm_bool=1)
 comparison(energies_arr,lambda;gauss_bool=1)
 
 #4. Benchmark to check if code became slower
@@ -73,13 +73,13 @@ bench_bool = 0
 if bench_bool == 1
     println("\n Benchmarking: nmax = $(num_params.nmax), vgauss") # value of nmax? probably 10
     print("gaussopt = 0, csm_bool = 0: ")
-    @btime GEM2B.GEM_solve(phys_paramsg,num_params;cr_bool=0,csm_bool=0);
+    @btime GEM2B.GEM2B_solve(phys_paramsg,num_params;cr_bool=0,csm_bool=0);
     print("\n gaussopt = 1, csm_bool = 0: ")
-    @btime GEM2B.GEM_solve(phys_paramsg2,num_params;cr_bool=0,csm_bool=0);
+    @btime GEM2B.GEM2B_solve(phys_paramsg2,num_params;cr_bool=0,csm_bool=0);
     print("\n gaussopt = 0, csm_bool = 1: ")
-    @btime GEM2B.GEM_solve(phys_paramsg,num_params;cr_bool=0,csm_bool=1);
+    @btime GEM2B.GEM2B_solve(phys_paramsg,num_params;cr_bool=0,csm_bool=1);
     print("\n gaussopt = 1, csm_bool = 1: ")
-    @btime GEM2B.GEM_solve(phys_paramsg2,num_params;cr_bool=0,csm_bool=1);
+    @btime GEM2B.GEM2B_solve(phys_paramsg2,num_params;cr_bool=0,csm_bool=1);
 end 
 
 return nothing

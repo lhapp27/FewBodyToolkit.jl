@@ -9,14 +9,14 @@
 
 
 module ISGL
-
+using .. FewBodyToolkit
 using LinearAlgebra,StaticArrays,OffsetArrays,Interpolations, SpecialFunctions,QuadGK,PartialWaveFunctions, WignerSymbols
 using Printf: @printf
 
 # try to make use of multiple dispatch for different potential types
 ## where should this part be placed ideally?
 # types for the different potential functions
-abstract type PotentialFunction end
+#= abstract type PotentialFunction end ##moved to common/potentialtypes.jl
 struct CentralPotential <: PotentialFunction
     f::Function
 end
@@ -26,7 +26,7 @@ end
 # for evaluating these functions, e.g. in quadgk; used also for observables
 function (v::PotentialFunction)(r)
     return v.f(r)
-end
+end =#
 
 
 # functions for creating inputs
@@ -47,11 +47,10 @@ include("interpolationNshoulder.jl")
 include("fillTVS.jl")
 include("solveHS.jl")
 include("../common/eigen2step.jl")
-#include("wavefunction.jl")
 include("observables.jl")
 
 
-export ISGL_solve, PotentialFunction, make_phys_params, make_num_params
+export ISGL_solve, make_phys_params, make_num_params
 #export wavefun
 
 # gaussopt=[bool,v0,mu_g] for central gauss interaction: V(r) = v0*exp(-mu_g*r^2)

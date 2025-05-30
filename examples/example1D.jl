@@ -1,124 +1,125 @@
-# Example file for using the 2-body GEM program for a 1D system
-#= these two lines should be called from the parent directory:
-using Pkg; Pkg.activate(".")
-using FewBodyToolkit.GEM2B
-=#
+# # 1D Example: Two particles with Pöschl–Teller interaction
+#
+# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 1D. Here we use the Pöschl–Teller interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation:
+# \\[ -\frac{1}{2} \frac{d^2}{dr^2}\psi + V(r)\psi = E\psi \\]
+# with the Pöschl–Teller potential
+# \\[ V(r) = -\frac{\lambda(\lambda+1)}{2} \frac{1}{\cosh^2(r)}. \\]
 
-using Printf, Interpolations, BenchmarkTools
+# This example can also be found as a runnable: examples/example1D.jl.
 
-# Example for two particles with Pöschl-Teller interparticle interaction
+# ## Setup
 
-## Input parameters:
-# Physical parameters
-mass_arr=[1.0,Inf] # array of masses of particles [m1,m2]
+using Printf, Interpolations, FewBodyToolkit.GEM2B
+
+# ## Input parameters
+
+# #### Physical parameters
+
+mass_arr=[1.0,Inf] # this ensures a reduced mass of 1.0
 mur = 1/(1/mass_arr[1]+1/mass_arr[2]) # reduced mass
 lambda=8.0
 
 function v_poschl(r)
     return -lambda*(lambda+1)/2/mur*1/cosh(r)^2
-end
+end;
+
+# We define the physical parameters as a `NamedTuple` which carries the information about the Hamiltonian.
 phys_params = make_phys_params2B(;mur,vint_arr=[v_poschl],dim=1)
+# By leaving out the optional parameters, we use the defaults:
+# - `lmin = lmax = 0`: minimum and maximum angular momentum (in 1D this corresponds to even states)
+# - `hbar = 1.0`: when working in dimensionless units
 
-#interpolation example:
-r_arr = -10.0:0.5:10.0
-v_arr = v_poschl.(r_arr)
-v_interpol = cubic_spline_interpolation(r_arr,v_arr,extrapolation_bc=Line())
-v_int(r) = v_interpol(r) # we have to make the interaction an object of type "function" again. interpolation objects dont work currently.
-phys_params_interpol = make_phys_params2B(;mur,vint_arr=[v_int],dim=1)
+# #### Numerical parameters
 
-# numerical parameters:
-nmax=6 # number of Gaussian basis functions for r-variable
-r1=0.1;rnmax=10.0; # r1 and rnmax for r-basis functions
-gem_params = (;nmax,r1,rnmax) # gem_params
+nmax=6 # number of Gaussian basis functions
+r1=0.1;rnmax=10.0; # r1 and rnmax defining the widths of the basis functions
+gem_params = (;nmax,r1,rnmax);
+
+# We define the numerical parameters as a `NamedTuple`:
 num_params = make_num_params2B(;gem_params)
 
-# Print formatted output and compare with analytical results:
-#comparison function
+
+# ## Helper: comparison function
+
+# We define a utility to compare numerical and exact eigenvalues:
+
 function comparison(num_arr,ex_arr,simax;s1="Numerical", s2="Exact")
     @printf("%-7s %-15s %-15s %-15s\n", "Index",  s1, s2, "Difference")
     for i in 1:simax
         @printf("%-7d %-15.6f %-15.6f %-15.6f\n", i, num_arr[i], ex_arr[i], ex_arr[i] - num_arr[i])
     end
-end
+end;
 
-# Calling the program:
-energies_arr = GEM_solve(phys_params,num_params)
+# ## 1. Numerical solution
 
-# for comparison with exact energies:
-simax = min(findlast(energies_arr.<0),6); # max state index
-ex_arr = [-(lambda-i)^2/2/mur for i=0:2:Int(floor(lambda-1))] # only for even states!
+# We solve the two-body system by calling `GEM2B_solve`.
+energies_arr = GEM2B_solve(phys_params,num_params)
+
+# Determine the number of bound states
+simax = findlast(energies_arr.<0)
+
+# The Pöschl–Teller potential has `lambda = 8` eigenvalues. In this example we focus on the even states, hence there are only 4 bound states. Their energies can be found exactly:
+# \\[ E_n = -\frac{(\lambda-n)^2}{2\mu} \\]
+# where \\( n = 1, 2, ... , \lambda-1 \\) is the state index.
+
+ex_arr = [-(lambda-i)^2/2/mur for i=0:2:Int(floor(lambda-1))]
 
 println("1. Numerical solution of the 1D problem:")
-comparison(energies_arr, ex_arr,simax)
+comparison(energies_arr, ex_arr, simax)
 
-# For comparison with interpolation:
-println("\n2. Numerical solution using an interpolated interaction:")
-energies_interpol = GEM_solve(phys_params_interpol,num_params)
-comparison(energies_interpol, energies_arr, simax;s1="Interpolated", s2="Numerical")
+# So far, the numerical solutions are not very accurate. This is because the basis parmeters are not optimal.
 
 
-## optimization of GEM-parameters:
-# Parameters are optimized for the state with index stateindex:
-optim_bool = 1
-if optim_bool == 1
-    stateindex = 3 # which state to optimize for
-    params_opt = GEM2B.GEM_Optim_2B(phys_params, num_params, stateindex)
-    gem_params_opt = (;nmax, r1 = params_opt[1], rnmax = params_opt[2])
-    num_params_opt = make_num_params2B(;gem_params=gem_params_opt)
-    e2_opt = GEM2B.GEM_solve(phys_params,num_params_opt)
-    
-    println("\n3. Optimization of GEM parameters for E2[$stateindex]:")
-    @printf("%-15s %-15s %-15s %-15s %-15s\n", "r1", "rnmax", "E2[$(stateindex-1)]", "E2[$stateindex]", "E2[$(stateindex+1)]")
-    println("Before optimization:")
-    @printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", gem_params.r1, gem_params.rnmax, energies_arr[stateindex-1], energies_arr[stateindex], energies_arr[stateindex+1])
-    println("after optimization:")
-    @printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", gem_params_opt.r1, gem_params_opt.rnmax, e2_opt[stateindex-1], e2_opt[stateindex], e2_opt[stateindex+1])
-end
-println("")
-comparison(e2_opt, ex_arr, simax)
+# ## 2. Optimization of basis parameters
 
-##### For finding an interaction globally scaled from vint, such that state with stateindex has energy target_e2: #####
-# GEM-Parameters are also updated
-vscale_bool = 1
-if vscale_bool == 1
-    stateindex = 3; target_e2 = -18.0;
-    println("\n4. Scaling the potential such that E2[$stateindex] = $target_e2:")
-    phys_params_scaled,num_params_scaled,vscale = GEM2B.v0GEMOptim(phys_params,num_params,stateindex,target_e2)
-    e2_v0 = GEM2B.GEM_solve(phys_params_scaled,num_params_scaled)
-    
-    println("After scaling:")
-    @printf("%-15s %-15s %-15s %-15s %-15s\n", "r1", "rnmax", "E2[$(stateindex-1)]", "E2[$stateindex]", "E2[$(stateindex+1)]")
-    @printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", num_params_scaled.gem_params.r1, num_params_scaled.gem_params.rnmax, e2_v0[stateindex-1], e2_v0[stateindex], e2_v0[stateindex+1])
-    println("vscale = $(round(vscale,digits=8)) should be approximately (λ+2)*(λ+2+1)/(λ*(λ+1)) = ", round((lambda+2)*(lambda+2+1)/(lambda*(lambda+1)),digits=8) )
-end
+# We can optimize the basis parameters for a specific state indicated by `stateindex` using `GEM_Optim_2B`.
 
-
-## currently not working as intended:
-#= #### Using complex-ranged Gaussian basis functions (Gbf):
-println("\n5. Complex-ranged Gaussian basis functions:")
-lambda = 18.0 # deeper potential with 18 states
-function v_poschl_deep(r)
-    return -lambda*(lambda+1)/2/mur*1/cosh(r)^2
-end
-phys_params = make_phys_params2B(;mur,vint_arr=[v_poschl_deep],dim=1)
-ex_arr = [-(lambda-i)^2/2/mur for i=0:2:Int(floor(lambda-1))] # only for even states!
-
-# using optimized normal (real-ranged) Gaussians:
-nmax=10
-num_params = make_num_params2B(;gem_params=(nmax,r1=0.1,rnmax=50.0))
-params_opt = GEM2B.GEM_Optim_2B(phys_params, num_params, 7)
+stateindex = 4 # which state to optimize for
+params_opt = GEM2B.GEM_Optim_2B(phys_params, num_params, stateindex)
 gem_params_opt = (;nmax, r1 = params_opt[1], rnmax = params_opt[2])
 num_params_opt = make_num_params2B(;gem_params=gem_params_opt)
-e2_opt = GEM2B.GEM_solve(phys_params,num_params_opt)
-simax = min(findlast(e2_opt.<0),10); # max state index
+e2_opt = GEM2B.GEM2B_solve(phys_params,num_params_opt)
 
-#complex-ranged Gaussians:
-gem_paramsCR = (;nmax=Int(nmax/2),r1=0.1,rnmax=50.0) # for complex-ranged Gbf, nmax_eff = nmax*2
-num_paramsCR = make_num_params2B(;gem_params=gem_paramsCR)
-params_optCR = GEM2B.GEM_Optim_2B(phys_params, num_paramsCR, 7; cr_bool=1)
-gem_params_optCR = (;nmax=Int(nmax/2), r1 = params_optCR[1], rnmax = params_optCR[2])
-num_params_optCR = make_num_params2B(;gem_params=gem_params_optCR)
-e2_optCR = GEM2B.GEM_solve(phys_params,num_params_optCR;cr_bool=1)
+println("\n2. Optimization of GEM parameters for E2[$stateindex]:")
+@printf("%-15s %-15s %-15s %-15s %-15s\n", "r1", "rnmax", "E2[$(stateindex-1)]", "E2[$stateindex]", "E2[$(stateindex+1)]")
 
-comparison(e2_optCR, ex_arr, simax;s1="Complex-ranged")
-comparison(e2_optCR, e2_opt, simax;s1="Complex-ranged", s2="Real-ranged") =#
+println("Before optimization:")
+@printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", gem_params.r1, gem_params.rnmax, energies_arr[stateindex-1], energies_arr[stateindex], energies_arr[stateindex+1])
+
+println("After optimization:")
+@printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", gem_params_opt.r1, gem_params_opt.rnmax, e2_opt[stateindex-1], e2_opt[stateindex], e2_opt[stateindex+1])
+
+# With the optimized parameters, the exact energies are reproduced very well, using only 6 basis functions.
+comparison(e2_opt, ex_arr, simax; s1="Optimized")
+
+
+# ## 3. Using an interpolated interaction
+# We can also create a potential from interpolated data.
+
+r_arr = -10.0:0.5:10.0
+v_arr = v_poschl.(r_arr)
+v_interpol = cubic_spline_interpolation(r_arr,v_arr,extrapolation_bc=Line())
+v_int(r) = v_interpol(r); # we have to transform the interaction to an object of type "function"
+
+# As input to the solver we need to define new physical parameters with the interpolated interaction. Moreover, we use the optimized numerical parameters from the previous step.
+phys_params_interpol = make_phys_params2B(;mur,vint_arr=[v_int],dim=1)
+
+println("\n3. Numerical solution using an interpolated interaction:")
+energies_interpol = GEM2B_solve(phys_params_interpol,num_params_opt)
+comparison(energies_interpol, e2_opt, simax;s1="Interpolated", s2="Optimized")
+
+# ## 4. Inverse problem: Tuning the potential strength
+
+# We can use `v0GEMOptim` to scale the interaction such that the state indicated by `stateindex` has a fixed energy `target_e2`. At the same time, the basis parameters are optimized for this state.
+
+stateindex = 3; target_e2 = -18.0;
+println("\n4. Scaling the potential such that E2[$stateindex] = $target_e2:")
+phys_params_scaled,num_params_scaled,vscale = GEM2B.v0GEMOptim(phys_params,num_params,stateindex,target_e2)
+e2_v0 = GEM2B.GEM2B_solve(phys_params_scaled,num_params_scaled)
+
+println("After scaling:")
+@printf("%-15s %-15s %-15s %-15s %-15s\n", "r1", "rnmax", "E2[$(stateindex-1)]", "E2[$stateindex]", "E2[$(stateindex+1)]")
+@printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", num_params_scaled.gem_params.r1, num_params_scaled.gem_params.rnmax, e2_v0[stateindex-1], e2_v0[stateindex], e2_v0[stateindex+1])
+
+# Here, we scale the potential such that the energy of the state with `stateindex = 3` is equal to `target_e2 = -18.0`. For this special potential, this corresponds to increasing the number of states, and therefore `lambda` by 2. Hence, the we expect the scaling factor to be approximately `(lambda+2)*(lambda+2+1)/(lambda*(lambda+1))`
+println("vscale = $(round(vscale,digits=8)) should be approximately (λ+2)*(λ+2+1)/(λ*(λ+1)) = ", round((lambda+2)*(lambda+2+1)/(lambda*(lambda+1)),digits=8) )

@@ -24,21 +24,20 @@ make_phys_params2B(vint_arr=[GaussianPotential(-1.0, 0.5)], dim=1) # 1D system w
 make_phys_params2B(mur=0.5, vint_arr=[r -> -1/r], lmax=2)       # 3D Coulomb potential in d-wave (l=2) with reduced mass 0.5
 ```
 """
-
 function make_phys_params2B(;hbar = 1.0, mur=1.0, vint_arr=[[]], lmin=0, lmax=0, dim=3)
     return (;hbar, mur, vint_arr, lmin, lmax, dim)
 end
 
 """
-    make_num_params2B(; gem_params=(nmax=5, r1=1.0, rnmax=10.0), theta_csm=0.0, omega_cr=0.5, threshold=1e-10)
+    make_num_params2B(; gem_params=(nmax=5, r1=1.0, rnmax=10.0), theta_csm=0.0, omega_cr=0.9, threshold=1e-8)
 
 Create and return a named tuple containing the numerical parameters for a two-body GEM calculation.
 
 # Keyword arguments
 - `gem_params::NamedTuple = (nmax=5, r1=1.0, rnmax=10.0)`: Parameters for the Gaussian Expansion Method (number of basis functions, smallest and largest range parameters).
 - `theta_csm::Float64 = 0.0`: Complex scaling angle (in radians) for the Complex Scaling Method.
-- `omega_cr::Float64 = 0.5`: Parameter controlling the frequency for complex-ranged basis functions.
-- `threshold::Float64 = 1e-10`: Numerical threshold generalized eigenvalue solver.
+- `omega_cr::Float64 = 0.9`: Parameter controlling the frequency for complex-ranged basis functions.
+- `threshold::Float64 = 1e-8`: Numerical threshold generalized eigenvalue solver.
 
 # Returns
 - `NamedTuple`: Named tuple with the specified numerical parameters.
@@ -48,8 +47,7 @@ Create and return a named tuple containing the numerical parameters for a two-bo
 - make_num_params2B(gem_params=(nmax=20, r1=0.1, rnmax=50.0)) # for a larger basis set
 - make_num_params2B(gem_params=(nmax=20, r1=0.1, rnmax=50.0), theta_csm = 10.0) # non-zero rotation angle for complex scaling method (CSM)
 """
-
-function make_num_params2B(; gem_params=(nmax=5, r1=1.0, rnmax=10.0),theta_csm=0.0, omega_cr=0.5, threshold=10^-10)
+function make_num_params2B(; gem_params=(nmax=5, r1=1.0, rnmax=10.0),theta_csm=0.0, omega_cr=0.9, threshold=10^-8)
     return (;gem_params, theta_csm, omega_cr, threshold)
 end
 
@@ -86,8 +84,6 @@ PreallocStruct2B(num_params, cr_bool=1, csm_bool=0) # for complex range basis fu
 PreallocStruct2B(num_params, cr_bool=0, csm_bool=1) # for real basis functions with complex scaling
 ```
 """
-
-# Structure which contains all preallocated arrays for the GEM-2B solver.
 struct PreallocStruct2B{TTV, TS, TE}
     nu_arr::Vector{TTV}
     S::Matrix{TS}
