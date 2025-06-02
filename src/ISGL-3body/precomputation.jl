@@ -3,7 +3,7 @@
 # contains:
 # - 
 
-# for spins we need to add transformation coefficients from spins in jacobi-set a,b to c (and a to b)
+# for spins we added transformation coefficients from spins in jacobi-set a,b to c (and a to b)
 
 function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs)    
     #Destructing Structs:
@@ -127,7 +127,7 @@ function precompute_jmat(jmat,m_arr)
     #return jmat
 end
 
-function jcbtr(i::Int64,f::Int64,m_arr::Array{<:Real}) # Für fixes m1,m2,m3. Alternativ: ma,mb,mc als arugment, dann muss es aber jedesmal entsprechend aufgerufen werden!    
+function jcbtr(i::Int64,f::Int64,m_arr::Array{<:Real}) # For fixed m1,m2,m3. 
     ma = m_arr[i];mb = m_arr[mod(i,3)+1];mc = m_arr[mod(i+1,3)+1]
     if f==i
         return SA[1.0 0.0;0.0 1.0]

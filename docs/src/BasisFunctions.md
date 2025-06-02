@@ -13,7 +13,7 @@ The Gaussian expansion method relies on expanding an unknown state into a set
 ```
 of Gaussian basis functions `` |\phi_\alpha\rangle `` . They are originally defined in 3D as
 ```math
-\phi_^{(3D)}\alpha(r) = N_{n,l}\, r^l e^{-\nu_n r^2} Y_{l,m}(\theta,\phi)
+\phi_\alpha^{(3D)}(r) = N_{n,l}\, r^l e^{-\nu_n r^2} Y_{l,m}(\theta,\phi)
 ```
 with the multi-index `` \alpha = \{n,l\}  ``. This definition can be extended to 1D and 2D systems by considering (the normalization depends on the dimensionality)
 ```math

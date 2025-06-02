@@ -66,18 +66,10 @@ function precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
     end
     # to avoid falling out of interpolating interval by numerical inaccuracy
     tempmin -= 100*eps();
-    tempmax += 100*eps();
+    tempmax += 100*eps();   
     
-    #@show(log.([tempmin,tempmax]))
-    
-    # attempt for analytical approximation: fails, as it is too inaccurate
-    #tempmax2 = (284*maximum(m_arr)^6*max(nu_arr[1],NU_arr[1])^2 - 24*minimum(m_arr)^6*min(nu_arr[end],NU_arr[end])^2)/(160*minimum(m_arr)*min(nu_arr[end],NU_arr[end]))
-    #tempmin2 = (284*minimum(m_arr)^6*min(nu_arr[end],NU_arr[end])^2 - 24*maximum(m_arr)^6*max(nu_arr[1],NU_arr[1])^2)/(160*maximum(m_arr)*max(nu_arr[1],NU_arr[1]))
-    
-    
-    min_r_eff = 1/sqrt(tempmax)-100*eps()#0.005;#added eps for the same reason as above
-    max_r_eff = 1/sqrt(tempmin)+100*eps()#50.0;#
-    #println("Achtung: min/max_r_eff hardcoded")
+    min_r_eff = 1/sqrt(tempmax)-100*eps()#added eps for the same reason as above
+    max_r_eff = 1/sqrt(tempmin)+100*eps()
     
     alpha_arr .= buildnu(max_r_eff,min_r_eff,lastindex(alpha_arr),alpha_arr) # alpha_min and _max interchanged, such that alpha_arr[1] is the smallest value!
 end

@@ -1,10 +1,10 @@
-## Function for calculating the matrix elements and filling the matrices T,V,S within the ISGL program
+## Function for calculating the matrix elements and filling the matrices T,V,S within the GEM3B1D program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,gaussopt,csm_bool)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool)
     
     (;gem_params,mu0,c_shoulder,theta_csm) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
-    (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,lL_arr,maxlmax) = size_params
+    (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,lL_arr,maxlmax,gauss_indices,central_indices,function_indices,gaussopt_arr) = size_params
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
     (;alpha_arr,v_arr,A_mat,w_interpol_arr,Ainv_arr_kine) = interpol_arrs
     (;w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr,temp_fill_mat) = fill_arrs
@@ -49,12 +49,12 @@
     #v
     for index in 1:flati
         rowi,coli=temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],gaussopt,abI,factor_bf,gamma_dict)
+        temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,gauss_indices,central_indices,function_indices,gaussopt_arr)
     end
     # transpose fill:
     V .= Symmetric(temp_fill_mat,:L);
     
-
+    
     # Example usage for debugging
     size_to_print = min(10, size(T, 1))  # Adjust size_to_print as needed
     println("T:")
@@ -114,23 +114,27 @@ function tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_
     return tempT
 end
 
-function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_i,gaussopt,abI,factor_bf,gamma_dict)
-    #rowi,coli,ranges,norm4,mij_arr,S_arr,la,La,lb,Lb,Lsum,avals_new,bvals_new,cvals,factor_ab,factor_symm = temp_args_i
+function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma_dict,gauss_indices,central_indices,function_indices,gaussopt_arr)
     (;avals_new,bvals_new,factor_ab,ranges,norm4,la,La,lb,Lb,Lsum,cvals) = temp_args_i
     tempV = 0.0                                    
     for a in avals_new
         for b in bvals_new
             factor_symm = facsymm(a,b,abI,la,lb,factor_bf)
             for c in cvals
-                # maybe not the fastest way to have the if-condition within this loop, but thats what it is currently.
-                if gaussopt[c][1][1] == 1
+                
+                for ivg in gauss_indices[c] # we need to provide these indices to the function.
+                    gaussopt = gaussopt_arr[c][ivg] # muss allokiert und beschrieben werden...
                     tempV += factor_ab*factor_symm*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,gaussopt,gamma_dict)
-                #elseif coulopt[c][1][1] == 1
-                #    tempV += factor_ab*factor_symm*element_VCoulomb(c,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,coulopt,gamma_dict)
-                else
-                    tempV += factor_ab*factor_symm*element_V(c,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,w_interpol_arr,wn_interpol_arr,gamma_dict)
-                    #error("Error in fillTVS: gaussopt[c][1][1] = $(gaussopt[c][1][1]) has invalid value. Only 0 or 1 allowed.")
-                end                        
+                end
+                
+                for ivc in central_indices[c]
+                    tempV += factor_ab*factor_symm*element_V(c,ivc,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,w_interpol_arr,wn_interpol_arr,gamma_dict)
+                end
+                
+                for ivf in function_indices[c]
+                    tempV += factor_ab*factor_symm*element_V(c,ivf,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,w_interpol_arr,wn_interpol_arr,gamma_dict)
+                end
+                                 
             end
         end
     end
@@ -141,10 +145,10 @@ end
 function element_S(ranges,norm4,jab,la,La,lb,Lb,gamma_dict)
     
     mod(la+La+lb+Lb,2) == 1 && return 0.0
-
+    
     (;nua,nub,NUa,NUb) = ranges;
     (alpha,gamma,beta,delta) = jab # careful with order (gamma before beta)
-
+    
     eta1 = nua*alpha^2 + NUa*gamma^2 + nub
     eta2 = 2*(nua*alpha*beta + NUa*gamma*delta)
     eta3 = nua*beta^2 + NUa*delta^2 + NUb
@@ -182,21 +186,21 @@ function element_T(ranges,norm4,jab,murR_arr,la,La,lb,Lb,b,gamma_dict)
     # -hbar^2/2/mu # hbar=1 here. trb,tRb:
     tr = -1/2/mur
     tR = -1/2/muR
-
+    
     temp = 4*nub^2*element_S(ranges,norm4,jab,la,La,lb+2,Lb,gamma_dict) - 2*(1+2*lb)*nub*element_S(ranges,norm4,jab,la,La,lb,Lb,gamma_dict)
     lb >= 2 && ( temp += lb*(lb-1)*element_S(ranges,norm4,jab,la,La,lb-2,Lb,gamma_dict) )
     temp *= tr
-
+    
     Temp = 4*NUb^2*element_S(ranges,norm4,jab,la,La,lb,Lb+2,gamma_dict) - 2*(1+2*Lb)*NUb*element_S(ranges,norm4,jab,la,La,lb,Lb,gamma_dict)
     Lb >= 2 && ( Temp += Lb*(Lb-1)*element_S(ranges,norm4,jab,la,La,lb,Lb-2,gamma_dict) )
     Temp *= tR
-
+    
     return temp+Temp
 end
 
 
 # calculation of a single matrix element: interaction V(r_c)
-function element_V(c,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_interpol_arr,gamma_dict)
+function element_V(c,iv,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_interpol_arr,gamma_dict)
     
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
@@ -209,12 +213,12 @@ function element_V(c,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_interpol
     
     etaeff = eta5 - eta6^2/4/eta7
     Lsum = la+La+lb+Lb
-
-    for n = 0:Lsum
-        wn_interpol_arr[n] = w_interpol_arr[c,n](log(etaeff))
+    
+    for n = Lsum:-2:0
+        wn_interpol_arr[n] = w_interpol_arr[c,iv,n](log(etaeff)) ## only the interpolated V_\alpha is needed. no w_arr from upon the shoulder.
     end
     #@show([la,La,lb,Lb],wn_interpol_arr)
-
+    
     sumk = 0.0
     for k = 0:la
         sumK = 0.0
@@ -224,7 +228,7 @@ function element_V(c,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_interpol
                 sumKp = 0.0
                 for Kp = 0:Lb                    
                     KK = k+K+kp+Kp; LL = la+La+lb+Lb;
-
+                    
                     sums = 0.0
                     for s = 0:floor(KK/2)
                         nn = Int(LL -2*s)
@@ -232,13 +236,13 @@ function element_V(c,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_interpol
                         #zz = eta7^s/(eta6^(2*s)*gamma_dict[s+1]*gamma_dict[KK-2*s+1])*wn_interpol_arr[nn]
                         #z1 = wn_interpol_arr[nn]
                         #z2 = mod(LL-2*s+1,2)*gamma_dict[(LL-2*s+1)/2]/((eta5+1.0-eta6^2/4/eta7)^((LL-2*s+1)/2))
-#                        @show([eta7^s,eta6^(2*s),gamma_dict[s+1],gamma_dict[KK-2*s+1],wn_interpol_arr[nn]])
+                        #                        @show([eta7^s,eta6^(2*s),gamma_dict[s+1],gamma_dict[KK-2*s+1],wn_interpol_arr[nn]])
                         #@show([s,eta6,1/eta6^(2s)])
                     end
-
+                    
                     # this seems a bit inefficient to compute due to many dict calls?
                     sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * (pi/eta7)^(1/2)*(-1/2/eta7)^KK
-
+                    
                     #@show([la,La,lb,Lb,k,K,kp,Kp],sums,sumKp)
                 end
                 sumkp += sumKp
@@ -248,7 +252,7 @@ function element_V(c,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_interpol
         sumk += sumK
     end
     sumk *= norm4
-
+    
     return sumk
 end
 
@@ -261,20 +265,19 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict)
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
     (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
     #EH: alpha <-> gamma; beta <-> delta
-
-    v0 = gaussopt[c][1][2]
-    mu_g = gaussopt[c][1][3]
-
+    
+    v0,mu_g = gaussopt
+    
     LL = la+La+lb+Lb;
-
+    
     sumk = 0.0
     mod(LL+1,2) == 0 && return sumk
-
+    
     etac  = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2
     zetac = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2 
     xic = nua*alphaAC*betaAC + NUa*gammaAC*deltaAC + nub*alphaBC*betaBC + NUb*gammaBC*deltaBC
     etaprc = etac - xic^2/zetac
-
+    
     eta5 = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2 + mu_g
     eta6 = 2*(nua*alphaAC*betaAC + NUa*gammaAC*deltaAC + nub*alphaBC*betaBC + NUb*gammaBC*deltaBC)
     eta7 = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2
@@ -287,16 +290,16 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict)
                 sumKp = 0.0
                 for Kp = 0:Lb                    
                     KK = k+K+kp+Kp;
-
+                    
                     sums = 0.0
                     for s = 0:floor(KK/2)
                         sums += eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * gamma_dict[(LL-2*s+1)/2]/((eta5-eta6^2/4/eta7)^((LL-2*s+1)/2))
                         #zz    = eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * gamma_dict[(LL-2*s+1)/2]/((eta5-eta6^2/4/eta7)^((LL-2*s+1)/2));
                     end
                     #@show(sums)
-
+                    
                     sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * (pi/eta7)^(1/2)*(-1/2/eta7)^KK
-
+                    
                 end
                 sumkp += sumKp
             end
@@ -305,54 +308,6 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict)
         sumk += sumK
     end
     sumk *= norm4 * v0
-    
-    return sumk    
-end
-
-# calculation of a single matrix element: interaction VCoulomb(r_c)
-# BEWARE! pure Coulomb is singular in 1D! -> the "s"-wave component makes problems, and it cannot be excluded, as it is always implicitly included via the Jacobi-transformations!
-function element_VCoulomb(c,ranges,norm4,jac,jbc,la,La,lb,Lb,coulopt,gamma_dict)
-    
-    (;nua,nub,NUa,NUb) = ranges;
-    (alphaAC,gammaAC,betaAC,deltaAC) = jac
-    (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
-    #EH: alpha <-> gamma; beta <-> delta
-
-    ZaZb = coulopt[c][1][2] # product of the two relevant charges
-    LL = la+La+lb+Lb-1;
-
-    sumk = 0.0
-    mod(LL+1+1,2) == 0 && return sumk
-
-    eta5 = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2
-    eta6 = 2*(nua*alphaAC*betaAC + NUa*gammaAC*deltaAC + nub*alphaBC*betaBC + NUb*gammaBC*deltaBC)
-    eta7 = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2
-    
-
-    for k = 0:la
-        sumK = 0.0
-        for K = 0:La
-            sumkp = 0.0
-            for kp = 0:lb
-                sumKp = 0.0
-                for Kp = 0:Lb                    
-                    KK = k+K+kp+Kp;
-
-                    sums = 0.0
-                    for s = 0:floor(KK/2)
-                        @show([LL,KK,s])
-                        sums += eta7^s*eta6^(KK-2*s)*gamma_dict[(LL-2*s+1)/2]/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]*(eta5-eta6^2/4/eta7)^((LL-2*s+1)/2))
-                    end
-
-                    sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * (pi/eta7)^(1/2)*(-1/2/eta7)^KK
-                end
-                sumkp += sumKp
-            end
-            sumK += sumkp
-        end
-        sumk += sumK
-    end
-    sumk *= norm4 * ZaZb
     
     return sumk    
 end
@@ -399,7 +354,7 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals
                         for (la,La) in lL_arr[avals_new[1]]
                             Lsum=0 #Int64((la+La+lb+Lb)/2) #completely useless in 1D.
                             #mij_arr = mij_arr_dict[(la,La),(lb,Lb)]
-
+                            
                             for na = 1:nmax
                                 nua = nu_arr[na]
                                 norma = norm_arr[la,na]

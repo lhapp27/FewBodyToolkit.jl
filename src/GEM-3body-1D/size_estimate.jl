@@ -1,16 +1,14 @@
-# functions to calculate the parameters that determine the necessary sizes of arrays within the ISGL program
-
-# contains:
-# - size_estimate that bundles everything:
-# - abc_size for box-size of TVS Matrices
-# - lLcoupl for coupling of angular momenta
-# - imax_fun for imax in ISGL
-# - kmax_fun for kmax in ISGL
-# - alloc_fun for array allocations
+# functions to calculate the parameters that determine the necessary sizes of arrays to be preallocated
 
 struct SizeParams
     abvals_arr::Vector{Vector{Int64}}
     cvals::Vector{Int64}
+    function_indices::Vector{Vector{Int}}
+    central_indices::Vector{Vector{Int}}
+    gauss_indices::Vector{Vector{Int}}
+    gaussopt_arr::Vector{Vector{Tuple{Float64,Float64}}} # actually this could be Vector{Tuple{Int,Float64}} if we do not need mu_g
+    nint_arr::Vector{Int64}
+    nintmax::Int64
     groupindex_arr::Vector{Int64}
     nboxes::Int64
     abI::Int64
@@ -29,27 +27,27 @@ struct SizeParams
     maxobs::Int64
 end
 
-function size_estimate(phys_params,num_params,observ_params,gaussopt,coulopt)
+function size_estimate(phys_params,num_params,observ_params)
     
     # input interpretation:
-    (;mass_arr,svals,vint_arr,parity) = phys_params
+    (;svals,vint_arr,parity) = phys_params #13diff
     (;lmax,Lmax,gem_params,theta_csm,omega_cr,mu0,c_shoulder,kmax_interpol,lmin,Lmin) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
-    (;stateindices,centobs_arr,R2_arr) = observ_params # unnecessary for 1D?
+    (;stateindices,centobs_arr,R2_arr) = observ_params # no observables for 1D atm
     
     # size of Hamiltonian matrix due to symmetries and interactions
-    gaussbool_arr = [gaussopt[i][1][1] for i in 1:3]
-    coulbool_arr = [coulopt[i][1][1] for i in 1:3]
-    cvals = findall(isempty.(vint_arr) .==0 .|| gaussbool_arr .== 1.0 .|| coulbool_arr .== 1.0) # consider only values for c where there are interactions (or Gaussian interaction!, or Coulomb!)
+    cvals = findall(isempty.(vint_arr) .==0) # consider only values for c where there are interactions (any type)
+    # number of interactions per Jacobi-set c:
+    function_indices, central_indices, gauss_indices, gaussopt_arr, nint_arr, nintmax = index_interaction_types(vint_arr) #13diff
+    
+    # box sizes, indices and factors for symmetrization
     abvals_arr,groupindex_arr,nboxes,abI,factor_bf = abc_size(cvals,svals)
     
     # coupling of angular momenta
-    lL_arr,lL_complete,l_complete = lLcoupl(parity,lmax,Lmax,cvals,svals,lmin,Lmin)
-    
-    @show(parity,lL_arr,lL_complete,l_complete)
+    lL_arr,lL_complete,l_complete = lLcoupl(parity,lmax,Lmax,cvals,svals,lmin,Lmin) #13diff
 
     # box sizes = number of basis functions in each box; starts,ends = indices for boxes within big matrix; bvalsdiag = simplification for identical particles
-    box_size_arr,nbasis_total = boxsize_fun(abvals_arr,groupindex_arr,lL_arr,nmax,Nmax)
+    box_size_arr,nbasis_total = boxsize_fun(abvals_arr,groupindex_arr,lL_arr,nmax,Nmax) #13diff?
     starts = [1; cumsum(box_size_arr[1:end-1]) .+ 1]
     ends = cumsum(box_size_arr)
     #bvalsdiag = [[abvals_arr[boxR][1]] for boxR in groupindex_arr]
@@ -58,28 +56,52 @@ function size_estimate(phys_params,num_params,observ_params,gaussopt,coulopt)
         bvalsdiag[boxC] = [abvals_arr[boxC][1]]
     end
 
-    @show(box_size_arr,nbasis_total,abvals_arr)
-
-    # not needed for 1D:
-#=     # imax for ISGL
-    imax_dict,mij_arr_dict = imax_fun(lL_complete)
-    
-    # kmax for ISGL
-    kmax_dict = kmax_fun(l_complete) =#
-
-
     ## max-values:
     nlL = lastindex(lL_complete) # former: lLmax'
     nl = lastindex(l_complete) # former lmax'
     maxlmax=max(lmax,Lmax)
-    #maximax=findmax(imax_dict)[1]
-    #maxkmax=findmax(kmax_dict)[1] # [1] is the value; [2] would be the key
     maxobs = maximum(lastindex.(centobs_arr)) # max number of observables
 
     # Constructing Struct (collective data structure size_params with all the size parameters)
-    size_params = SizeParams(abvals_arr,cvals,groupindex_arr,nboxes,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,lL_arr,lL_complete,l_complete,nlL,nl,maxlmax,maxobs)
-    
+    size_params = SizeParams(abvals_arr,cvals,function_indices,central_indices,gauss_indices,gaussopt_arr,nint_arr,nintmax,groupindex_arr,nboxes,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,lL_arr,lL_complete,l_complete,nlL,nl,maxlmax,maxobs) #13diff
+
+    ## overall not so many differences between 1D and 3D. --> possible to reduce code via additional argument dim?
     return size_params
+end
+
+# such that in fillTVS we can use later a sum over the indices of the interaction types. Ideally we would be able to dispatch directly in fillTVS, then we would not need this function. Problem here: needs to be updated, whenever a new interaction type is added.
+function index_interaction_types(vint_arr)
+    function_indices = [Int[] for _ in 1:3]
+    central_indices = [Int[] for _ in 1:3]
+    gauss_indices = [Int[] for _ in 1:3]
+
+    gaussopt_arr = [Tuple{Float64,Float64}[] for _ in 1:3]
+    nint_arr = zeros(Int64,3)
+
+
+    pushindexpotentialtype!(v::Function, function_indices, central_indices, gauss_indices, i) = push!(function_indices, i) 
+    pushindexpotentialtype!(v::CentralPotential, function_indices, central_indices, gauss_indices, i) = push!(central_indices, i)
+    pushindexpotentialtype!(v::GaussianPotential, function_indices, central_indices, gauss_indices, i) = push!(gauss_indices, i)    
+
+    for c in 1:3
+        for (i, v) in enumerate(vint_arr[c])
+            pushindexpotentialtype!(v, function_indices[c], central_indices[c], gauss_indices[c], i)
+
+            if i in gauss_indices[c] # if this is a Gaussian potential
+                push!(gaussopt_arr[c], (v.v0, v.mu_g)) # store the parameters of the Gaussian potential
+            else
+                push!(gaussopt_arr[c], (NaN, NaN)) # if not a Gaussian potential, store NaN
+            end
+
+        end
+        nint_arr[c] = lastindex(vint_arr[c])
+    end
+
+    #@show(central_indices,gauss_indices,gaussopt_arr)
+
+    nintmax = maximum(nint_arr)
+
+    return function_indices, central_indices, gauss_indices, gaussopt_arr, nint_arr, nintmax
 end
 
 #this function is maybe a bit confusing due to numerous names and definitions. thats why there are many examples and explanations.
@@ -153,12 +175,10 @@ function abc_size(cvals,svals)
 end
 
 
-# function to determine list of (l,L)-tuples to consider, based of parity,svals ## in 1D: parity = früheres Piz?
-function lLcoupl(parity,lmax,Lmax,cvals,svals,lmin,Lmin) # 1D: lmax=Lmax=1 immer? nope, see coulomb!
+# function to determine list of (l,L)-tuples to consider, based on parity,svals
+function lLcoupl(parity,lmax,Lmax,cvals,svals,lmin,Lmin)
     
     lL_arr = ([Vector{Tuple{Int64, Int64}}() for _ in 1:3])#[[],[],[]] # one list of (l,L)-tuples for each Jacobi-set; only the relevant ones will be filled!
-    
-    #println("type,size,arr",typeof(lL_arr),", ",size(lL_arr),", ",lL_arr)
 
     for c in cvals # we only need  (l,L) list for the relevant jacobi sets
         for l = lmin:lmax
@@ -168,15 +188,13 @@ function lLcoupl(parity,lmax,Lmax,cvals,svals,lmin,Lmin) # 1D: lmax=Lmax=1 immer
                     (-1)^(l+L) != parity && continue # allowed combination of l,L from global parity
                 end
 
-                    #if (-1)^(l+L) == parity # allowed combination of l,L from global parity
-                        if svals[mod(c+1,3)+1] == svals[(mod(c,3)+1)] == "b"  # if Jacobi-Set c contains relative coordinate between two identical bosons -> only even l
-                            (mod(l,2) == 0) && push!(lL_arr[c],(l,L))
-                        elseif svals[(mod(c+1,3)+1)] == svals[(mod(c,3)+1)] == "f"# if Jacobi-Set c contains relative coordinate between two identical bosons -> only odd l
-                            (mod(l,2) == 1) && push!(lL_arr[c],(l,L))
-                        else
-                            push!(lL_arr[c],(l,L))
-                        end 
-                    #end
+                if svals[mod(c+1,3)+1] == svals[(mod(c,3)+1)] == "b"  # if Jacobi-Set c contains relative coordinate between two identical bosons -> only even l
+                    (mod(l,2) == 0) && push!(lL_arr[c],(l,L))
+                elseif svals[(mod(c+1,3)+1)] == svals[(mod(c,3)+1)] == "f"# if Jacobi-Set c contains relative coordinate between two identical bosons -> only odd l
+                    (mod(l,2) == 1) && push!(lL_arr[c],(l,L))
+                else
+                    push!(lL_arr[c],(l,L))
+                end
 
             end
         end
@@ -210,77 +228,5 @@ function boxsize_fun(abvals_arr,groupindex_arr,lL_arr,nmax,Nmax)
     return box_size_arr,nbasis_total
 end
 
-
-function imax_fun(lL_complete)
-    imax_dict = Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}}, Int64}()
-    mij_arr_dict = Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}},Vector{SVector{6, Int64}}}()
-    for i in keys(lL_complete)
-        for j in keys(lL_complete)
-            imax_dict[lL_complete[i],lL_complete[j]], mij_arr_dict[lL_complete[i],lL_complete[j]] = imax(lL_complete[i],lL_complete[j])
-        end
-    end
-    return imax_dict,mij_arr_dict
-end
-
-#function to determine imax and mij-tuple used within S-coeff for ISGL
-function imax((la,La),(lb,Lb)) # u1=m12,u2=m13,...
-    if mod(la+La-lb-Lb,2) != 0
-        println("Error in imax2: Parity_a != Parity_b")
-        return
-    end
-    
-    Lsum = Int64((la+La+lb+Lb)/2)
-    
-    mij_arr = Vector{SVector{6, Int64}}();
-    i=0
-    for m12 = 0:Lsum # u1
-        for m13 = 0:(Lsum-m12) # u2
-            m14=la-m12-m13 # u3
-            m23=Int64((la+La+lb-Lb)/2) - m12-m13 # u4
-            m24=Int64((-la+La-lb+Lb)/2) + m13 # u5
-            m34=Int64((-la-La+lb+Lb)/2) + m12 # u6
-            (m14<0||m23<0||m24<0||m34<0) && continue # additional constraint: all mij >=0 !
-            i=i+1
-            push!(mij_arr,SA[m12,m13,m14,m23,m24,m34])
-        end
-    end
-    
-    #println("\ni=",i)
-    return i,mij_arr
-end
-
-
-function kmax_fun(l_complete)
-    #kmax_arr = Array{Array}(undef, lastindex(l_complete))
-    kmax_dict = Dict{Tuple{Int64, Int64},Int64}()
-    
-    for i in keys(l_complete)
-        l=l_complete[i]
-        for m = -l:l
-            kmax_dict[l,m] = kmax(l,m)
-        end
-    end
-    
-    return kmax_dict
-end
-
-function kmax(l,m)
-    f = floor(div(l-m,2))
-    # somehow this has a problem for m = -l :
-    #kmax=Int64(-1/6*(1+f)*(2+f)*(-3*(1+l-m)*(1+m)+f*(3-2*l+6m+3*f)))
-    
-    # this works:
-    kmax = 0
-    for j = 0:f
-        for s=0:(l-m-2*j)
-            for t = 0:j+m
-                for u=0:j
-                    kmax += 1
-                end
-            end
-        end
-    end
-    return kmax
-end
 
 

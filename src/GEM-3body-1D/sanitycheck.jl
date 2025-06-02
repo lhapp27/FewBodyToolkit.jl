@@ -1,9 +1,7 @@
-# function to check the inputs for the ISGL program of sanity:
+# function to check the inputs for the three-body programs
 
-function sanity_checks(phys_params)#,abcvals,num_params)
+function sanity_checks3B(phys_params)
     (;mass_arr,svals,vint_arr,parity) = phys_params
-    #(lmax,Lmax,gem_params,theta_csm,omega_cr) = num_params
-    #(nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     
     if (lastindex(mass_arr) !=3) || lastindex(svals) !=3
         println("mass_arr and/or svals have wrong size, must be 3")
