@@ -73,7 +73,7 @@ println("E_4 = ", E[4]) # should be close to -0.03125
 
 
 ## Examples
-Check out the [1D example](example1D.md) to for an example in 1D.
+Check out the [Examples](examples.md) for examples of each module.
 
 ## API Reference
 

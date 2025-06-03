@@ -24,13 +24,33 @@ include("interpolationNshoulder.jl")
 include("fillTVS.jl")
 include("solveHS.jl")
 include("../common/eigen2step.jl")
-#include("../common/potentialtypes.jl")
 
 export GEM3B1D_solve
 export make_phys_params3B1D,make_num_params3B1D
-#export wavefun
 
-# gaussopt=[bool,v0,mu_g] for central gauss interaction: V(r) = v0*exp(-mu_g*r^2)
+"""
+    GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+
+Solves the 1D three-body problem using the Gaussian Expansion Method (GEM).
+
+# Arguments
+- `phys_params`: Physical parameters for the three-body system (e.g., masses, interaction potentials, etc.).
+- `num_params`: Numerical parameters for the GEM calculation (e.g., basis size, grid parameters, etc.).
+- `wf_bool`: (optional) If `1`, also returns wavefunction-related observables. Default is `0`.
+- `csm_bool`: (optional) If `1`, uses complex scaling method. Default is `0`.
+- `observ_params`: (optional) Parameters for observable calculations. Currently not supported for 1D.
+
+# Returns
+- If `wf_bool == 0`: Returns an array of computed energies.
+- If `wf_bool == 1`: Returns a tuple `(energies, wavefunctions)`.
+
+# Example
+```julia
+phys_params = make_phys_params2B()
+num_params = make_num_params2B()
+energies = GEM2B_solve(phys_params, num_params) #solving with default parameters: three particles with the same mass and gaussian interaction
+```
+"""
 function GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
     
     ## 1. interpretation of inputs
@@ -47,11 +67,15 @@ function GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_pa
     if error_code != 0
         error("Program stopped due to erroneous inputs. Error code: $error_code")
     end
+
+    if observ_params != (;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0])
+        error("Observables are currently not supported for 1D calculations.")
+    end
     
     ## 3. computations to determine sizes of arrays for allocation:   
     size_params = size_estimate(phys_params,num_params,observ_params)
     
-    ## 4. preallocation: #is it really necessary? and/or can it not simply be done within the precomputation? better like this for performance analysis    
+    ## 4. preallocation:
     precomp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,csm_bool)
 
     ## 5. precomputation:
@@ -61,7 +85,7 @@ function GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_pa
     interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,wf_bool,csm_bool)
     
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,phys_params.hbar)
     
     ## 8. Solving the generalized eigenproblem:
     solveHS(num_params,fill_arrs,result_arrs,wf_bool)
@@ -71,7 +95,7 @@ function GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_pa
         return result_arrs.energies_arr
     elseif wf_bool == 1
         #calc_observables(num_params,observ_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs)
-        return result_arrs.energies_arr,result_arrs.centobs_output,result_arrs.R2_output
+        return result_arrs.energies_arr,result_arrs.wavefun_arr
     end
 end
 

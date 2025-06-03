@@ -3,14 +3,14 @@
 # functions for creating inputs
 
 """
-    make_phys_params2B(; hbar=1.0, mur=1.0, vint_arr=[[]], lmin=0, lmax=0, dim=3)
+    make_phys_params2B(; hbar=1.0, mur=1.0, vint_arr=[[GaussianPotential(-1.0, 1.0)]], lmin=0, lmax=0, dim=3)
 
 Create and return a named tuple containing the physical parameters for a two-body system.
 
 # Keyword arguments
 - `hbar::Float64 = 1.0`: Reduced Planck constant used in calculations.
 - `mur::Float64 = 1.0`: Reduced mass of the two-body system.
-- `vint_arr::Vector{Any} = [[]]`: Array of interaction potentials or related parameters.
+- `vint_arr::Vector{Any} = [[GaussianPotential(-1.0, 1.0)]]`: Array of interaction potentials or related parameters.
 - `lmin::Int = 0`: Minimum orbital angular momentum quantum number.
 - `lmax::Int = 0`: Maximum orbital angular momentum quantum number.
 - `dim::Int = 3`: Spatial dimension of the system.
@@ -18,13 +18,13 @@ Create and return a named tuple containing the physical parameters for a two-bod
 # Returns
 - `NamedTuple`: Named tuple with the specified physical parameters.
 
-# Examples
+# Example
 ```julia
 make_phys_params2B(vint_arr=[GaussianPotential(-1.0, 0.5)], dim=1) # 1D system with Gaussian potential
 make_phys_params2B(mur=0.5, vint_arr=[r -> -1/r], lmax=2)       # 3D Coulomb potential in d-wave (l=2) with reduced mass 0.5
 ```
 """
-function make_phys_params2B(;hbar = 1.0, mur=1.0, vint_arr=[[]], lmin=0, lmax=0, dim=3)
+function make_phys_params2B(;hbar = 1.0, mur=1.0, vint_arr=[[GaussianPotential(-1.0, 1.0)]], lmin=0, lmax=0, dim=3)
     return (;hbar, mur, vint_arr, lmin, lmax, dim)
 end
 
@@ -42,10 +42,11 @@ Create and return a named tuple containing the numerical parameters for a two-bo
 # Returns
 - `NamedTuple`: Named tuple with the specified numerical parameters.
 
-# Examples
+# Example
 ```julia
-- make_num_params2B(gem_params=(nmax=20, r1=0.1, rnmax=50.0)) # for a larger basis set
-- make_num_params2B(gem_params=(nmax=20, r1=0.1, rnmax=50.0), theta_csm = 10.0) # non-zero rotation angle for complex scaling method (CSM)
+make_num_params2B(gem_params=(nmax=20, r1=0.1, rnmax=50.0)) # for a larger basis set
+make_num_params2B(gem_params=(nmax=20, r1=0.1, rnmax=50.0), theta_csm = 10.0) # non-zero rotation angle for complex scaling method (CSM)
+```
 """
 function make_num_params2B(; gem_params=(nmax=5, r1=1.0, rnmax=10.0),theta_csm=0.0, omega_cr=0.9, threshold=10^-8)
     return (;gem_params, theta_csm, omega_cr, threshold)
@@ -77,7 +78,7 @@ This struct is designed to minimize memory allocations and improve performance b
 - `cr_bool`: Boolean indicating whether complex range basis functions are used (1 for true, 0 for false).
 - `csm_bool`: Boolean indicating whether complex scaling is used (1 for true, 0 for false).
 
-# Examples
+# Example
 ```julia
 PreallocStruct2B(num_params, cr_bool=0, csm_bool=0) # for real basis functions and no complex scaling
 PreallocStruct2B(num_params, cr_bool=1, csm_bool=0) # for complex range basis functions and no complex scaling

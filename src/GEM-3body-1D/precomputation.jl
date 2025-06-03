@@ -9,40 +9,37 @@ function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs) #diff1
     (;lL_complete,l_complete,nl) = size_params # diff13
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
     
-    # how to update the values?!
-    precompute_gamma(gamma_dict,max(nmax,3*max(lmax,Lmax)+3)) # these functions should be defined with a exclamation mark to indicate that they modify the input arrays
+    precompute_gamma!(gamma_dict,max(nmax,3*max(lmax,Lmax)+3)) # gamma_dict is called many times. maybe an array would be better than a dict
     
-    precompute_jmat(jmat,mass_arr)
+    precompute_jmat!(jmat,mass_arr)
     
-    precompute_murR(murR_arr,mass_arr)
+    precompute_murR!(murR_arr,mass_arr)
     
-    precompute_ranges(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax) # i think all of these functions could be "commonized"
+    precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax) # i think all of these functions could be "commonized"
 
-    precompute_norms1D(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
+    precompute_norms1D!(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
     
 end
 
 ### gamma functions
-function precompute_gamma(gamma_dict,ende)
+function precompute_gamma!(gamma_dict,ende)
     # returns the dict gamma_dict with keys "n" for each value of n between 0.5 and ende in steps of 0.5
     for i=0.5:0.5:ende+0.5
         gamma_dict[i] = gamma(i)
     end
-    #return gamma_dict
 end
 
 
 ### jacobi transformation matrices:
-function precompute_jmat(jmat,m_arr)
-    for i = 1:3 # just calculate all combinations... better: i,j in cvals?
+function precompute_jmat!(jmat,m_arr)
+    for i = 1:3 # just calculate all combinations.
         for j=1:3
             jmat[i,j] = jcbtr(i,j,m_arr)
         end
     end
-    #return jmat
 end
 
-function jcbtr(i::Int64,f::Int64,m_arr::Array{Float64}) # For fixed m1,m2,m3. Trafo from initial (i) to final (f)
+function jcbtr(i::Int64,f::Int64,m_arr::Array{Float64}) # For fixed m1,m2,m3. Trafo from initial (i) to final (f) Jacobi set
     ma = m_arr[i];mb = m_arr[mod(i,3)+1];mc = m_arr[mod(i+1,3)+1]
     if f==i
         return SA[1.0 0.0;0.0 1.0]
@@ -55,7 +52,7 @@ function jcbtr(i::Int64,f::Int64,m_arr::Array{Float64}) # For fixed m1,m2,m3. Tr
 end
 
 ### reduced masses for the different jacobi sets. Required for the kinetic energy operator.
-function precompute_murR(murR_arr,m_arr)
+function precompute_murR!(murR_arr,m_arr)
     for b = 1:3# just calculate all combinations...
         ma = m_arr[mod(b+1,3)+1]#circshift(m_arr,1)[b];#m_arr[mod(b+1,3)+1]; # Ergibt b-1 in Möglichkeiten 1,2,3; mappt 1,2,3 auf 3,1,2.
         mb = m_arr[b];
@@ -63,30 +60,29 @@ function precompute_murR(murR_arr,m_arr)
         murR_arr[1,b] = mc*ma/(mc+ma); # mur
         murR_arr[2,b] = mb*(ma+mc)/(ma+mb+mc); # muR
     end
-    #return murR_arr
 end
 
 
 ### ranges ###
-function precompute_ranges(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax)
-    # returns the array nu_arr[n=1:nmax] for each value of n. same for NU_arr[N=1:Nmax]
-    nu_arr .= buildnu(r1,rnmax,nmax,nu_arr) # we dont need to overwrite here.
-    NU_arr .= buildnu(R1,RNmax,Nmax,NU_arr)
+function precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax)
+    # fills the array nu_arr[n=1:nmax] for each value of n. same for NU_arr[N=1:Nmax]
+    buildnu!(r1,rnmax,nmax,nu_arr)
+    buildnu!(R1,RNmax,Nmax,NU_arr)
 end
 
-@views function buildnu(r1,rnmax,nmax,nu_arr)
+@views function buildnu!(r1,rnmax,nmax,nu_arr)
     nu_arr[1] = 1 /r1^2;
     nmax >1 && @. nu_arr[2:nmax] = 1/r1^2 * (r1/rnmax)^(2*((2:nmax)-1)/(nmax-1))
-    return nu_arr # we dont need to return since we overwrite the array in-place
+    #return nu_arr # we dont need to return since we overwrite the array in-place
 end
 
 
 ### norms ###
-function precompute_norms1D(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
+function precompute_norms1D!(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
     # returns the array norm_arr[l,n] for each combination of n,l. same for NORM_arr
     
     #norm(nu,l) = (2*(2*nu)^(l+3/2)/gamma_dict[l+3/2])^(1/2);
-    norm(nu,l) = ((2*nu)^(l+1/2)/gamma_dict[l+1/2])^(1/2); #adopted to 1D; could be handeled via dim
+    norm(nu,l) = ((2*nu)^(l+1/2)/gamma_dict[l+1/2])^(1/2); #adopted to 1D; could be handeled more generally via dim, see GEM2B code
     
     for n = 1:lastindex(nu_arr)
         for l in l_complete #lindex = 1:nl

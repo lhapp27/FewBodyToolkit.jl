@@ -5,7 +5,7 @@
 # with the Harmonic oscillator potential
 # \\[ V(r) = -\frac{1}{2} \mu \omega^2 r^2. \\]
 
-# This example can also be found as a runnable: examples/example2D.jl.
+# This example can also be found as a runnable script: examples/example2D.jl.
 
 # ## Setup
 

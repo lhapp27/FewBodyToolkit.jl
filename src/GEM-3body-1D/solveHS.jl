@@ -7,6 +7,6 @@ function solveHS(num_params,fill_arrs,result_arrs,wf_bool) # actually this can b
     elseif wf_bool == 0
         eigen2step(result_arrs.energies_arr,fill_arrs.T,fill_arrs.S;threshold=threshold)#;threshold=10^-10)
     else
-        println("Error in wf_bool: no output produced")
+        println("Error in solveHS due to wf_bool: no output produced")
     end
 end

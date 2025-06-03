@@ -42,7 +42,12 @@ This allows reusing the same code structure as for real-ranged Gaussians. Note t
 
 ### Jacobi Coordinates and Faddeev Components
 
-For three-body systems we employ Jacobi coordinates. This allows to describe the full system inits center-of-mass frame by two relative coordinates. However, there are three equivalent sets of these coordinates, related to the three different partitions of three particles into a pair of two, and a single one. In few-body physics it is therefore common to decompose any given three-body state into a sum
+
+![Jacobi coordinate sets](assets/JacobiCoordinates.svg)
+
+**Figure 1**: Three sets of Jacobi coordinates for a three-body system.
+
+For three-body systems we employ Jacobi coordinates. This allows to describe the full system inits center-of-mass frame by two relative coordinates. However, there are three equivalent sets of these coordinates, related to the three different partitions of three particles into a pair of two, and a single one, see Fig. 1. In few-body physics it is therefore common to decompose any given three-body state into a sum
 ```math
 |\Psi\rangle = |\Psi^{(1)}\rangle + |\Psi^{(2)}\rangle + |\Psi^{(3)}\rangle
 ```

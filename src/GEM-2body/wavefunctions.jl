@@ -17,9 +17,10 @@ Calculates the 2-body wavefunction at specified positions based on input paramet
 # Returns
 - `Vector{Float64}`: The wavefunction values at the specified positions r_arr.
 
-# Examples
+# Example
 ```julia
 wavefun_arr(0.0:0.1:10.0, phys_params, num_params, wf_arr; cr_bool=0)
+```
 """
 function wavefun_arr(r_arr, phys_params, num_params, wf_arr; cr_bool=0)
     # r_arr: array of positions
@@ -74,6 +75,7 @@ Compute the value of the 2-body wavefunction at a given position `r`.
 nu_arr = [1.0, 0.0025]
 wf_arr = [0.8,0.6]
 psi_value = wavefun_point(1.0, nu_arr, wf_arr, 0, 3)
+```
 """
 function wavefun_point(r,nu_arr,wf_arr,ll,dim) # wf_arr is already selected for a given stateindex
     psi = 0.0

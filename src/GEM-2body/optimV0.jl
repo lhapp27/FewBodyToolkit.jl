@@ -23,9 +23,10 @@ Finds a value `v0crit` to globally scale the potential in order to achieve the t
 - `num_params::NamedTuple`: Updated numerical parameters with optimized GEM ranges.
 - `v0crit::Float64`: The value to scale the potential with, to achieve the target energy. This is **not** the overall value of `v0` but rather a scaling factor for the potential.
 
-# Examples
+# Example
 ```julia
 phys_params_scaled,num_params_optimized,scalingfactor = v0GEMOptim(phys_params, num_params, 1, -2.5)
+```
 """
 function v0GEMOptim(phys_params, num_params, stateindex, target_e2; cr_bool = 0, rtol=10^-4, atol = 10*eps(), g_tol=10^-9,output=false)
     
@@ -79,10 +80,11 @@ Optimize the ranges used in the Gaussian Expansion Method (GEM) for a specific 2
   - Optimized GEM parameters: `[r1, rnmax]`.
   - The energy value of the optimized state.
 
-# Examples
+# Example
 ```julia
 r1opt,rnmaxopt,energy = GEM_Optim_2B(phys_params, num_params, 1) # optimize for the ground state
 r1opt,rnmaxopt,energy = GEM_Optim_2B(phys_params, num_params, 3; cr_bool = 1) # optimize for the third state (2nd excited) using complex-ranged basis functions
+```
 """
 function GEM_Optim_2B(phys_params, num_params, stateindex; cr_bool=0, g_tol=10^-9)
     

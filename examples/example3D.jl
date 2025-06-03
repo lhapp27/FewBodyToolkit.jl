@@ -5,11 +5,11 @@
 # with the Colomb potential
 # \\[ V(r) = -\frac{Z}{r}. \\]
 
-# This example can also be found as a runnable: examples/example3D.jl.
+# This example can also be found as a runnable script: examples/example3D.jl.
 
 # ## Setup
 
-using Printf, BenchmarkTools, Interpolations, FewBodyToolkit.GEM2B, Plots
+using Printf, BenchmarkTools, Interpolations, FewBodyToolkit.GEM2B, Plots, Antique
 
 # ## Input parameters
 
@@ -34,7 +34,7 @@ phys_params = make_phys_params2B(;vint_arr=[v_coulomb])
 # #### Numerical parameters
 
 nmax=10 # number of Gaussian basis functions
-r1=0.3;rnmax=10.0; # r1 and rnmax defining the widths of the basis functions
+r1=0.1;rnmax=30.0; # r1 and rnmax defining the widths of the basis functions
 gem_params = (;nmax,r1,rnmax);
 
 # We define the numerical parameters as a `NamedTuple`:
@@ -60,13 +60,14 @@ energies = GEM2B.GEM2B_solve(phys_params,num_params)
 # Number of bound states to consider:
 simax = min(lastindex(energies),6); # max state index
 
-# The Coulomb potential has infinitely many bound states, whose energies can be found exaclty:
-energies_exact = [-Z^2/(2*i^2) for i=1:simax]
+# The Coulomb potential has infinitely many bound states, whose energies can be found exaclty. We can use the package Antique.jl to provide these energies.
+CTB = Antique.CoulombTwoBody(m₁=mass_arr[1], m₂=mass_arr[2])
+energies_exact = [Antique.E(CTB,n=i) for i=1:simax]
 
 println("1. Numerical solution of the 3D problem:")
 comparison(energies,energies_exact,simax)
 
-# The numerical solutions are good only for the few lowest state. Also, we only find 3 bound states.
+# The numerical solutions are good only for the few lowest state. Also, we only find 5 bound states.
 
 
 # ## 2. Optimization of basis parameters
@@ -95,7 +96,7 @@ comparison(energies_opt,energies_exact,simax; s1="Optimized")
 # ## 3. Using an interpolated interaction
 # We can also create a potential from interpolated data. Since the Coulomb potential diverges at the origin, a relatively fine grid is required.
 
-r_arr = 0.001:0.01:20.001
+r_arr = 0.001:0.01:50.001
 v_arr = v_coulomb.(r_arr)
 v_interpol = cubic_spline_interpolation(r_arr,v_arr,extrapolation_bc=Line())
 v_int(r) = v_interpol(r); # we have to transform the interaction to an object of type "function"
@@ -136,22 +137,29 @@ comparison(energiesCC, energies_exactCC, simax; s1="Coupled-Channel")
 
 # Adding the optional argument `wf_bool=1` to `GEM2B_solve` also computes and returns a matrix of eigenvectors (in each column). These eigenvectors contain the weights of the basis functions.
 
-energiesw,wfs = GEM2B.GEM2B_solve(phys_params,num_params;wf_bool=1);
+energiesw,wfs = GEM2B.GEM2B_solve(phys_params,num_params_opt;wf_bool=1,cr_bool=0);
 
-# We can use the functions `GEM2B.wavefun_arr`and `GEM2B.wavefun_point` to compute the wave function at a set of points or at a specific point, respectively. The information on the basis functions is provided via `num_params`, the vector of Gaussian widths.
+# We can use the functions `GEM2B.wavefun_arr` and `GEM2B.wavefun_point` to compute the wave function at a set of points or at a specific point, respectively. The information on the basis functions is provided via the optimized numerical parameters `num_params_opt`, the vector of Gaussian widths. We compare the numerical wave function with the exact solutions provided by Antique.jl and find very good agreement.
 
 dr = 0.1
-r_arr = 0.0:dr:25.0
+r_arr = 0.0:dr:50.0
+redind = vcat(1:2:30,31:5:50,51:10:lastindex(r_arr)) # We evaluate the analytical solutions at a coarser grid to avoid overloading the plot.
 
-p = plot(xlabel="\$ r \$", ylabel="\$ r^2\\,|\\psi(r)|^2 \$", title="Two-body s-wave densities for 3D Coulomb system", guidefont=18,legendfont=12)
+wfA(r,n) = Antique.R(CTB, r; n, l=0) # Exact wave function for the n-th state
+
+p = plot(xlabel="\$ r \$", ylabel="\$ r^2\\,|\\psi(r)|^2 \$", title="Two-body radial s-wave densities\n for a 3D Coulomb system", guidefont=18,legendfont=10)
 density = zeros(length(r_arr),4)
+density_exact = zeros(length(r_arr),4)
+markers = [:circ, :square, :utriangle, :star]
 for si = 1:4
     wf = wfs[:,si]
-    psi_arr = GEM2B.wavefun_arr(r_arr,phys_params,num_params,wf;cr_bool=0)
+    psi_arr = GEM2B.wavefun_arr(r_arr,phys_params,num_params_opt,wf;cr_bool=0)
     
     density[:,si] .= abs2.(psi_arr).*r_arr.^2
-    
-    plot!(r_arr,density[:,si],label="n=$(si)", lw=2)
+    density_exact[:,si] = abs2.(wfA.(r_arr,si)).*r_arr.^2
+
+    scatter!(r_arr[redind],density_exact[redind,si],label="n=$(si), exact", lw=2,color=si, marker=markers[si],markersize=3)
+    plot!(r_arr, density[:,si], label="n=$(si), num", lw=2, color=si)
 end
 
 p

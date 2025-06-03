@@ -5,11 +5,11 @@
 # with the Pöschl–Teller potential
 # \\[ V(r) = -\frac{\lambda(\lambda+1)}{2} \frac{1}{\cosh^2(r)}. \\]
 
-# This example can also be found as a runnable: examples/example1D.jl.
+# This example can also be found as a runnable script: examples/example1D.jl.
 
 # ## Setup
 
-using Printf, Interpolations, FewBodyToolkit.GEM2B
+using Printf, Interpolations, FewBodyToolkit.GEM2B, Antique
 
 # ## Input parameters
 
@@ -60,9 +60,10 @@ simax = findlast(energies_arr.<0)
 
 # The Pöschl–Teller potential has `lambda = 8` eigenvalues. In this example we focus on the even states, hence there are only 4 bound states. Their energies can be found exactly:
 # \\[ E_n = -\frac{(\lambda-n)^2}{2\mu} \\]
-# where \\( n = 1, 2, ... , \lambda-1 \\) is the state index.
+# where \\( n = 1, 2, ... , \lambda-1 \\) is the state index. The package Antique.jl provides these exact energies in a convenient way.
 
-ex_arr = [-(lambda-i)^2/2/mur for i=0:2:Int(floor(lambda-1))]
+PT = Antique.PoschlTeller(λ=8)
+ex_arr = [Antique.E(PT,n=i) for i=0:2:Int(floor(lambda-1))]
 
 println("1. Numerical solution of the 1D problem:")
 comparison(energies_arr, ex_arr, simax)

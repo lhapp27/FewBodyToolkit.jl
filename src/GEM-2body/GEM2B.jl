@@ -56,6 +56,7 @@ energies = GEM2B_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0
 # or with wavefunctions:
 energies, wavefunctions = GEM2B_solve(phys_params, num_params; wf_bool=1)
 # Note: The function can handle 1D, 2D, or 3D problems based on the `dim` parameter in `phys_params`.
+```
 """
 function GEM2B_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
         
@@ -113,10 +114,10 @@ function GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_b
     
     debug_bool = 0
     if debug_bool == 1
-        #@show(nu_arr)
-        print_matrix("T", T, 3)
-        print_matrix("V", V, 3)
-        print_matrix("S", S, 3)
+        minsize = min(10, size(T, 1))
+        print_matrix("T", T, minsize)
+        print_matrix("V", V, minsize)
+        print_matrix("S", S, minsize)
     end
 
     # symmetric fill:
@@ -165,9 +166,9 @@ function print_matrix(name, M, minsize)
     for i in 1:rmax
         for j in 1:cmax
             if M[i, j] isa Complex
-                @printf("(%8.3f,%8.3f) ", real(M[i,j]), imag(M[i,j]))
+                @printf("(%8.4f,%8.4f) ", real(M[i,j]), imag(M[i,j]))
             else
-                @printf("%8.3f ", M[i,j])
+                @printf("%8.4f ", M[i,j])
             end
         end
         println()
