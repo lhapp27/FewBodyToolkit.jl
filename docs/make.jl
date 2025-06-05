@@ -1,4 +1,4 @@
-using FewBodyToolkit, Documenter, Literate, DocumenterCitations, Plots, Antique, Interpolations .GEM2B, .GEM3B1D, .ISGL
+using FewBodyToolkit, Documenter, Literate, DocumenterCitations, Plots, Antique, Interpolations, FewBodyToolkit.GEM2B, FewBodyToolkit.GEM3B1D, FewBodyToolkit.ISGL
 
 bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"))
 
