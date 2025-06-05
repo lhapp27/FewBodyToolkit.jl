@@ -3,12 +3,12 @@ using FewBodyToolkit, Documenter, Literate, DocumenterCitations
 bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"))
 
 # Convert example scripts to markdown
-Literate.markdown("../examples/example1D.jl", joinpath(@__DIR__, "src"), name="example1D",flavor=Literate.DocumenterFlavor())
-Literate.markdown("../examples/example2D.jl", joinpath(@__DIR__, "src"), name="example2D",flavor=Literate.DocumenterFlavor())
-Literate.markdown("../examples/example3D.jl", joinpath(@__DIR__, "src"), name="example3D",flavor=Literate.DocumenterFlavor())
-Literate.markdown("../examples/3B1D_23body.jl", joinpath(@__DIR__, "src"), name="3B1D_23body",flavor=Literate.DocumenterFlavor())
-Literate.markdown("../examples/1D_2+1.jl", joinpath(@__DIR__, "src"), name="1D_2+1",flavor=Literate.DocumenterFlavor())
-Literate.markdown("../examples/ISGL_HD+.jl", joinpath(@__DIR__, "src"), name="ISGL_HD+",flavor=Literate.DocumenterFlavor())
+Literate.markdown("examples/example1D.jl", joinpath(@__DIR__, "src"), name="example1D",flavor=Literate.DocumenterFlavor())
+Literate.markdown("examples/example2D.jl", joinpath(@__DIR__, "src"), name="example2D",flavor=Literate.DocumenterFlavor())
+Literate.markdown("examples/example3D.jl", joinpath(@__DIR__, "src"), name="example3D",flavor=Literate.DocumenterFlavor())
+Literate.markdown("examples/3B1D_23body.jl", joinpath(@__DIR__, "src"), name="3B1D_23body",flavor=Literate.DocumenterFlavor())
+Literate.markdown("examples/1D_2+1.jl", joinpath(@__DIR__, "src"), name="1D_2+1",flavor=Literate.DocumenterFlavor())
+Literate.markdown("examples/ISGL_HD+.jl", joinpath(@__DIR__, "src"), name="ISGL_HD+",flavor=Literate.DocumenterFlavor())
 
 
 makedocs(
