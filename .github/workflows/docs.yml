@@ -19,7 +19,7 @@ jobs:
         run: |
           julia --project=docs -e '
             using Pkg;
-            Pkg.develop(PackageSpec(path=".FewBodyToolkit"));
+            Pkg.develop(PackageSpec(path="."));
             Pkg.instantiate()
           '
 
