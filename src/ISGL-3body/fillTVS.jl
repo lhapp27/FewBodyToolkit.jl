@@ -1,10 +1,10 @@
 ## Function for calculating the matrix elements and filling the matrices T,V,S within the ISGL program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,gaussopt,csm_bool,hbar)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,hbar)
     
     (;gem_params,mu0,c_shoulder,theta_csm) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
-    (;abvals_arr,cvals,gauss_indices,central_indices,so_indices,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,lL_nested,maxlmax,mij_arr_dict,mijSO_arr_dict) = size_params
+    (;abvals_arr,cvals,gauss_indices,central_indices,so_indices,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,lL_nested,maxlmax,mij_arr_dict,mijSO_arr_dict,gaussopt_arr) = size_params
     (;gamma_dict,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr) = precomp_arrs
     (;alpha_arr,v_arr,A_mat,w_interpol_arr,Ainv_arr_kine) = interpol_arrs
     (;w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr,temp_fill_mat) = fill_arrs
@@ -28,43 +28,31 @@
     # transpose fill:
     T .= Symmetric(temp_fill_mat,:L);
     
-    ## unclear type-stability
-    #@show(gaussopt,typeof(gaussopt))
     if csm_bool == 1
         T .*= exp(-2*im*theta_csm*pi/180)
-        #gaussoptc = gaussopt .*(1.0+0.0*im)
-        #for cc in 1:lastindex(gaussopt)
-        #    for vi in 1:lastindex(gaussopt[cc])
-        #        gaussoptc[cc][vi][3] *= exp(2*im*theta_csm*pi/180)
-        #    end
-        #end
-    else
-        #gaussoptc = gaussopt
     end
-    #gaussopt=gaussoptc
-    #@show(gaussopt,typeof(gaussopt))
     
     #v
     for index in 1:flati
         rowi,coli=temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],gaussopt,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict) # do we need hbar^2 for SO?
+        temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr) # do we need hbar^2 for SO?
     end
     # transpose fill:
     V .= Symmetric(temp_fill_mat,:L);
     
-    # Example usage for debugging
-    size_to_print = min(12, size(T, 1))  # Adjust size_to_print as needed
-    #println("T:")
-    #print_matrices(T, size_to_print)
-    #println("V:")
-    #print_matrices(V, size_to_print)
-    #println("S:")
-    #print_matrices(S, size_to_print)
+    debug_bool = 0
+    if debug_bool == 1
+        # Example usage for debugging
+        size_to_print = min(12, size(T, 1))  # Adjust size_to_print as needed
+        #println("T:")
+        #print_matrices(T, size_to_print)
+        #println("V:")
+        #print_matrices(V, size_to_print)
+        #println("S:")
+        #print_matrices(S, size_to_print)
+    end
     
     T .+= V
-
-    #println("H:")
-    #print_matrices(T, size_to_print)
     
 end
 
@@ -122,14 +110,11 @@ function tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_
     return tempT
 end
 
-
-function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_i,gaussopt,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict)
+function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr)
     (;rowi,coli,avals_new,bvals_new,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,Lsum,JlLa,JlLb) = temp_args_i
     #println("vab: $rowi, $coli, JsSa=$JsSa, JsSb=$JsSb")
     tempV = 0.0
     
-    #only relevant for SO interactions
-    global6jfac = global6j_dict[JsSa,JsSb,JlLa,JlLb]
     
     for a in avals_new
         for b in bvals_new
@@ -142,22 +127,24 @@ function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_arg
             for c in cvals
                 
                 spinoverlap = spinoverlap_dict[a,b,c,JsSa,JsSb,sa,sb]
-
+                
                 #@show([uab,spinoverlap,global6jfac])
                 
                 for ivg in gauss_indices[c] #loop over the gaussian interactions for this c.
                     (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
-                    v0 = gaussopt[c][ivg][2]
-                    mu_g = gaussopt[c][ivg][3]
+                    v0,mu_g = gaussopt_arr[c][ivg]
+                    csm_bool == 1 && (mu_g *= exp(2*im*theta_csm*pi/180)) # apply CSM factor to the range of the Gaussian 
                     tempV += factor_ab*factor_symm*uab*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,Lsum,wn_interpol_arr,v0,mu_g,JlLa)
                 end
                 for ivc in central_indices[c] #loop over the central interactions for this c.
                     (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
                     tempV += factor_ab*factor_symm*uab*element_V(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,ivc)
                 end
-                for ivso in so_indices[c] # lopp over the spin-orbit interactions for this c.
+                for ivso in so_indices[c] # loop over the spin-orbit interactions for this c.
                     (abs(JlLa-JlLb) <= 1 <= JlLa+JlLb) == false && return tempV #immediately skip if it is violated.
                     (abs(JsSa-JsSb) <= 1 <= JsSa+JsSb) == false && return tempV #immediately skip if it is violated.
+                    #only relevant for SO interactions
+                    global6jfac = global6j_dict[JsSa,JsSb,JlLa,JlLb]
                     tempV += factor_ab*factor_symm*global6jfac*spinoverlap*element_VSO(c,ranges,norm4,jmat[a,c],jmat[b,c],mijSO_arr_dict,SSO_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,JlLb,ivso)
                 end
                 
@@ -187,14 +174,7 @@ function element_S(ranges,norm4,jab,mij_arr_i,S_arr,la,La,lb,Lb,JlL)
     f = xi/zeta
     q = ppr .- f*p
     
-    # fij_arr: is it better to simply write f12,f13...?
-    #=     for i=1:3
-        for j=(i+1):4
-            fij_arr[i,j] = 2*p[i]*p[j]/zeta + 2*q[i]*q[j]/etapr
-        end
-    end =#
-    fij_arr = @SMatrix[2*p[i]*p[j]/zeta + 2*q[i]*q[j]/etapr for i=1:4, j=1:4]
-    
+    fij_arr = @SMatrix[2*p[i]*p[j]/zeta + 2*q[i]*q[j]/etapr for i=1:4, j=1:4]    
     prefac = norm4 * (pi^2/zeta/etapr)^(3/2)/(nua^la*NUa^La*nub^lb*NUb^Lb);
     
     sum = 0.0
@@ -216,7 +196,7 @@ function element_T(ranges,norm4,jab,murR_arr,mij_arr_i,S_arr,la,La,lb,Lb,w_arr_k
     mur= murR_arr[1,b]
     muR= murR_arr[2,b]
     
-    # -hbar^2/2/mu # hbar=1 here. trb,tRb:
+    # global factor hbar^2 outside of the function.
     tr = -1/2/mur
     tR = -1/2/muR
     
@@ -235,8 +215,7 @@ function element_T(ranges,norm4,jab,murR_arr,mij_arr_i,S_arr,la,La,lb,Lb,w_arr_k
     q = ppr .- f*p
     qpr = p .- fpr*ppr    # fixed typo!
     
-    K0 = 6*tr*nub*(nub/etapr - 1.0) + 6*tR*NUb*(NUb/zetapr - 1.0)
-    
+    K0 = 6*tr*nub*(nub/etapr - 1.0) + 6*tR*NUb*(NUb/zetapr - 1.0)    
     
     Kij_arr = @SMatrix[8*tr*nub^2/etapr*(q[i]*q[j]/etapr - q[1]*I[i,1]*I[j,3] - q[2]*I[i,2]*I[j,3] - q[4]*I[i,3]*I[j,4]) + 8*tR*NUb^2/zetapr*(qpr[i]*qpr[j]/zetapr - qpr[1]*I[i,1]*I[j,4] - qpr[2]*I[i,2]*I[j,4] - qpr[3]*I[i,3]*I[j,4]) for i=1:4, j=1:4]
     
@@ -250,11 +229,7 @@ function element_T(ranges,norm4,jab,murR_arr,mij_arr_i,S_arr,la,La,lb,Lb,w_arr_k
             end
         end
     end
-    
-    #w_arr_kineS = @SVector [K0*Ainv_arr_kine[Lsum,n] for n=0:Lsum]    
-    #kij_arrSa = @SVector [2*p[i]*p[j]/zeta + 2*q[i]*q[j]/etapr for (i,j) in ij_vals]
-    #kij_arrS = @SVector[kij_arrSa .+ mu0*c_shoulder^n*Kij_arrS/K0 for n=0:Lsum] # problem: unable to know size (Lsum+1) at compile-time. Try with maxlmax dosnt help.
-    
+        
     prefac = norm4 * (pi^2/zeta/etapr)^(3/2)/(nua^la*NUa^La*nub^lb*NUb^Lb);
     
     sum = 0.0
@@ -301,10 +276,7 @@ function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu
             end
         end
     end
-    
-    #gij_arrS = @SVector [@SVector [2*p[i]*p[j]/zetac + 2*mu0*c_shoulder^n*q[i]*q[j]/etaprc for (i,j) in ij_vals] for n=0:Lsum] # same problem as in T: size not known at compile-time!
-    # however Lsum = (la+La+lb+Lb)/2, hence Lsum <= lmax+Lmax? maybe almost no differece in performance. also, maybe too many elements for SA
-    
+        
     prefac = norm4 * (pi^2/zetac/etaprc)^(3/2)/(nua^la*NUa^La*nub^lb*NUb^Lb);
     
     # here, interpolation is called (outside of ii-loop):
@@ -321,9 +293,6 @@ function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu
             sum2 += wn_interpol_arr[n]*gij_arr[1,2,n]^m12*gij_arr[1,3,n]^m13*gij_arr[1,4,n]^m14*gij_arr[2,3,n]^m23*gij_arr[2,4,n]^m24*gij_arr[3,4,n]^m34 # abh von ii nur in S, welches unabh von n ist.... nein, mij hängen von ii ab!
         end
         
-        # performance unklar, ca gleich mit sum2. evtl bessere skalierung.
-        #sum3 = sum(n -> wn_interpol_arr[n]*gij_arr[1,2,n]^m12*gij_arr[1,3,n]^m13*gij_arr[1,4,n]^m14*gij_arr[2,3,n]^m23*gij_arr[2,4,n]^m24*gij_arr[3,4,n]^m34, 0:Lsum)
-        
         summe += S_arr[la,La,lb,Lb,JlL,ii]*sum2
     end
     
@@ -337,11 +306,11 @@ function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,g
     Lsum < 1 && return 0.0
     #(abs(JlLa-JlLb) <= 1 <= JlLa+JlLb) == false && return 0.0 # done outside already?
     LsumSO = Lsum - 1
-
+    
     (;nua,nub,NUa,NUb) = ranges; # is this usage of named tuple slow?
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
     (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
-    #EH: alpha <-> gamma; beta <-> delta    
+    #careful of other definitions! 
     
     etac  = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2
     zetac = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2 
@@ -371,16 +340,14 @@ function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,g
     end
     
     #hij_arr:
-    #hij_arr0 = @SMatrix[p[i]*ppr[j] for i=1:4, j=1:4]*fso # my formula; maybe wrong. in simplest case just yields 0?
+    #hij_arr0 = @SMatrix[p[i]*ppr[j] for i=1:4, j=1:4]*fso # first version. incorrect.
     hij_arr = @SMatrix[q[i]*gg[j] - q[j]*gg[i] for i=1:4, j=1:4]*(-2) #corrected
-    
-    #@show(hij_arr0,hij_arr)    
-    
+        
     prefac = norm4 * (pi^2/zetac/etaprc)^(3/2)/(nua^la*NUa^La*nub^lb*NUb^Lb);
     
     # here, interpolation is called (outside of ii-loop):
     for n = 0:LsumSO
-        wn_interpol_arr[n] = w_interpol_arr[c,ivso,LsumSO,n](log(etaprc)) #das ist vms? # this automatically selects between central and SO via iv (or ivso here)
+        wn_interpol_arr[n] = w_interpol_arr[c,ivso,LsumSO,n](log(etaprc))
     end
     
     ivjv_arr = @SVector[(1,2),(1,3),(1,4),(2,3),(2,4),(3,4)] # can also be used for iuju
@@ -394,8 +361,7 @@ function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,g
             #(m12,m13,m14,m23,m24,m34) = mij_arr_i[ii]
             
             sumn = 0.0 # sum over n
-            for n=0:LsumSO                
-                #sumn += wn_interpol_arr[n]*gij_arr[1,2,n]^m12*gij_arr[1,3,n]^m13*gij_arr[1,4,n]^m14*gij_arr[2,3,n]^m23*gij_arr[2,4,n]^m24*gij_arr[3,4,n]^m34 
+            for n=0:LsumSO
                 
                 # a bit closer to the formulae:
                 produ = 1.0 # product over u (or iu,ju)
@@ -421,10 +387,6 @@ function element_VGauss(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_a
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
     (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
-    #EH: alpha <-> gamma; beta <-> delta
-    
-    #v0 = gaussopt[c][1][2] # zweites argument ist für die verschiedenen gäusse
-    #mu_g = gaussopt[c][1][3]
     
     etac  = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2
     zetac = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2 
@@ -440,12 +402,7 @@ function element_VGauss(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_a
     q = ppr .- f*p
     
     #gij_arr:
-    #=     for i=1:3
-        for j=(i+1):4
-            gij_arr[i,j,0] = 2*p[i]*p[j]/zetac + 2*q[i]*q[j]/(etaprc + mu_g) # third index = 0, just to not introduce another variable. maybe doable via SMatrix? # maybe problem if mu_g becomes complex?
-        end
-    end =#
-    ggij_arr = @SMatrix[2*p[i]*p[j]/zetac + 2*q[i]*q[j]/(etaprc + mu_g) for i=1:4, j=1:4] # possible replacement for the sum.
+    ggij_arr = @SMatrix[2*p[i]*p[j]/zetac + 2*q[i]*q[j]/(etaprc + mu_g) for i=1:4, j=1:4]
     
     prefac = norm4 * (pi^2/zetac/(etaprc + mu_g))^(3/2)/(nua^la*NUa^La*nub^lb*NUb^Lb);
     
@@ -453,7 +410,6 @@ function element_VGauss(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_a
     for ii = 1:lastindex(mij_arr_i)
         (m12,m13,m14,m23,m24,m34) = mij_arr_i[ii]
         
-        #summe += S_arr[la,La,lb,Lb,ii]*gij_arr[1,2,0]^m12*gij_arr[1,3,0]^m13*gij_arr[1,4,0]^m14*gij_arr[2,3,0]^m23*gij_arr[2,4,0]^m24*gij_arr[3,4,0]^m34
         summe += S_arr[la,La,lb,Lb,JlL,ii]*ggij_arr[1,2]^m12*ggij_arr[1,3]^m13*ggij_arr[1,4]^m14*ggij_arr[2,3]^m23*ggij_arr[2,4]^m24*ggij_arr[3,4]^m34
     end
     
@@ -472,7 +428,6 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,bvalsdiag,abvals_arr,s_arr
             
             # if there are some identical particles: we can ignore the sum over a-values and simply multiply by a factor which is equal to the number of a-values. ONLY ON THE BOX-DIAGONAL! (boxC = boxR)
             if boxC == boxR
-                #avals_new = avalsdiag[boxR]#[abvals_arr[boxR][1]] # take only the first of possible values
                 bvals_new = bvalsdiag[boxC] # for changing the role of a,b to be in line with lower triangular!
                 factor_ab = lastindex(abvals_arr[boxR]) # factor for amount of a-values normally
                 diag_bool = 1 # for skipping lower-triangular calculation within each box!
@@ -487,7 +442,6 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,bvalsdiag,abvals_arr,s_arr
             avals = abvals_arr[boxR] # necessary for observables
             bvals = abvals_arr[boxC] # necessary for observables
             
-            #@show([boxR,boxC,avals_new,bvals_new,factor_ab])
             
             alphab = 0; # this is actually beta
             for (isb,sb) in enumerate(s_arr[bvals_new[1]]) # why bvals_new[1]? -> cuz either only 1 value in it, or the particles are identical and all entries are the same!
@@ -518,7 +472,7 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,bvalsdiag,abvals_arr,s_arr
                                                             NORMa = NORM_arr[La,Na]
                                                             
                                                             alpha += 1
-                                                            diag_bool == 1 && alpha < alphab && continue # skip lower-triangular only on diagonal boxes! -> actually skips upper triangular!
+                                                            diag_bool == 1 && alpha < alphab && continue # skip upper triangular only on diagonal boxes
                                                             
                                                             norm4 = norma*normb*NORMa*NORMb;
                                                             ranges = (;nua,nub,NUa,NUb);                                    
@@ -528,10 +482,8 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,bvalsdiag,abvals_arr,s_arr
                                                             coli = starts[boxC] + alphab - 1
                                                             
                                                             flati += 1
-                                                            #@show([flati,JsSa,JsSb,alpha,alphab])
+
                                                             temp_args_arr[flati] = (;rowi,coli,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,JlLa,JlLb,la,La,lb,Lb,Lsum,avals_new,bvals_new,factor_ab,avals,bvals) # write all loop-index-depending function-arguments into a temporary 1D array
-                                                            # S_arr was removed from here! since completely independent of the indices. just add as function arguments for the matrix elements. also avoids confusion with s_arr
-                                                            # another global argument removed: cvals
                                                         end
                                                     end
                                                 end

@@ -1,7 +1,7 @@
 # # 1D Three-body example
 
 # This example reproduces the results in the article [happ2019](@cite). It studies a one-dimensional 2+1 system of two identical particles interacting with a third particle via a central potential. Here, the interaction is taken to be a Gaussian potential, which supports a weakly-bound ground state. The two identical particles do not interact.
-
+ 
 # ## Setup
 using Printf, FewBodyToolkit.GEM3B1D, FewBodyToolkit.GEM2B;
 import FewBodyToolkit:GaussianPotential;
@@ -76,7 +76,7 @@ num_params3B = make_num_params3B1D(;gem_params=(;nmax, r1, rnmax, Nmax=8, R1=1.5
 
 # #### Solving the three-body problem
 
-println("\n2. Solving the three-body problem and comparing the the article's results")
+println("\n2. Solving the three-body problem and comparing to the article's results")
 e3 = GEM3B1D.GEM3B1D_solve(phys_params3B,num_params3B);
 
 # We compute the ratio of three-body to two-body binding energies.

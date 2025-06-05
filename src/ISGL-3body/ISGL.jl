@@ -13,30 +13,6 @@ using .. FewBodyToolkit
 using LinearAlgebra,StaticArrays,OffsetArrays,Interpolations, SpecialFunctions,QuadGK,PartialWaveFunctions, WignerSymbols
 using Printf: @printf
 
-# try to make use of multiple dispatch for different potential types
-## where should this part be placed ideally?
-# types for the different potential functions
-#= abstract type PotentialFunction end ##moved to common/potentialtypes.jl
-struct CentralPotential <: PotentialFunction
-    f::Function
-end
-struct SpinOrbitPotential <: PotentialFunction
-    f::Function
-end
-# for evaluating these functions, e.g. in quadgk; used also for observables
-function (v::PotentialFunction)(r)
-    return v.f(r)
-end =#
-
-
-# functions for creating inputs
-function make_phys_params(;hbar = 1.0, mass_arr=[1.0, 1.0, 1.0], svals=["b","b","b"], vint_arr=[[],[],[]], J_tot=0, parity=1, spin_arr=[0,0,0])
-    return (;hbar, mass_arr, svals, vint_arr, J_tot, parity, spin_arr)
-end
-
-function make_num_params(; lmax=0, Lmax=0, gem_params=(nmax=3, Nmax=3, r1=1.0, rnmax=20.0, R1=1.0, RNmax=20.0),theta_csm=0.0, omega_cr=0.5, mu0=0.08, c_shoulder=1.6, kmax_interpol=1000, threshold=10^-7, lmin=0, Lmin=0)
-    return (;lmax, Lmax, gem_params, theta_csm, omega_cr, mu0, c_shoulder, kmax_interpol, threshold, lmin, Lmin)
-end
 
 include("sanitycheck.jl")
 include("size_estimate.jl")
@@ -50,11 +26,9 @@ include("../common/eigen2step.jl")
 include("observables.jl")
 
 
-export ISGL_solve, make_phys_params, make_num_params
-#export wavefun
+export ISGL_solve, make_phys_params3B3D, make_num_params3B3D
 
-# gaussopt=[bool,v0,mu_g] for central gauss interaction: V(r) = v0*exp(-mu_g*r^2)
-function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), gaussopt=[[[0,-1.0,1.0]],[[0,-1.0,1.0]],[[0,-1.0,1.0]]]) # default inputs here look a bit cumbersome
+function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
     
     ## 1. interpretation of inputs
     show_details_bool = 0
@@ -72,11 +46,8 @@ function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_p
         return
     end
     
-    ## 2.b change gaussopt to complex for csm-Bool and "active gaussopt"
-    gaussopt = csmgaussopt(gaussopt,csm_bool,num_params)
-    
     ## 3. computations to determine sizes of arrays for allocation:   
-    size_params = size_estimate(phys_params,num_params,observ_params,gaussopt)
+    size_params = size_estimate(phys_params,num_params,observ_params)
     
     ## 4. preallocation: #is it really necessary? and/or can it not simply be done within the precomputation? better like this for performance analysis    
     precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,csm_bool)
@@ -85,10 +56,10 @@ function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_p
     precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs)    
     
     ## 6. preparation of interpolation & shoulder:
-    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,gaussopt,wf_bool,csm_bool)
+    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,wf_bool,csm_bool)
     
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,gaussopt,csm_bool,phys_params.hbar)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,phys_params.hbar)
     
     ## 8. Solving the generalized eigenproblem:
     solveHS(num_params,fill_arrs,result_arrs,wf_bool)

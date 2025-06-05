@@ -8,6 +8,7 @@ Literate.markdown("../examples/example2D.jl", joinpath(@__DIR__, "src"), name="e
 Literate.markdown("../examples/example3D.jl", joinpath(@__DIR__, "src"), name="example3D",flavor=Literate.DocumenterFlavor())
 Literate.markdown("../examples/3B1D_23body.jl", joinpath(@__DIR__, "src"), name="3B1D_23body",flavor=Literate.DocumenterFlavor())
 Literate.markdown("../examples/1D_2+1.jl", joinpath(@__DIR__, "src"), name="1D_2+1",flavor=Literate.DocumenterFlavor())
+Literate.markdown("../examples/ISGL_HD+.jl", joinpath(@__DIR__, "src"), name="ISGL_HD+",flavor=Literate.DocumenterFlavor())
 
 
 makedocs(
@@ -25,9 +26,15 @@ makedocs(
             "2B: Example 3D" => "example3D.md",
             "3B1D: Consistency with 2-body" => "3B1D_23body.md",
             "3B1D: 2+1 system" => "1D_2+1.md",
+            "3B3D: HD+ system" => "ISGL_HD+.md",
         ],
     "API"  => "api.md",
     "References" => "references.md",
   ],
   plugins=[bib],
+)
+
+deploydocs(
+    repo = "github.com/lhapp27/FewBodyToolkit.jl.git",
+    target = "build",
 )

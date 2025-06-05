@@ -39,7 +39,7 @@
     # Interaction V
     for index in 1:flati
         rowi,coli=temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,gauss_indices,central_indices,gaussopt_arr)
+        temp_fill_mat[rowi,coli] = vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,gauss_indices,central_indices,gaussopt_arr,csm_bool,theta_csm)
     end
     V .= Symmetric(temp_fill_mat,:L); # transpose fill:
     
@@ -47,12 +47,9 @@
     debug_bool = 0
     if debug_bool == 1
         size_to_print = min(10, size(T, 1))  # Adjust size_to_print as needed
-        println("T:")
-        print_matrices(T, size_to_print) # also achievable via display(T[1:stp,1:stp])
-        println("V:")
-        print_matrices(V, size_to_print)
-        println("S:")
-        print_matrices(S, size_to_print)
+        print_matrices("T", T, size_to_print) # also achievable via display(T[1:stp,1:stp])
+        print_matrices("V",V, size_to_print)
+        print_matrices("S",S, size_to_print)
     end
     
     T .+= V # T becomes the full Hamiltonian matrix H = T + V
@@ -60,11 +57,22 @@
 end
 
 # Debugging: Print matrices in a formatted way
-function print_matrices(M, size_to_print)
-    for i in 1:size_to_print, j in 1:size_to_print
-        @printf("%10.4f ", real(M[i, j]))
-        j == size_to_print && println()
+function print_matrices(name, M, minsize)
+    r, c = size(M)
+    rmax = min(minsize, r)
+    cmax = min(minsize, c)
+    println("Matrix ", name, " (", r, "x", c, "):")
+    for i in 1:rmax
+        for j in 1:cmax
+            if M[i, j] isa Complex
+                @printf("(%8.4f,%8.4f) ", real(M[i,j]), imag(M[i,j]))
+            else
+                @printf("%8.4f ", M[i,j])
+            end
+        end
+        println()
     end
+    println()
 end
 
 # factor to ensure proper (anti-)symmetrization in case of identical particles. Only needed for 2+1 systems
@@ -106,7 +114,7 @@ function tab(jmat,murR_arr,temp_args_i,abI,factor_bf,gamma_dict,hbar)
 end
 
 # calculation of a single matrix element: interaction V(r_c)
-function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma_dict,gauss_indices,central_indices,gaussopt_arr)
+function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma_dict,gauss_indices,central_indices,gaussopt_arr,csm_bool,theta_csm)
     (;avals_new,bvals_new,factor_ab,ranges,norm4,la,La,lb,Lb,cvals) = temp_args_i
     tempV = 0.0                                    
     for a in avals_new
@@ -116,7 +124,7 @@ function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma
                 
                 for ivg in gauss_indices[c] # we need to provide these indices to the function.
                     gaussopt = gaussopt_arr[c][ivg] # Gaussian parameters are stored in gaussopt_arr
-                    tempV += factor_ab*factor_symm*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,gaussopt,gamma_dict)
+                    tempV += factor_ab*factor_symm*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,gaussopt,gamma_dict,csm_bool,theta_csm)
                 end
                 
                 for ivc in central_indices[c]
@@ -236,7 +244,7 @@ end
 
 
 # calculation of a single matrix element: interaction VGauss(r_c)
-function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict)
+function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,csm_bool,theta_csm)
 
     mod(la+La+lb+Lb,2) == 1 && return 0.0 #Gaussian potential is symmetric, hence parity of <a| and |b> must be the same, otherwise return 0
     
@@ -246,6 +254,8 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict)
     #GEM review: alpha <-> gamma; beta <-> delta
     
     v0,mu_g = gaussopt
+    csm_bool == 1 && (mu_g *= exp(2*im*theta_csm*pi/180)) # apply CSM factor to the range of the Gaussian potential
+    
     LL = la+La+lb+Lb;
         
     eta5 = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2 + mu_g

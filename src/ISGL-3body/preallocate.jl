@@ -14,7 +14,7 @@ struct PrecomputeStruct
     murR_arr::MMatrix{2, 3, Float64, 6}
     nu_arr::Vector{Float64}
     NU_arr::Vector{Float64}
-    norm_arr::OffsetMatrix{Float64, Matrix{Float64}}#OffsetMatrix{Float64, Matrix{Float64}} # not sure if the size here is required more accurately?
+    norm_arr::OffsetMatrix{Float64, Matrix{Float64}}#OffsetMatrix{Float64, Matrix{Float64}}
     NORM_arr::OffsetMatrix{Float64, Matrix{Float64}}#OffsetMatrix{Float64, Matrix{Float64}}
     Clmk_arr::OffsetArray{Float64, 3, Array{Float64, 3}} # 3,4,5 gibt einfach nur die dimensionen an, nicht deren Länge!
     Dlmk_arr::OffsetArray{ComplexF64, 4, Array{ComplexF64, 4}}
@@ -35,7 +35,7 @@ struct InterpolationStruct{T}
     v_arr::Matrix{T}
     A_mat::Matrix{Float64}
     w_arr::Array{T, 4}
-    w_interpol_arr::OffsetArray{Interpolations.Extrapolation{T, 1, ScaledInterpolation{T, 1, Interpolations.BSplineInterpolation{T, 1, OffsetVector{T, Vector{T}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4, Array{Interpolations.Extrapolation{T, 1, ScaledInterpolation{T, 1, Interpolations.BSplineInterpolation{T, 1, OffsetVector{T, Vector{T}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4}}#OffsetArray{Interpolations.Extrapolation{Float64, 1, ScaledInterpolation{Float64, 1, Interpolations.BSplineInterpolation{Float64, 1, OffsetVector{Float64, Vector{Float64}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}}
+    w_interpol_arr::OffsetArray{Interpolations.Extrapolation{T, 1, ScaledInterpolation{T, 1, Interpolations.BSplineInterpolation{T, 1, OffsetVector{T, Vector{T}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4, Array{Interpolations.Extrapolation{T, 1, ScaledInterpolation{T, 1, Interpolations.BSplineInterpolation{T, 1, OffsetVector{T, Vector{T}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4}}
     Ainv_arr_kine::OffsetMatrix{Float64, Matrix{Float64}}
     v_obs_arr::Matrix{Float64}
     w_obs_arr::Array{Float64, 5}
@@ -80,14 +80,13 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,csm_b
     (;stateindices,centobs_arr,R2_arr) = observ_params
     
     # Allocate facts & cleb
-    gamma_dict = Dict{Float64, Float64}() # necessary dimensionality not clear atm
-    #cleb_arr = OffsetArray{Float64}(undef, 0:maxlmax, -maxlmax:maxlmax, 0:maxlmax, -maxlmax:maxlmax)*0.0 #
-    #arguments: la,ma,La,Ma
+    gamma_dict = Dict{Float64, Float64}() # necessary dimensionality not clear atm --> Dict
     JlL_range = minimum(JlL_complete):maximum(JlL_complete) # OffsetArray needs range as input
     r3 = min(0,minimum(JlL_complete)):max(maxlmax,maximum(JlL_complete)) # for third argument of cleb_arr instead of 0:maxlmax
     m3 = max(maxlmax,maximum(JlL_complete)) # for m-arguments of cleb_arr instead of -maxlmax:maxlmax
     cleb_arr = OffsetArray{Float64}(undef, 0:maxlmax, -m3:m3, r3, -m3:m3, JlL_range)*0.0 #arguments: la,ma,La,Ma,JlL
 
+    # These dicts were used for convenience, a change to arrays might improve performance.
     # Allocate spintrafo_dict and spinoverlap_dict
     spintrafo_dict = Dict{Tuple{Int64,Int64,Float64,Float64,Float64},Float64}()
     spinoverlap_dict = Dict{Tuple{Int64,Int64,Int64,Float64,Float64,Float64,Float64},Float64}()
@@ -160,7 +159,6 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,csm_b
     # temporary arrays for filling: function arguments and matrix for parallelization
     ntot = Int64((nbasis_total^2+nbasis_total)/2) # only for lower triangular!
     # Define the type of the tuple for the function arguments
-    #tuple_type = NamedTuple{(:rowi, :coli, :ranges, :norm4, :mij_arr, :S_arr, :la, :La, :lb, :Lb, :Lsum, :avals_new, :bvals_new, :cvals, :factor_ab, :avals, :bvals), Tuple{Int64, Int64, NamedTuple{(:nua, :nub, :NUa, :NUb), NTuple{4, Float64}}, Float64, Vector{SVector{6, Int64}}, OffsetArray{Float64, 5, Array{Float64, 5}}, Int64, Int64, Int64, Int64, Int64, Vector{Int64}, Vector{Int64}, Vector{Int64}, Float64, Vector{Int64}, Vector{Int64}}}
     tuple_type = NamedTuple{(:rowi, :coli, :ranges, :norm4, :mij_arr, :sa, :JsSa, :sb, :JsSb, :JlLa, :JlLb, :la, :La, :lb, :Lb, :Lsum, :avals_new, :bvals_new, :factor_ab, :avals, :bvals),Tuple{Int64,Int64,NamedTuple{(:nua, :nub, :NUa, :NUb),Tuple{Float64,Float64,Float64,Float64}},Float64,Array{SArray{Tuple{6},Int64,1,6},1},Float64,Float64,Float64,Float64,Int64,Int64,Int64,Int64,Int64,Int64,Int64,Array{Int64,1},Vector{Int64},Int64,Vector{Int64},Vector{Int64}}}
     temp_args_arr = Vector{tuple_type}(undef, ntot)
     temp_fill_mat = zeros(TT,nbasis_total, nbasis_total)

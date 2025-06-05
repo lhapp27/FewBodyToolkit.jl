@@ -2,16 +2,18 @@
 
 # contains:
 # - size_estimate that bundles everything:
+# - index_interaction_types to determine the indices of the interaction types
 # - abc_size for box-size of TVS Matrices
-# - lLcoupl for coupling of angular momenta
+# - sS/lLsS/lL-coupl for coupling of spins and angular momenta
+# - boxsize_fun for box numbers and number of basis functions in each box
 # - imax_fun for imax in ISGL
 # - kmax_fun for kmax in ISGL
-# - alloc_fun for array allocations
 
 struct SizeParams
     abvals_arr::Vector{Vector{Int64}}
     cvals::Vector{Int64}
     gauss_indices::Vector{Vector{Int}}
+    gaussopt_arr::Vector{Vector{Tuple{Float64,Float64}}}
     central_indices::Vector{Vector{Int}}
     so_indices::Vector{Vector{Int}}
     nint_arr::Vector{Int64}
@@ -48,7 +50,7 @@ struct SizeParams
     maxobs::Int64
 end
 
-function size_estimate(phys_params,num_params,observ_params,gaussopt)
+function size_estimate(phys_params,num_params,observ_params)
     
     # input interpretation:
     (;mass_arr,svals,vint_arr,J_tot,parity,spin_arr) = phys_params
@@ -57,11 +59,10 @@ function size_estimate(phys_params,num_params,observ_params,gaussopt)
     (;stateindices,centobs_arr,R2_arr) = observ_params
     
     # size of Hamiltonian matrix due to symmetries and interactions
-    gaussbool_arr = [gaussopt[i][1][1] for i in 1:3]
-    cvals = findall(isempty.(vint_arr) .==0 .|| gaussbool_arr .== 1.0) # consider only values for c where there are interactions (or Gaussian interaction!)
+    cvals = findall(isempty.(vint_arr) .==0 ) # consider only values for c where there are interactions (any type)
     
     # number of interactions per Jacobi-set c:
-    gauss_indices, central_indices, so_indices, nint_arr, nintmax = index_interaction_types(vint_arr,gaussopt)
+    gauss_indices, gaussopt_arr, central_indices, so_indices, nint_arr, nintmax = index_interaction_types(vint_arr)
 
     # box sizes, indices and factors for symmetrization
     abvals_arr,groupindex_arr,nboxes,abI,factor_bf = abc_size(cvals,svals)
@@ -70,11 +71,6 @@ function size_estimate(phys_params,num_params,observ_params,gaussopt)
     s_arr,JsS_arr,s_complete,JsS_complete = sScoupl(spin_arr,cvals)
     JlL_arr,JlL_complete = lLsScoupl(J_tot,JsS_arr,s_arr,cvals)
     lL_nested,lL_complete,l_complete = lLcoupl(J_tot,parity,cvals,svals,spin_arr,s_arr,JsS_arr,JlL_arr,lmin,Lmin,lmax,Lmax)
-    
-    if lastindex(lL_complete) == 0
-        error("Error in size_estimate: No valid (l,L)-couplings found.")
-        return
-    end
 
     # box sizes = number of basis functions in each box; starts,ends = indices for boxes within big matrix; bvalsdiag = simplification for identical particles
     box_size_arr,nbasis_total = boxsize_fun(groupindex_arr,abvals_arr,lL_nested,nmax,Nmax)
@@ -103,27 +99,23 @@ function size_estimate(phys_params,num_params,observ_params,gaussopt)
     maxobs = maximum(lastindex.(centobs_arr)) # max number of observables
 
     # Constructing Struct (collective data structure size_params with all the size parameters)
-    size_params = SizeParams(abvals_arr,cvals,gauss_indices,central_indices,so_indices,nint_arr,nintmax,groupindex_arr,nboxes,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,JlL_complete,lL_nested,lL_complete,l_complete,nlL,nl,maxlmax,imax_dict,imaxSO_dict,maximax,mij_arr_dict,mijSO_arr_dict,kmax_dict,maxkmax,maxobs)
+    size_params = SizeParams(abvals_arr,cvals,gauss_indices,gaussopt_arr,central_indices,so_indices,nint_arr,nintmax,groupindex_arr,nboxes,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,JlL_complete,lL_nested,lL_complete,l_complete,nlL,nl,maxlmax,imax_dict,imaxSO_dict,maximax,mij_arr_dict,mijSO_arr_dict,kmax_dict,maxkmax,maxobs)
     
-    #for debugging:
-    #@show(spin_arr,s_arr,JsS_arr)
-    #@show(JlL_arr,lL_nested)
-    #@show([box_size_arr,nbasis_total])
-
     return size_params
 end
 
 
-function index_interaction_types(vint_arr,gaussopt)
-    gauss_indices = Vector{Vector{Int}}(undef, 3)
-    central_indices = Vector{Vector{Int}}(undef, 3)
-    so_indices = Vector{Vector{Int}}(undef, 3)
+function index_interaction_types(vint_arr)
+    gauss_indices = [Int[] for _ in 1:3]
+    gaussopt_arr = [Tuple{Float64,Float64}[] for _ in 1:3]
+    central_indices = [Int[] for _ in 1:3]
+    so_indices = [Int[] for _ in 1:3]
     nint_arr = zeros(Int64,3)
 
-#=     #replacement by multiple dispatch: is this really more elegant? # currently problematic in debugging due to include("ISGL.jl").
-    pushindexpotentialtype!(v::Function, central_indices, so_indices, i) = push!(central_indices, i) # Allow plain functions to act as central potentials
-    pushindexpotentialtype!(::CentralPotential, central_indices, so_indices, i) = push!(central_indices, i)
-    pushindexpotentialtype!(::SpinOrbitPotential, central_indices, so_indices, i) = push!(so_indices, i) =#
+    pushindexpotentialtype!(v::Function, central_indices, gauss_indices, so_indices, i) = push!(central_indices, i) # treat function as a central potential
+    pushindexpotentialtype!(v::CentralPotential, central_indices, gauss_indices, so_indices, i) = push!(central_indices, i)
+    pushindexpotentialtype!(v::SpinOrbitPotential, central_indices, gauss_indices, so_indices, i) = push!(so_indices, i)
+    pushindexpotentialtype!(v::GaussianPotential, central_indices, gauss_indices, so_indices, i) = push!(gauss_indices, i)
     
 
     for c in 1:3
@@ -131,28 +123,21 @@ function index_interaction_types(vint_arr,gaussopt)
         central_indices[c] = Int[]
         so_indices[c] = Int[]
         for (i, v) in enumerate(vint_arr[c])
-            #pushindexpotentialtype!(v, central_indices[c], so_indices[c], i)
+            pushindexpotentialtype!(v, central_indices[c], gauss_indices, so_indices[c], i)
 
-            # replaced by multiple dispatch, see above
-            if v isa Function || v isa CentralPotential
-                push!(central_indices[c], i)
-            elseif v isa SpinOrbitPotential
-                push!(so_indices[c], i)
+            if i in gauss_indices[c] # if this is a Gaussian potential
+                push!(gaussopt_arr[c], (v.v0, v.mu_g)) # store the parameters of the Gaussian potential
             else
-                error("Unknown potential type at c=$c, i=$i: $v, typeof(v) = $(typeof(v))")
+                push!(gaussopt_arr[c], (NaN, NaN)) # if not a Gaussian potential, store NaN
             end
-        end
-        for i in 1:lastindex(gaussopt[c])
-            if gaussopt[c][i][1] == 1.0
-                push!(gauss_indices[c], i)
-            end
+
         end
         nint_arr[c] = lastindex(vint_arr[c])
     end
 
     nintmax = maximum(nint_arr)
 
-    return gauss_indices, central_indices, so_indices, nint_arr, nintmax
+    return gauss_indices, gaussopt_arr, central_indices, so_indices, nint_arr, nintmax
 end
 
 
@@ -203,7 +188,6 @@ function abc_size(cvals,svals)
     
     #return uniq,ntypes,typepos_arr,grouplength_arr," | ",typepos_arr2,groupindex_arr
 
-    # for extension to spin systems: this should remain the same, as it only finds the corresponding component. probably only the factor needs to be extended to +-(-1)^(l_a/b + s_a/b). we can test this by a simple calculation, since the eigenvalues for bbx should be exactly the same as for zyx!
     # in which box are the identical particles? -> boxI
     # which Faddeev component gets the symmetry factor +-(-1)^l_a/b? -> abI
     if lastindex(uniq) == 2 ## why do we need it only for 2+1 systems?! because for 3 identicals, it is ok to assume l_i = even/odd, for all i=1,2,3. for 2+1 systems, i.e. bbz, l_3 will be even/odd automatically, but l_1,2 not. therefore the additional factor is required
@@ -230,18 +214,18 @@ end
 #ok there are 3 aspects:
 # 1. J = JlL + JsS coupling
 # 2. parity = (-1)^(l+L)
-# 3. (anti-)symmetrization (for each identical pair): (-1)^s * (-1)^l = +1 (-1) for bosons (fermions)
+# 3. (anti-)symmetrization (for each identical pair): (-1)^s * (-1)^l must be +1 (-1) for bosons (fermions)
 # and also the normal angular momentum addition JjL = l+L, as well as sij=si+sj and JsS = sij+Sk
 
 
 # function for spin-spin coupling
-# this function does not respect whether some values of sS are not allowed due to J=lL+sS coupling! this should be taken care of later?!
+# this function does not respect whether some values of sS are not allowed due to J=lL+sS coupling!
 function sScoupl(spin_arr,cvals)
     z_arr = spin_arr # single-particle spins
     
     s_arr = ([Vector{Float64}() for _ in 1:3]) # for each c (1:3) there is a vector of possible values for s_k = s_ij = z_i + z_j (two-particle spins)
     #S_arr = zeros(Float64,3) # values for S_k = z_k
-    JsS_arr = ([Vector{Vector{Float64}}() for _ in 1:3]) # for each c (1:3) there is a vector of possible values for sS_k = s_k + S_k (effective total spin). Should these values not be the same for all c?
+    JsS_arr = ([Vector{Vector{Float64}}() for _ in 1:3]) # for each c (1:3) there is a vector of possible values for sS_k = s_k + S_k (effective total spin).
     
     for c in cvals
         a = mod(c,3)+1; # c-2 = c+1
@@ -275,26 +259,13 @@ function sScoupl(spin_arr,cvals)
     
     return s_arr,JsS_arr,s_complete,sS_complete
 end
-# problem: was brauchen wir eigentlich?! i) for central interaction and ii) for spin-orbit terms
+
 
 #function for J = lL + sS coupling
-# i think we need a check here for the parity, right?
 function lLsScoupl(J_tot,JsS_arr,s_arr,cvals)
-    # for each c there are several possible values of sc = s_arr[c] and for, and for each of those values there are several possible values of JsS = JsS_arr[c][is], and we want to find the possible values for JlL = J + (-JsS) (coupling with JsS to J).
-    #they are stored in a dict for now. translation into an array or vector of vectors can be done later if performance critical
-#=     JlL_dict = Dict{Tuple{Float64, Float64, Float64}, Vector{Float64}}()
-    for c in cvals # for all c-values
-        #@show(c,s_arr[c])
-        for (is,sc) in enumerate(s_arr[c])
-            #@show(is,sc,JsS_arr[c][is])
-            for (iss,JsS) in enumerate(JsS_arr[c][is])
-                JlL_dict[(c,sc,JsS)] = Vector(abs(J_tot-JsS):1:abs(J_tot+JsS))
-            end
-        end
-    end =#
+    # for each c there are several possible values of sc = s_arr[c], and for each of those values there are several possible values of JsS = JsS_arr[c][is], and we want to find the possible values for JlL = J + (-JsS) (coupling with JsS to J).
 
-    # problem with dict: its hard to determine e.g. how many JsS values there are for a given sc, etc ...
-    # using nested vector of vectors instead of dict.
+    # using nested vector of vectors:
     JlL_arr = [Vector{Vector{Vector{Int64}}}() for _ in 1:3] #before: cvals, but makes problems when c is larger then the amount of cvals.
     for c in cvals # for all c-values
         JlL_arr[c] = [Vector{Vector{Int64}}() for _ in s_arr[c]]
@@ -319,10 +290,8 @@ function lLsScoupl(J_tot,JsS_arr,s_arr,cvals)
     end
     # Determine the maximum number of (l,L)-pairs in any innermost vector
     JlL_complete = unique(temp_JlL)
-    #@show(JlL_arr,JlL_complete)
 
-
-    return JlL_arr,JlL_complete#,JlL_dict # for convenience and debugging we return both nested vector and dict.
+    return JlL_arr,JlL_complete
 end
 
 
@@ -343,8 +312,8 @@ function lLcoupl(J,parity,cvals,svals,spin_arr,s_arr,JsS_arr,JlL_arr,lmin,Lmin,l
                     for l in lmin:lmax
                         for L in Lmin:Lmax
                             if abs(l - L) <= JlL <= l + L # allowed J for l, L coupling
-                                if (-1)^(l + L) == parity # allowed combination of l, L from global parity, wait that is only the spatial parity?
-                                    #(anti-)symmetrization: pi_l = (-1)^l; pi_ls = (-1)^(l+seff) != +(-)1 for identical bosons (fermions)
+                                if (-1)^(l + L) == parity # allowed combination of l, L from global parity
+                                    #(anti-)symmetrization: pi_l = (-1)^l; pi_ls = (-1)^(l+seff) and must be +(-)1 for identical bosons (fermions)
                                     if svals[mod(c + 1, 3) + 1] == svals[mod(c, 3) + 1] == "b"  # if Jacobi-Set c contains relative coordinate between two identical bosons -> even parity: 
                                         mod(l+seff, 2) != 0 && continue #skip if l+seff is not even
                                     elseif svals[mod(c + 1, 3) + 1] == svals[mod(c, 3) + 1] == "f" # if Jacobi-Set c contains relative coordinate between two identical fermions -> odd parity:
@@ -386,22 +355,16 @@ function lLcoupl(J,parity,cvals,svals,spin_arr,s_arr,JsS_arr,JlL_arr,lmin,Lmin,l
     end
     l_complete = unique(l_vals)
 
-    #@show(lL_complete,l_complete)
+    if lastindex(lL_complete) == 0
+        error("Error in size_estimate: No valid (l,L)-couplings found.")
+        return
+    end
 
     return lL_nested, lL_complete, l_complete
 end
 
 
 ## function to determine the size (= number of basis functions) in each box
-function boxsize_fun_old(abvals_arr,groupindex_arr,lL_arr,nmax,Nmax)
-    box_size_arr = zeros(Int64,3)
-    for grp in groupindex_arr
-        box_size_arr[grp] = Int64(lastindex(lL_arr[abvals_arr[grp][1]])*nmax*Nmax) # number of combinations of (l,L) values in each box, times number of basis functions
-    end
-    nbasis_total = Int64(sum(box_size_arr))
-    return box_size_arr,nbasis_total
-end
-
 function boxsize_fun(groupindex_arr,abvals_arr,lL_nested,nmax,Nmax)
     box_size_arr = zeros(Int64,3)
     # alternative via loops:
@@ -428,59 +391,7 @@ function boxsize_fun(groupindex_arr,abvals_arr,lL_nested,nmax,Nmax)
     return box_size_arr,nbasis_total
 end
 
-
-# for spin-orbit interactions
-function imax_funSO(lL_complete)
-    imaxSO_dict = Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}, Int64}, Int64}() # additional Int64 argument for v
-    mijSO_arr_dict = Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}, Int64},Vector{SVector{6, Int64}}}() # additional Int64 argument for v
-    for i in keys(lL_complete)
-        for j in keys(lL_complete)
-            for v in 1:6
-                imaxSO_dict[lL_complete[i],lL_complete[j],v], mijSO_arr_dict[lL_complete[i],lL_complete[j],v] = imaxSO(lL_complete[i],lL_complete[j],v)
-            end
-        end
-    end
-    return imaxSO_dict,mijSO_arr_dict
-end
-
-#same as below but for spin-orbit interactions
-function imaxSO((la,La),(lb,Lb),v) # u1=m12,u2=m13,...
-    # no simple parity check
-
-    Lsum = Int64((la+La+lb+Lb)/2)
-    jj = Lsum -1 #variable j
-
-    lambdamat = SMatrix{6,4,Int64}(
-        [1 1 0 0;
-         1 0 1 0;
-         1 0 0 1;
-         0 1 1 0;
-         0 1 0 1;
-         0 0 1 1]
-    )
-    tla = la - lambdamat[v,1] # \tilde{l}_k = l_k - lambda_{v,k}; k \in \{a,A,b,B\}
-    tLa = La - lambdamat[v,2]
-    tlb = lb - lambdamat[v,3]
-    tLb = Lb - lambdamat[v,4]
-    
-    mijSO_arr = Vector{SVector{6, Int64}}();
-    iSO=0
-    for m12 = 0:jj # u1
-        for m13 = 0:(jj-m12) # u2
-            m14=tla-m12-m13 # u3
-            m23=Int64((tla+tLa+tlb-tLb)/2) - m12-m13 # u4
-            m24=Int64((-tla+tLa-tlb+tLb)/2) + m13 # u5
-            m34=Int64((-tla-tLa+tlb+tLb)/2) + m12 # u6
-            (m14<0||m23<0||m24<0||m34<0) && continue # additional constraint: all mij >=0 !
-            iSO += 1
-            push!(mijSO_arr,SA[m12,m13,m14,m23,m24,m34])
-            #@show([m12,m13,m14,m23,m24,m34,iSO])
-        end
-    end
-    
-    return iSO,mijSO_arr
-end
-
+# imax for ISGL:
 function imax_fun(lL_complete)
     imax_dict = Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}}, Int64}()
     mij_arr_dict = Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}},Vector{SVector{6, Int64}}}() # this is a dict (for the different (la,La),(lb,Lb) pairs) of vectors (each has length imax) of SVectors (length 6, for m12,m13,...).
@@ -519,7 +430,59 @@ function imax((la,La),(lb,Lb)) # u1=m12,u2=m13,...
     return i,mij_arr
 end
 
+#same as above but for spin-orbit interactions
+function imax_funSO(lL_complete)
+    imaxSO_dict = Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}, Int64}, Int64}() # additional Int64 argument for v
+    mijSO_arr_dict = Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}, Int64},Vector{SVector{6, Int64}}}() # additional Int64 argument for v
+    for i in keys(lL_complete)
+        for j in keys(lL_complete)
+            for v in 1:6
+                imaxSO_dict[lL_complete[i],lL_complete[j],v], mijSO_arr_dict[lL_complete[i],lL_complete[j],v] = imaxSO(lL_complete[i],lL_complete[j],v)
+            end
+        end
+    end
+    return imaxSO_dict,mijSO_arr_dict
+end
 
+function imaxSO((la,La),(lb,Lb),v) # u1=m12,u2=m13,...
+    # no simple parity check
+
+    Lsum = Int64((la+La+lb+Lb)/2)
+    jj = Lsum -1 #variable j
+
+    lambdamat = SMatrix{6,4,Int64}(
+        [1 1 0 0;
+         1 0 1 0;
+         1 0 0 1;
+         0 1 1 0;
+         0 1 0 1;
+         0 0 1 1]
+    )
+    tla = la - lambdamat[v,1] # \tilde{l}_k = l_k - lambda_{v,k}; k \in \{a,A,b,B\}
+    tLa = La - lambdamat[v,2]
+    tlb = lb - lambdamat[v,3]
+    tLb = Lb - lambdamat[v,4]
+    
+    mijSO_arr = Vector{SVector{6, Int64}}();
+    iSO=0
+    for m12 = 0:jj # u1
+        for m13 = 0:(jj-m12) # u2
+            m14=tla-m12-m13 # u3
+            m23=Int64((tla+tLa+tlb-tLb)/2) - m12-m13 # u4
+            m24=Int64((-tla+tLa-tlb+tLb)/2) + m13 # u5
+            m34=Int64((-tla-tLa+tlb+tLb)/2) + m12 # u6
+            (m14<0||m23<0||m24<0||m34<0) && continue # additional constraint: all mij >=0 !
+            iSO += 1
+            push!(mijSO_arr,SA[m12,m13,m14,m23,m24,m34])
+            #@show([m12,m13,m14,m23,m24,m34,iSO])
+        end
+    end
+    
+    return iSO,mijSO_arr
+end
+
+
+# kmax for ISGL: same for any interaction type.
 function kmax_fun(l_complete)
     #kmax_arr = Array{Array}(undef, lastindex(l_complete))
     kmax_dict = Dict{Tuple{Int64, Int64},Int64}()

@@ -1,17 +1,11 @@
 # functions to precompute repetedly used arrays within the ISGL program
 
-# contains:
-# - 
-
 # for spins we added transformation coefficients from spins in jacobi-set a,b to c (and a to b)
 
 function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs)    
-    #Destructing Structs:
-    #evtl einfacher alles zu destructen?
-    #(;lmax,Lmax,gem_params,theta_csm,omega_cr,mu0,c_shoulder,kmax_interpol) = num_params
-    
+    #Destructing Structs:   
     (;mass_arr,J_tot,spin_arr) = phys_params
-    (;lmax,Lmax,gem_params,kmax_interpol) = num_params
+    (;lmax,Lmax,gem_params) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;cvals,s_arr,abI,factor_bf,s_complete,JsS_arr,JsS_complete,JlL_arr,JlL_complete,lL_complete,l_complete,nl,imax_dict,mij_arr_dict,kmax_dict,imaxSO_dict,mijSO_arr_dict,so_indices) = size_params
     (;gamma_dict,cleb_arr,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr) = precomp_arrs
@@ -26,45 +20,32 @@ function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_ar
             end
         end
     end
+        
     
-    #@show(J_tot,JlLmax)
-    
-    
-    # how to update the values?!
-    #precompute_gamma(precomp_arrs.gamma_dict,max(nmax,2*max(lmax,Lmax)+1)) #?!
-    #gamma_dict = precompute_gamma(gamma_dict,max(nmax,2*max(lmax,Lmax)+1))
     precompute_gamma(gamma_dict,max(nmax,2*max(lmax,Lmax)+1+2)) #spin-orbit needs higher values, so let's give it +2...
     
-    #cleb_arr = precompute_cleb(cleb_arr,J_tot,nl,l_complete)
     precompute_cleb(cleb_arr,JlL_complete,nl,l_complete)
     #@show(cleb_arr)
     
-    #jmat = precompute_jmat(jmat,mass_arr)
     precompute_jmat(jmat,mass_arr)
     
-    #murR_arr = precompute_murR(murR_arr,mass_arr)
     precompute_murR(murR_arr,mass_arr)
     
-    #nu_arr,NU_arr = precompute_ranges(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax)
     precompute_ranges(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax)
     
-    #norm_arr,NORM_arr = precompute_norms(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
     precompute_norms(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
     precompute_spintrafo(spin_arr,s_arr,JsS_arr,spintrafo_dict)
     precompute_facsymm(facsymm_dict,abI,factor_bf,spin_arr,l_complete,s_complete,s_arr)
     precompute_global6jfac(global6j_dict,J_tot,JsS_complete,JlL_complete)# also only for LS interaction, but necessary fur current fillTVS implementation
     precompute_spinoverlap(spinoverlap_dict,J_tot,spin_arr,s_arr,JsS_arr,spintrafo_dict) # same as above
     
-    #Clmk_arr = precompute_Clmk(Clmk_arr,l_complete,nl,kmax_dict,gamma_dict,temp_clmk)
     precompute_Clmk(Clmk_arr,l_complete,nl,kmax_dict,gamma_dict,temp_clmk)
     
-    #Dlmk_arr = precompute_Dlmk(Dlmk_arr,l_complete,nl,kmax_dict,temp_dlmk)
     precompute_Dlmk(Dlmk_arr,l_complete,nl,kmax_dict,temp_dlmk)
     
-    #S_arr = precompute_S(S_arr,Clmk_arr,Dlmk_arr,J_tot,lL_complete,l_complete,imax_dict,mij_arr_dict,kmax_dict,gamma_dict,cleb_arr,temp_S,temp_D1,temp_D2)
     precompute_S(S_arr,Clmk_arr,Dlmk_arr,JlL_complete,lL_complete,l_complete,imax_dict,mij_arr_dict,kmax_dict,gamma_dict,cleb_arr,temp_S,temp_D1,temp_D2)
     
-    # necessary only for spin-orbit interactions:
+    # necessary only in case of spin-orbit interactions:
     if prod(isempty.(so_indices)) == false
         precompute_SSO(SSO_arr,Clmk_arr,Dlmk_arr,JlL_complete,lL_complete,l_complete,imaxSO_dict,mijSO_arr_dict,kmax_dict,gamma_dict,cleb_arr,temp_S,temp_D1,temp_D2)
     end
@@ -77,7 +58,6 @@ function precompute_gamma(gamma_dict,ende)
     for i=0.5:0.5:ende+0.5
         gamma_dict[i] = gamma(i)
     end
-    #return gamma_dict
 end
 
 
@@ -112,19 +92,17 @@ end
             end
         end
     end
-    
-    #return cleb_arr    
+
 end
 
 
 ### jacobi transformation matrices:
 function precompute_jmat(jmat,m_arr)
-    for i = 1:3 # just calculate all combinations... better: i,j in cvals?
+    for i = 1:3 # just calculate all combinations.
         for j=1:3
             jmat[i,j] = jcbtr(i,j,m_arr)
         end
     end
-    #return jmat
 end
 
 function jcbtr(i::Int64,f::Int64,m_arr::Array{<:Real}) # For fixed m1,m2,m3. 
@@ -142,13 +120,12 @@ end
 ### reduced masses:
 function precompute_murR(murR_arr,m_arr)
     for b = 1:3# just calculate all combinations...
-        ma = m_arr[mod(b+1,3)+1]#circshift(m_arr,1)[b];#m_arr[mod(b+1,3)+1]; # Ergibt b-1 in Möglichkeiten 1,2,3; mappt 1,2,3 auf 3,1,2.
+        ma = m_arr[mod(b+1,3)+1] # mapps 1,2,3 auf 3,1,2.
         mb = m_arr[b];
-        mc = m_arr[mod(b,3)+1]#circshift(m_arr,-1)[b];#m_arr[mod(b,3)+1]; # Ergibt b+1 in Möglichkeiten 1,2,3; mappt 1,2,3 auf 2,3,1
+        mc = m_arr[mod(b,3)+1] # mapps 1,2,3 auf 2,3,1
         murR_arr[1,b] = mc*ma/(mc+ma); # mur
         murR_arr[2,b] = mb*(ma+mc)/(ma+mb+mc); # muR
     end
-    #return murR_arr
 end
 
 
@@ -157,8 +134,6 @@ function precompute_ranges(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax)
     # returns the array nu_arr[n=1:nmax] for each value of n. same for NU_arr[N=1:Nmax]
     nu_arr .= buildnu(r1,rnmax,nmax,nu_arr)
     NU_arr .= buildnu(R1,RNmax,Nmax,NU_arr)
-    
-    #return nu_arr,NU_arr
 end
 
 @views function buildnu(r1,rnmax,nmax,nu_arr)
@@ -187,8 +162,6 @@ function precompute_norms(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_di
             NORM_arr[l,N] = norm(NU_arr[N],l)
         end
     end
-    
-    #return norm_arr,NORM_arr
 end
 
 #global 6j prefactor for spin-orbit interaction
@@ -210,7 +183,7 @@ end
 #spintrafo is for the U-functions
 function precompute_spintrafo(spin_arr,s_arr,JsS_arr,spintrafo_dict)
     # returns an array for all possible spin transformation coefficients
-    # there should be some simplifications such that we dont need to calculate them all (440-444)
+    # are there some simplifications such that we dont need to calculate them all?
     for c = 1:3 # for simplicity all c-values, even if not used
         for cprime = 1:3
             for (is,sc) in enumerate(s_arr[c])
@@ -227,11 +200,11 @@ function precompute_spintrafo(spin_arr,s_arr,JsS_arr,spintrafo_dict)
 end
 
 function spintrafo_fun(c,cp,JsS,sc,scp,spin_arr)
-    a,b = mod(c,3)+1,mod(c+1,3)+1 # a=c+1,b=c-1, for given c^
+    a,b = mod(c,3)+1,mod(c+1,3)+1 # a=c+1,b=c-1, for given c
     za,zb,zc = spin_arr[[a,b,c]]
     
     # cyclic permutation of jacobi sets needs to be treated separately:
-    if cp == c # racah coefficients cannot cope for coupling in the same basis?
+    if cp == c # special treatment if we stay in the same jacobi set
         #println("cp=$cp == c=$c")
         if sc == scp
             return 1.0
@@ -248,9 +221,8 @@ function spintrafo_fun(c,cp,JsS,sc,scp,spin_arr)
 end
 
 # matrix element of the spin part for l-s interactions
-# this corresponds only to the double-bar matrix element of the spin part (Eq. 60, if we dont change the numbering.) The "global" 6j-symbol carrying the JlL(a,b) and JsS(a,b) dependenceies should be calculated within TVSfill. Therefore this function is independent of JlL!
+# this corresponds only to the double-bar matrix element of the spin part (Eq. 60 in my notes.) The "global" 6j-symbol carrying the JlL(a,b) and JsS(a,b) dependencies should be calculated within TVSfill. Therefore this function is independent of JlL!
 function precompute_spinoverlap(spinoverlap_dict,J_tot,spin_arr,s_arr,JsS_arr,spintrafo_dict)
-    # Eq. (63) in new notes
     J = J_tot
     for a in 1:3
         for b in 1:3
@@ -259,7 +231,6 @@ function precompute_spinoverlap(spinoverlap_dict,J_tot,spin_arr,s_arr,JsS_arr,sp
                     for (isb,sb) in enumerate(s_arr[b])
                         for (issa,JsSa) in enumerate(JsS_arr[a][isa])
                             for (issb,JsSb) in enumerate(JsS_arr[b][isb]) # is there a better way to use only JsSa values that are also allowed for b?
-                                #@show([a,b,c,JsS,sa,sb,JlL])
                                 
                                 zc = spin_arr[c]
                                 uabc = 0.0
@@ -268,12 +239,6 @@ function precompute_spinoverlap(spinoverlap_dict,J_tot,spin_arr,s_arr,JsS_arr,sp
                                     ubc = conj(spintrafo_dict[b,c,JsSb,sb,sc])
                                     uabc += uac*ubc * (-1)^(sc+zc+JsSb+1) * sqrt(sc*(sc+1)*(sc+2)) * WignerSymbols.wigner6j(sc,JsSa,zc,JsSb,sc,1)
                                     
-                                    #check if this cures comparison to 2-body system:
-                                    #zc == 0 && ( uabc *= sqrt((2*sc+1)/(sc+2)) ) ## THIS IS NOT SATISFACTORY!, and not completely correct either...
-
-                                    #@show([a,b,c,sa,sb,sc,JsSa,JsSb,zc])
-                                    #@show([uac,ubc,uabc])
-                                    #this should be checked again:
                                     #= #check: indeed no contribution for sc = 0
                                     if sc == 0.0
                                         zzz = sqrt((sc+2)/(2sc+1)) * (sc*(sc+1) + JsS*(JsS+1) - zc*(zc+1))
@@ -281,13 +246,10 @@ function precompute_spinoverlap(spinoverlap_dict,J_tot,spin_arr,s_arr,JsS_arr,sp
                                     end =#
                                     
                                 end
-                                uabc *= sqrt((2*JsSa + 1)*(2*JsSb + 1)) # *hbar? hbar set to 1.0 here...
+                                uabc *= sqrt((2*JsSa + 1)*(2*JsSb + 1)) # *hbar?
                                 
                                 x = sqrt(sa*(sa+1)*(sa+2))
                                 y = sqrt(sa*(sa+1)*(2*sa+1))
-
-
-                                #@show([uabc,x,y])
 
                                 spinoverlap_dict[a,b,c,JsSa,JsSb,sa,sb] = uabc
                             end
@@ -307,6 +269,7 @@ function ex_sum(v, a)
     sum(v[setdiff(1:3, a)])
 end
 
+# symmetry prefactor in case of identical particles
 function facsymm(a,b,abI,la,lb,factor_bf,spin_arr,sa,sb)
     #abI == 0 && return 1
     factor_symm = 1
@@ -331,11 +294,10 @@ function precompute_facsymm(facsymm_dict,abI,factor_bf,spin_arr,l_complete,s_com
             end
         end
     end
-    #return facsymm_arr
 end
 
 
-### Clmk
+### Clmk of ISGL
 @views @inbounds function precompute_Clmk(Clmk_arr,l_complete,nl,kmax_dict,gamma_dict,temp_arr)
     # returns the array of C[l,m,k] for each necessary l,m,k combination
     #temp_arr = MVector{findmax(kmax_dict)[1], Float64}(zeros(findmax(kmax_dict)[1]))
@@ -346,7 +308,6 @@ end
             m>0 && (@. Clmk_arr[l,-m,1:kmax_dict[l,-m]] = (-1)^m*Clmk_arr[l,m,1:kmax_dict[l,m]])
         end
     end
-    #return Clmk_arr
 end
 
 
@@ -380,7 +341,7 @@ end
 
 
 
-### Dlmk
+### Dlmk fo ISGL
 @views @inbounds function precompute_Dlmk(Dlmk_arr,l_complete,nl,kmax_dict,temp_arr)
     # returns a big array D[l,m,k,1:3] of [Dx,Dy,Dz] for each l,m,k combination necessary
     for l in l_complete #lindex = 1:nl
@@ -390,7 +351,6 @@ end
             m>0 && (Dlmk_arr[l,-m,1:kmax_dict[l,-m],:] .= conj.(Dlmk_arr[l,m,1:kmax_dict[l,m],:]))
         end
     end
-    #return Dlmk_arr
 end
 
 @views @inbounds function dlmk_fun(l,m,kmax,temp_arr)
@@ -421,43 +381,36 @@ end
     
     for JlL in JlL_complete
         for i in keys(lL_complete)
-            (la,La) = lL_complete[i] # reihenfolge wichtig?!
+            (la,La) = lL_complete[i] 
             for j in keys(lL_complete)
-                (lb,Lb) = lL_complete[j] # reihenfolge wichtig?!
-                #=             if lb < la && Lb < La
-                    S_arr[la,La,lb,Lb,:] .= S_arr[lb,Lb,la,La,:]
-                    println("hi: la,La,lb,Lb=",la,",",La,",",lb,",",Lb)
-                    continue
-                end
-                println("la,La,lb,Lb=",la,",",La,",",lb,",",Lb) =#
-                #(lb >la || Lb > La) && continue #!!?? Achtung: Vereinfachung zum debuggen!!            
+                (lb,Lb) = lL_complete[j]
+
                 S_arr[la,La,lb,Lb,JlL,:] .= Si_fun(JlL,la,La,lb,Lb,imax_dict[((la,La),(lb,Lb))],mij_arr_dict[((la,La),(lb,Lb))],kmax_dict,gamma_dict,cleb_arr,Clmk_arr,Dlmk_arr,temp_arr,tempD1,tempD2)
             end
         end
     end
-    #return S_arr
 end
 
 
 
-# mit Wigner Eckart Vereinfachung: -> bis zu Faktor 100 schneller!?
+# Using Wigner-Eckart
 @views @inbounds function Si_fun(JlL,la,La,lb,Lb,imax,mij_arr_i,kmax_dict,gamma_dict,cleb_arr,Clmk_arr,Dlmk_arr,temp_arr,D1,D2)
     # returns a vector S(la,La,lb,Lb,J)[i=1,i=2,...,i=maximax] only i=1:imax(la,La,lb,LB) is filled with nonzeros
     
-    M_tot = JlL # why?! should be independent of M -> choose as we like
+    M_tot = JlL # should be independent of M -> choose as we like
     
     # reset to zero (the same array is used in each function call)
     for i = 1:lastindex(temp_arr)
         temp_arr[i] = 0.0
     end
     
-    for ma = la:la # statt -la:la (Wigner-Eckart!)
+    for ma = la:la # instead of -la:la (Wigner-Eckart!)
         Ma = M_tot - ma
-        abs(Ma) > La && continue # its a guess atm: not sure if I fully understand this... dependency on M_tot?
+        abs(Ma) > La && continue
         
         for mb = -lb:lb
             Mb = M_tot - mb
-            abs(Mb) > Lb && continue # its a guess atm: not sure if I fully understand this... dependency on M_tot?
+            abs(Mb) > Lb && continue
             
             cleb_fac = 1/cleb_arr[la,ma,La,Ma,JlL]*cleb_arr[lb,mb,Lb,Mb,JlL]
             
@@ -511,8 +464,7 @@ end
 ### S_coeff
 @views @inbounds function precompute_SSO(SSO_arr,Clmk_arr,Dlmk_arr,JlL_complete,lL_complete,l_complete,imaxSO_dict,mijSO_arr_dict,kmax_dict,gamma_dict,cleb_arr,temp_arr,tempD1,tempD2)
     # returns the OffsetArray S_arr[la,La,lb,Lb,1:maximax]. only 1:imax(la,La,lb,Lb) is filled with nonzeros.
-    
-    
+        
     for JlLa in JlL_complete
         for JlLb in JlL_complete
             (abs(JlLa - JlLb) <= 1 <= JlLa + JlLb) == false && continue # only for allowed values of JlLa,JlLb
@@ -559,16 +511,11 @@ end
         temp_arr[i] = 0.0
     end
     
-    #done outside already
-    #=     if (abs(JlLa - JlLb) <= 1 <= JlLa + JlLb) == false
-        return temp_arr
-    end =#
-    
     M_tot = 0 # not really Mtot, but the index? (not rank) of the tensor operator
     MlLa = min(JlLa, JlLb)
     MlLb = MlLa
     
-    mamax = min(la,MlLa+La) # from legacy code, origin not clear
+    mamax = min(la,MlLa+La) # untested
     mamin = max(-la,MlLa-La)
     mbmax = min(lb,MlLb+Lb)
     mbmin = max(-lb,MlLb-Lb)
@@ -584,7 +531,7 @@ end
     else
         clebJba = cleb_arr[1,M_tot,JlLb,MlLb,JlLa]
     end
-    clebjllabJ = (-1)^(-1+JlLa+JlLb)*sqrt(2*JlLa+1) / clebJba # this is my formula. legacy code has some weird factor, which i cannot reproduce since CLEBSH does not output clebsch-gordan...
+    clebjllabJ = (-1)^(-1+JlLa+JlLb)*sqrt(2*JlLa+1) / clebJba # my formula. untested
     
     for ma = mamin:mamax # no easy truncation from Wigner-Eckart
         Ma = MlLa - ma
@@ -596,15 +543,6 @@ end
             
             cleb_fac = cleb_arr[la,ma,La,Ma,JlLa]*cleb_arr[lb,mb,Lb,Mb,JlLb]*clebjllabJ
             
-            #=             if la == La == lb == Lb == v == JlLa == JlLb == 1
-                ca = cleb_arr[la,ma,La,Ma,JlLa]
-                cb = cleb_arr[lb,mb,Lb,Mb,JlLb]
-                @show([la,ma,La,Ma,JlLa,MlLa])
-                @show([lb,mb,Lb,Mb,JlLb,MlLb])
-                @show([ca,cb])
-                @show(ca*cb*clebjllabJ)
-            end =#
-            
             for ka=1:kmax_dict[la,ma]
                 for Ka=1:kmax_dict[La,Ma]
                     for kb=1:kmax_dict[lb,mb]
@@ -612,7 +550,7 @@ end
                             # ccleb_fac = RCFAC
                             ccleb_fac = Clmk_arr[la,ma,ka]*Clmk_arr[La,Ma,Ka]*Clmk_arr[lb,mb,kb]*Clmk_arr[Lb,Mb,Kb] * cleb_fac
                             
-                            # D_i, the i is only determined by la,ma,ka?
+                            # D_i, the i is only determined by la,ma,ka
                             D1 .= conj.(Dlmk_arr[la,ma,ka,:])
                             D2 .= conj.(Dlmk_arr[La,Ma,Ka,:])
                             D3 = Dlmk_arr[lb,mb,kb,:]
