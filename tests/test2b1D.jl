@@ -1,9 +1,6 @@
-# For testing the new feature CSM (only 1D code currently)
-#=
-using Pkg; Pkg.activate(".")
-using FewBodyToolkit.GEM2B =#
+# Tests for the module GEM2B (1D scenario)
 
-using BenchmarkTools,Printf
+using BenchmarkTools,Printf, FewBodyToolkit.GEM2B
 
 ## general inputs:
 # Physical parameters
