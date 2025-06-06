@@ -11,11 +11,16 @@ Literate.markdown("examples/1D_2+1.jl", joinpath(@__DIR__, "src"), name="1D_2+1"
 Literate.markdown("examples/ISGL_HD+.jl", joinpath(@__DIR__, "src"), name="ISGL_HD+",flavor=Literate.DocumenterFlavor())
 
 
-makedocs(
+DocMeta.setdocmeta!(FewBodyToolkit, :DocTestSetup, :(using FewBodyToolkit); recursive=true)
+
+makedocs(;
   sitename   = "FewBodyToolkit.jl",
   modules    = [FewBodyToolkit],
-  format     = Documenter.HTML(collapselevel=1), #mathengine=MathJax()
-  pagesonly  = true,
+  format     = Documenter.HTML(;
+    canonical = "https://lhapp27.github.io/FewBodyToolkit.jl",
+    edit_link = "main",
+    assets    = String[],
+  ),
   pages      = [
     "Home" => "index.md",
     "Basis Functions" => "BasisFunctions.md",
@@ -34,9 +39,7 @@ makedocs(
   plugins=[bib],
 )
 
-deploydocs(
+deploydocs(;
     repo = "github.com/lhapp27/FewBodyToolkit.jl.git",
     devbranch = "main",
-    push_preview = true,
-    target = "build",
 )
