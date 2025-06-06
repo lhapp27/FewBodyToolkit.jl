@@ -3,18 +3,10 @@
 # This example reproduces the results in the article [happ2019](@cite). It studies a one-dimensional 2+1 system of two identical particles interacting with a third particle via a central potential. Here, the interaction is taken to be a Gaussian potential, which supports a weakly-bound ground state. The two identical particles do not interact.
  
 # ## Setup
-using Printf, FewBodyToolkit.GEM3B1D, FewBodyToolkit.GEM2B;
-import FewBodyToolkit:GaussianPotential;
+using Printf, FewBodyToolkit#.GEM3B1D, FewBodyToolkit.GEM2B
+#import FewBodyToolkit:GaussianPotential
+#import FewBodyToolkit:comparison;
 
-# ## Helper: comparison function
-
-# We define a utility to compare two sets of eigenvalues:
-function comparison(num_arr,ex_arr,simax;s1="Numerical", s2="Exact")
-    @printf("%-7s %-15s %-15s %-15s\n", "Index",  s1, s2, "Difference")
-    for i in 1:simax
-        @printf("%-7d %-15.6f %-15.6f %-15.6f\n", i, num_arr[i], ex_arr[i], ex_arr[i] - num_arr[i])
-    end
-end;
 
 # This function returns the universal energy ratios of Table I in the article for a given mass ratio:
 function exfun(mr)

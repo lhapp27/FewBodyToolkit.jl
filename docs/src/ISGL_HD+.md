@@ -9,7 +9,7 @@ In this example we solve the three-body Coulomb problem of a proton, deuteron an
 ## Setup
 
 ````@example ISGL_HD+
-using Printf, FewBodyToolkit.ISGL
+using Printf, FewBodyToolkit#.ISGL
 ````
 
 ## Input parameters:
@@ -55,7 +55,7 @@ observ_params = (stateindices,centobs_arr = [[rad,rad2],[rad,rad2],[rad,rad2]],R
 
 ## Obtaining energies and observables
 
-Using the optional keyword argument `observ_params (together with `wf_bool=1`) we can obtain the results for the observables on-the-fly. The energies are stored in the `energies` array, the eigenvectors in `wfs`, and the central observables in `co_out`. The mean squared radii for the R-coordinate are stored in `R2_out`.
+Using the optional keyword argument `observ_params` (together with `wf_bool=1`) we can obtain the results for the observables on-the-fly. The energies are stored in the `energies` array, the eigenvectors in `wfs`, and the central observables in `co_out`. The mean squared radii for the R-coordinate are stored in `R2_out`.
 
 ````@example ISGL_HD+
 energies,wfs,co_out,R2_out = ISGL.ISGL_solve(phys_params,num_params;observ_params,wf_bool=1);
@@ -64,18 +64,7 @@ nothing #hide
 
 ## Comparison with literature values
 
-Helper function:
-
 ````@example ISGL_HD+
-function print_comparison_with_diff(label1, arr1, label2, arr2, indices)
-    diff = arr1 .- arr2
-    @printf("%-10s %-12s %-12s %-12s\n", "Index", label1, label2, "Diff")
-    for (i, si) in enumerate(indices)
-        @printf("%-10d %-12.3f %-12.3f %-12.3f\n", si, arr1[i], arr2[i], diff[i])
-    end
-    println("")
-end
-
 compmax = min(6,lastindex(energies));
 num_arr = energies[1:compmax];
 ex_arr = -[0.5978979685,0.5891818291,0.5809037001,0.5730505464,0.5656110418,0.5585755200][1:compmax]; # literature values for the energies
@@ -86,7 +75,7 @@ nothing #hide
 
 ````@example ISGL_HD+
 println("HD+:  Energies:")
-print_comparison_with_diff("Numeric", num_arr, "Literature", ex_arr, 1:compmax)
+comparison(num_arr, ex_arr, compmax; s1="Numeric", s2="Literature")
 println("---------------------------------------------------")
 ````
 
@@ -120,14 +109,14 @@ Comparison of the numerical results with the literature:
 println("\nHD+:  radii ⟨r⟩ with differences")
 strings = ["r_de", "r_pe", "r_dp"]
 for ii in [3,1,2]
-    print_comparison_with_diff(strings[ii], co_out[ii,1,stateindices], string(strings[ii],"(lit)"), r_lit[ii], stateindices)
+    comparison(co_out[ii,1,stateindices], r_lit[ii], 3; s1=strings[ii], s2=string(strings[ii],"(lit)"))
 end
 println("---------------------------------------------------")
 
 println("\nHD+:  squared radii ⟨r²⟩ with differences")
 strings2 = ["r²_de", "r²_pe", "r²_dp"]
 for ii in [3,1,2]
-    print_comparison_with_diff(strings2[ii], co_out[ii,2,stateindices], string(strings2[ii],"(lit)"), r2_lit[ii], stateindices)
+    comparison(co_out[ii,2,stateindices], r2_lit[ii], 3; s1=strings2[ii], s2=string(strings2[ii],"(lit)"))
 end
 println("---------------------------------------------------")
 ````

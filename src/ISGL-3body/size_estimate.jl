@@ -123,7 +123,7 @@ function index_interaction_types(vint_arr)
         central_indices[c] = Int[]
         so_indices[c] = Int[]
         for (i, v) in enumerate(vint_arr[c])
-            pushindexpotentialtype!(v, central_indices[c], gauss_indices, so_indices[c], i)
+            pushindexpotentialtype!(v, central_indices[c], gauss_indices[c], so_indices[c], i)
 
             if i in gauss_indices[c] # if this is a Gaussian potential
                 push!(gaussopt_arr[c], (v.v0, v.mu_g)) # store the parameters of the Gaussian potential

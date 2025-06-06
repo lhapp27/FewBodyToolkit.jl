@@ -68,7 +68,7 @@ end
 # for a symmetric interaction one could integrate only from 0 to Inf and multiply by 2. Not sure if we gain much from it.
 
 function vcent_integration(vcent_fun,alpha,n,buf) #where {V}
-    val = quadgk(r -> integrand(r,alpha,n,vcent_fun),-Inf,0,Inf;segbuf=buf, rtol=1e-6, atol=1e-10)[1] #-Inf for 1D; intermediate 0
+    val = quadgk(r -> integrand(r,alpha,n,vcent_fun),-Inf,0,Inf;segbuf=buf)[1] #-Inf for 1D; intermediate 0
 end
 
 function integrand(r,alpha,n,vcent_fun) # this can be done similar as for 2-body for the different dimensions?

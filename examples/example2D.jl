@@ -1,15 +1,14 @@
 # # 2D Example: Two particles with Harmonic oscillator interaction
 #
 # This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 2D. Here we use the harmonic oscillator, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (we set the magnetic quantum number \\(m = 0\\), and \\(\hbar = 1\\))
-# \\[ -\frac{1}{2} \left[\frac{d^2}{dr^2} + \frac{1}{r} \frac{d}{dr} \right] \psi + V(r)\psi = E\psi \\]
+# \\[ -\frac{1}{2 \mu} \left[\frac{d^2}{dr^2} + \frac{1}{r} \frac{d}{dr} \right] \psi + V(r)\psi = E\psi \\]
 # with the Harmonic oscillator potential
 # \\[ V(r) = -\frac{1}{2} \mu \omega^2 r^2. \\]
 
-# This example can also be found as a runnable script: examples/example2D.jl.
 
 # ## Setup
 
-using Printf, Interpolations, FewBodyToolkit.GEM2B
+using Printf, Interpolations, FewBodyToolkit#.GEM2B
 
 # ## Input parameters
 
@@ -39,16 +38,6 @@ gem_params = (;nmax,r1,rnmax);
 num_params = make_num_params2B(;gem_params,threshold=10^-8)
 
 
-# ## Helper: comparison function
-
-# We define a utility to compare numerical and exact eigenvalues:
-
-function comparison(num_arr,ex_arr,simax;s1="Numerical", s2="Exact")
-    @printf("%-7s %-15s %-15s %-15s\n", "Index",  s1, s2, "Difference")
-    for i in 1:simax
-        @printf("%-7d %-15.6f %-15.6f %-15.6f\n", i, num_arr[i], ex_arr[i], ex_arr[i] - num_arr[i])
-    end
-end;
 
 # ## 1. Numerical solution
 
@@ -108,7 +97,7 @@ println("vscale = $(round(vscale,digits=8)) should be approximately 4.0")
 
 
 # ## 4. Using complex-ranged basis functions
-# We can also use complex-ranged basis functions, which are useful for more oscillatory bound states, i.e. highly excited states. Note that `cr_bool=1` effectively employs twice the number of basis functions, hence for a fair comparison we choose `nmaxC = nmax/2 = 7`:
+# We can also use complex-ranged basis functions, which are useful for more oscillatory bound states, i.e. highly excited states. Note that `cr_bool=1` effectively employs twice the number of basis functions, hence for a fair comparison we choose `nmaxC = nmax/2 = 7`. Keep in mind that the optimal parameters for the complex-ranged basis functions are usually differnt. Hence, we optimize them separately.
 nmaxC = 7
 r1C = 0.5; rnmaxC = 10.0;
 gem_paramsC = (;nmax=nmaxC,r1=r1C,rnmax=rnmaxC);

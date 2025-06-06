@@ -35,19 +35,18 @@
     #v
     for index in 1:flati
         rowi,coli=temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr) # do we need hbar^2 for SO?
+        temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,csm_bool) # do we need hbar^2 for SO?
     end
     # transpose fill:
     V .= Symmetric(temp_fill_mat,:L);
     
     debug_bool = 0
     if debug_bool == 1
-        # Example usage for debugging
-        size_to_print = min(12, size(T, 1))  # Adjust size_to_print as needed
-        #println("T:")
-        #print_matrices(T, size_to_print)
-        #println("V:")
-        #print_matrices(V, size_to_print)
+        stp = min(9, size(T, 1))  # Adjust size_to_print as needed
+        println("T:")
+        display(T[1:stp,1:stp])
+        println("V:")
+        display(V[1:stp,1:stp])
         #println("S:")
         #print_matrices(S, size_to_print)
     end
@@ -110,7 +109,7 @@ function tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_
     return tempT
 end
 
-function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr)
+function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,csm_bool)
     (;rowi,coli,avals_new,bvals_new,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,Lsum,JlLa,JlLb) = temp_args_i
     #println("vab: $rowi, $coli, JsSa=$JsSa, JsSb=$JsSb")
     tempV = 0.0

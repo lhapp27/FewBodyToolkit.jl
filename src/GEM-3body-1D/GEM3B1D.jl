@@ -12,7 +12,7 @@
 module GEM3B1D
 
 using .. FewBodyToolkit
-using SpecialFunctions, QuadGK, GSL, LinearAlgebra, Optim, StaticArrays, Roots, Interpolations, OffsetArrays
+using SpecialFunctions, QuadGK, LinearAlgebra, Optim, StaticArrays, Roots, Interpolations, OffsetArrays
 using Printf: @printf
 
 include("auxiliary.jl")

@@ -1,4 +1,4 @@
-using FewBodyToolkit, Documenter, Literate, DocumenterCitations, Plots, Antique
+using FewBodyToolkit, Documenter, Literate, DocumenterCitations, Plots, Antique, Interpolations
 
 bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"))
 

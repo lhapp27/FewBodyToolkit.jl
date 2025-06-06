@@ -96,7 +96,7 @@ function precompute_varr!(v_arr,alpha_arr,Lsum,gamma_dict,vcent_fun::SpinOrbitPo
 end
 
 function vcent_integration(vcent_fun,alpha,n,buf) #where {V}
-    val = quadgk(r -> integrand(r,alpha,n,vcent_fun),0,Inf;segbuf=buf, rtol=1e-6, atol=1e-10)[1]
+    val = quadgk(r -> integrand(r,alpha,n,vcent_fun),0,Inf;segbuf=buf)[1]
 end
 function integrand(r,alpha,n,vcent_fun)
     return vcent_fun(r)*r^(2*n+2)*exp(-alpha*r^2)

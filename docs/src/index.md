@@ -1,6 +1,6 @@
 # FewBodyToolkit.jl
 
-A Julia package for solving 2- and 3-body quantum systems in 1D, 2D, and 3D.
+A Julia package for solving quantum systems of 2 or 3 particles with general potentials in 1D, 2D, and 3D.
 
 
 ## Features
@@ -20,10 +20,10 @@ The FewBodyToolkit.jl package currently provides three modules with the followin
 
 ### `GEM3B1D` - Three-body solver (1D)
 * Supports 1D three-body problems
-* Symmetric pairwise two-body interactions (no three-body forces)
+* Symmetric two-body pair-interactions, no three-body forces
 * Expansion in up to three Fadeev components (rearrangement channels)
-* Product basis in Jacobi coordinates
 * Automatic (anti-)symmetrization for identical bosons or fermions
+* Product basis in Jacobi coordinates
 * Complex scaling method (CSM) for resonances
 * No separate output of the wave function
 
@@ -32,8 +32,8 @@ The FewBodyToolkit.jl package currently provides three modules with the followin
 * Central two-body pair-interactions, no three-body forces
 * Employs infinitesimally-shifted Gaussian basis functions to handle arbitrary high intrinsic angular momenta (computationally expensive for high values)
 * Expansion in up to three Fadeev components (rearrangement channels)
-* Product basis in Jacobi coordinates
 * Automatic (anti-) symmetrization for identical bosons or fermions
+* Product basis in Jacobi coordinates
 * Complex scaling method (CSM) for resonances
 * On-the-fly calculation of central observables and mean-square radii
 * No separate output of the wave function
@@ -98,5 +98,5 @@ The `GEM2B` module provides tools for solving two-body problems using the Gaussi
 
 #### Wave Function Utilities
 
-- [`wavefun_arr`]: Returns the full wave function as an array sampled on a grid.
-- [`wavefun_point`]: Evaluates the wave function at a given point.
+- [`wavefun_arr`](): Returns the full wave function as an array sampled on a grid.
+- [`wavefun_point`](): Evaluates the wave function at a given point.

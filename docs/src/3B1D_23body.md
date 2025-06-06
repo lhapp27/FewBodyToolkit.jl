@@ -9,7 +9,8 @@ In this example we check if we can reproduce two-body results using the three-bo
 ## Setup
 
 ````@example 3B1D_23body
-using Printf, Plots, FewBodyToolkit.GEM3B1D, FewBodyToolkit.GEM2B
+using Printf, Plots, FewBodyToolkit#.GEM3B1D, FewBodyToolkit.GEM2B
+#import FewBodyToolkit:comparison
 ````
 
 ## Input parameters:
@@ -36,20 +37,6 @@ For the \\( R \\)- Jacobi coordinate we use only a single basis function with a 
 nmax = 8; r1=1.0;rnmax=10.0;
 num_params2B = make_num_params2B(;gem_params=(;nmax, r1, rnmax))
 num_params3B = make_num_params3B1D(;gem_params=(;nmax, r1, rnmax, Nmax= 1, R1=10000.0, RNmax=10000.0))
-````
-
-## Helper: comparison function
-
-We define a utility to compare two sets of eigenvalues:
-
-````@example 3B1D_23body
-function comparison(num_arr,ex_arr,simax;s1="Numerical", s2="Exact")
-    @printf("%-7s %-15s %-15s %-15s\n", "Index",  s1, s2, "Difference")
-    for i in 1:simax
-        @printf("%-7d %-15.6f %-15.6f %-15.6f\n", i, num_arr[i], ex_arr[i], ex_arr[i] - num_arr[i])
-    end
-end;
-nothing #hide
 ````
 
 ## Numerical solution

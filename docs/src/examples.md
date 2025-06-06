@@ -10,4 +10,4 @@ This section collects several usage examples:
 - [Three-body: 3D example](ISGL_HD+.md)
 
 
-There is at least one example for each module.
+There is at least one example for each module. All examples can be found as runnable scripts in the subfolder /examples.

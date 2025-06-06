@@ -4,9 +4,8 @@
 
 module GEM2B
 
-#using LinearAlgebra, SpecialFunctions, QuadGK, Optim, Roots, StaticArrays, Printf
 using .. FewBodyToolkit
-using SpecialFunctions, QuadGK, GSL, LinearAlgebra, Optim, StaticArrays, Roots
+using SpecialFunctions, QuadGK, LinearAlgebra, Optim, StaticArrays, Roots
 using Printf: @printf
 
 include("auxiliary.jl")

@@ -46,34 +46,19 @@
     # Example usage for debugging
     debug_bool = 0
     if debug_bool == 1
-        size_to_print = min(10, size(T, 1))  # Adjust size_to_print as needed
-        print_matrices("T", T, size_to_print) # also achievable via display(T[1:stp,1:stp])
-        print_matrices("V",V, size_to_print)
-        print_matrices("S",S, size_to_print)
+        stp = min(9, size(T, 1))  # Adjust size_to_print as needed
+        println("T:")
+        display(T[1:stp,1:stp])
+        println("V:")
+        display(V[1:stp,1:stp])
+        println("S:")
+        display(S[1:stp,1:stp])
     end
     
     T .+= V # T becomes the full Hamiltonian matrix H = T + V
-    
+
 end
 
-# Debugging: Print matrices in a formatted way
-function print_matrices(name, M, minsize)
-    r, c = size(M)
-    rmax = min(minsize, r)
-    cmax = min(minsize, c)
-    println("Matrix ", name, " (", r, "x", c, "):")
-    for i in 1:rmax
-        for j in 1:cmax
-            if M[i, j] isa Complex
-                @printf("(%8.4f,%8.4f) ", real(M[i,j]), imag(M[i,j]))
-            else
-                @printf("%8.4f ", M[i,j])
-            end
-        end
-        println()
-    end
-    println()
-end
 
 # factor to ensure proper (anti-)symmetrization in case of identical particles. Only needed for 2+1 systems
 # Maybe we should precompute this into a small array or dict instead of calling it repeatedly?

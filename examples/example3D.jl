@@ -5,11 +5,9 @@
 # with the Colomb potential
 # \\[ V(r) = -\frac{Z}{r}. \\]
 
-# This example can also be found as a runnable script: examples/example3D.jl.
-
 # ## Setup
 
-using Printf, BenchmarkTools, Interpolations, FewBodyToolkit.GEM2B, Plots, Antique
+using Printf, Interpolations, Plots, Antique, FewBodyToolkit#.GEM2B
 
 # ## Input parameters
 
@@ -41,16 +39,6 @@ gem_params = (;nmax,r1,rnmax);
 num_params = make_num_params2B(;gem_params)
 
 
-# ## Helper: comparison function
-
-# We define a utility to compare numerical and exact eigenvalues:
-
-function comparison(num_arr,ex_arr,simax;s1="Numerical", s2="Exact")
-    @printf("%-7s %-15s %-15s %-15s\n", "Index",  s1, s2, "Difference")
-    for i in 1:simax
-        @printf("%-7d %-15.6f %-15.6f %-15.6f\n", i, num_arr[i], ex_arr[i], ex_arr[i] - num_arr[i])
-    end
-end;
 
 # ## 1. Numerical solution
 
@@ -62,7 +50,7 @@ simax = min(lastindex(energies),6); # max state index
 
 # The Coulomb potential has infinitely many bound states, whose energies can be found exaclty. We can use the package Antique.jl to provide these energies.
 CTB = Antique.CoulombTwoBody(m₁=mass_arr[1], m₂=mass_arr[2])
-energies_exact = [Antique.E(CTB,n=i) for i=1:simax]
+energies_exact = [Antique.E(CTB,n=i) for i=1:40]
 
 println("1. Numerical solution of the 3D problem:")
 comparison(energies,energies_exact,simax)
@@ -93,7 +81,17 @@ println("after optimization:")
 comparison(energies_opt,energies_exact,simax; s1="Optimized")
 
 
-# ## 3. Using an interpolated interaction
+# ## 3. Example with many basis functions
+
+# Highly accurate results can indeed be obtained by using a larger basis. For a two-body system this comes only at a moderate computational cost. Here, we reproduce the table 2 of Ref. [hiyama2003](@cite) with the following numerical parameters:
+println("\n3. Highly accurate solution using many basis functions:")
+np = make_num_params2B(;gem_params=(;nmax=80,r1=0.015,rnmax=2000.0),omega_cr=1.5,threshold=10^-11)
+@time energies_accurate = GEM2B.GEM2B_solve(phys_params,np;cr_bool=1) # ~3s on an average laptop
+nlist=[1,2,3,4,5,10,14,18,22,26,30,32,34,36,38,40]; # states shown in the article
+comparison(energies_accurate,energies_exact,lastindex(nlist); s1="Numerical", s2="Exact",indexlist=nlist)
+
+
+# ## 4. Using an interpolated interaction
 # We can also create a potential from interpolated data. Since the Coulomb potential diverges at the origin, a relatively fine grid is required.
 
 r_arr = 0.001:0.01:50.001
@@ -104,12 +102,12 @@ v_int(r) = v_interpol(r); # we have to transform the interaction to an object of
 # As input to the solver we need to define new physical parameters with the interpolated interaction. Moreover, we use the optimized numerical parameters from the previous step.
 phys_params_i = make_phys_params2B(;mur,vint_arr=[v_int],dim=3)
 
-println("\n3. Numerical solution using an interpolated interaction:")
+println("\n4. Numerical solution using an interpolated interaction:")
 energies_interpol = GEM2B.GEM2B_solve(phys_params_i,num_params_opt)
 comparison(energies_interpol, energies_opt, simax;s1="Interpolated", s2="Optimized")
 
 
-# ## 4. Coupled-channel problem
+# ## 5. Coupled-channel problem
 
 # The package also supports coupled-channel problems via `GEM2B_solveCC`. In this case the interaction is not provided via phys_params
 phys_paramsCC = make_phys_params2B(;vint_arr=[r->0.0])
@@ -127,13 +125,13 @@ energiesCC = GEM2B.GEM2B_solveCC(phys_paramsCC, num_params_opt, WCC, DCC; diff_b
 
 energies_exactCC = repeat(energies_exact, inner=(2,))
 
-println("\n4. Coupled channel calculation:")
+println("\n5. Coupled channel calculation:")
 comparison(energiesCC, energies_exactCC, simax; s1="Coupled-Channel")
 
 
 
 
-# ## 5. Calculation of the wave function
+# ## 6. Calculation of the wave function
 
 # Adding the optional argument `wf_bool=1` to `GEM2B_solve` also computes and returns a matrix of eigenvectors (in each column). These eigenvectors contain the weights of the basis functions.
 
@@ -166,6 +164,6 @@ p
 
 # The normalization of the wave function can be checked by integrating the density:
 norms = density[:,1:4]'*fill(dr,lastindex(r_arr)) # A simple Riemann sum is sufficient here
-println("\n5. Norms of the wave functions:")
+println("\n6. Norms of the wave functions:")
 comparison(norms, ones(4), 4; s1="Norm", s2="Exact")
 

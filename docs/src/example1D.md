@@ -14,7 +14,7 @@ This example can also be found as a runnable script: examples/example1D.jl.
 ## Setup
 
 ````@example example1D
-using Printf, Interpolations, FewBodyToolkit.GEM2B, Antique
+using Printf, Interpolations, Antique, FewBodyToolkit
 ````
 
 ## Input parameters
@@ -55,20 +55,6 @@ We define the numerical parameters as a `NamedTuple`:
 
 ````@example example1D
 num_params = make_num_params2B(;gem_params)
-````
-
-## Helper: comparison function
-
-We define a utility to compare numerical and exact eigenvalues:
-
-````@example example1D
-function comparison(num_arr,ex_arr,simax;s1="Numerical", s2="Exact")
-    @printf("%-7s %-15s %-15s %-15s\n", "Index",  s1, s2, "Difference")
-    for i in 1:simax
-        @printf("%-7d %-15.6f %-15.6f %-15.6f\n", i, num_arr[i], ex_arr[i], ex_arr[i] - num_arr[i])
-    end
-end;
-nothing #hide
 ````
 
 ## 1. Numerical solution

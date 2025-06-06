@@ -14,7 +14,7 @@ This example can also be found as a runnable script: examples/example2D.jl.
 ## Setup
 
 ````@example example2D
-using Printf, Interpolations, FewBodyToolkit.GEM2B
+using Printf, Interpolations, FewBodyToolkit#.GEM2B
 ````
 
 ## Input parameters
@@ -54,20 +54,6 @@ We define the numerical parameters as a `NamedTuple`:
 
 ````@example example2D
 num_params = make_num_params2B(;gem_params,threshold=10^-8)
-````
-
-## Helper: comparison function
-
-We define a utility to compare numerical and exact eigenvalues:
-
-````@example example2D
-function comparison(num_arr,ex_arr,simax;s1="Numerical", s2="Exact")
-    @printf("%-7s %-15s %-15s %-15s\n", "Index",  s1, s2, "Difference")
-    for i in 1:simax
-        @printf("%-7d %-15.6f %-15.6f %-15.6f\n", i, num_arr[i], ex_arr[i], ex_arr[i] - num_arr[i])
-    end
-end;
-nothing #hide
 ````
 
 ## 1. Numerical solution
@@ -145,7 +131,7 @@ println("vscale = $(round(vscale,digits=8)) should be approximately 4.0")
 ````
 
 ## 4. Using complex-ranged basis functions
-We can also use complex-ranged basis functions, which are useful for more oscillatory bound states, i.e. highly excited states. Note that `cr_bool=1` effectively employs twice the number of basis functions, hence for a fair comparison we choose `nmaxC = nmax/2 = 7`:
+We can also use complex-ranged basis functions, which are useful for more oscillatory bound states, i.e. highly excited states. Note that `cr_bool=1` effectively employs twice the number of basis functions, hence for a fair comparison we choose `nmaxC = nmax/2 = 7`. Keep in mind that the optimal parameters for the complex-ranged basis functions are usually differnt. Hence, we optimize them separately.
 
 ````@example example2D
 nmaxC = 7
