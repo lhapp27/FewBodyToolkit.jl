@@ -1,5 +1,5 @@
 # FewBodyToolkit.jl
-Julia package for solving quantum systems of 2 or 3 particles in 1D–3D with general potentials. For 2-body systems, an expansion in central Gaussian basis functions is employed. For 3-body systems, an expansion in separable Gaussians is used in each Faddeev component.
+Julia package for solving quantum systems of 2 or 3 particles in 1D-3D with general potentials. For 2-body systems, an expansion in central Gaussian basis functions is employed. For 3-body systems, an expansion in separable Gaussians is used in each Faddeev component.
 
 
 # Example usage
@@ -8,14 +8,11 @@ using Pkg;Pkg.activate(".")
 using FewBodyToolkit.ISGL
 
 # Define default physical and numerical parameters:
-pp = make_phys_params()
+pp = make_phys_params() # 3 partices with equal mass, Gaussian interaction
 np = make_num_params()
 
-# specify Gaussian potentials:
-gaussopt=[[[1,-10.0,1.0]],[[1,-10.0,1.0]],[[1,-10.0,1.0]]]
-
 # Solve a 3-body, 3D quantum system
-energies = ISGL_solve(pp,np;gaussopt)
+energies = ISGL_solve(pp,np)
 
 ```
 
