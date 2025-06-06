@@ -65,6 +65,6 @@ jobs:
         shell: julia --project=docs --color=yes {0}
         run: |
           using Documenter: DocMeta, doctest
-          using Examples
-          DocMeta.setdocmeta!(Examples, :DocTestSetup, :(using Examples); recursive=true)
-          doctest(Examples)
+          using FewBodyToolkit
+          DocMeta.setdocmeta!(FewBodyToolkit, :DocTestSetup, :(using FewBodyToolkit); recursive=true)
+          doctest(FewBodyToolkit)
