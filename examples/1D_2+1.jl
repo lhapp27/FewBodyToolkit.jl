@@ -1,11 +1,9 @@
-# # 1D Three-body example
+# # 2+1 system in 1D
 
 # This example reproduces the results in the article [happ2019](@cite). It studies a one-dimensional 2+1 system of two identical particles interacting with a third particle via a central potential. Here, the interaction is taken to be a Gaussian potential, which supports a weakly-bound ground state. The two identical particles do not interact.
  
 # ## Setup
-using Printf, FewBodyToolkit#.GEM3B1D, FewBodyToolkit.GEM2B
-#import FewBodyToolkit:GaussianPotential
-#import FewBodyToolkit:comparison;
+using Printf, FewBodyToolkit
 
 
 # This function returns the universal energy ratios of Table I in the article for a given mass ratio:
@@ -57,7 +55,7 @@ println("Two-body binding energy: ", e2s[1], " (target: $(target_e2) )")
 
 # #### Inputs
 
-# Having found the potential parameters, we can now set up the three-body problem with the scaled potential. For bosons we can use their symmetry with the arguments `svals=["x","b","b"]`, where `x` is the different particle and `b` denotes two identical bosons.
+# Having found the potential parameters, we can now set up the three-body problem with the scaled potential. For bosons we can use their symmetry with the argument `svals=["x","b","b"]`, where `x` is the different particle and `b` denotes two identical bosons.
 vint_arr=[[],[vgscaled],[vgscaled]] #[[v23],[v31],[v12]]
 phys_params3B = make_phys_params3B1D(;mass_arr=mass_arr,svals=["x","b","b"],vint_arr)
 
@@ -97,3 +95,12 @@ ex_arr_F = exfun(massratio)[2:2:end]
 comparison(epsilon_F, ex_arr_F, min(length(epsilon_F),length(ex_arr_F)); s1="Gaussian", s2="Contact")
 
 # Overall, we can reproduce the article's results quite well for both bosonic and fermionic systems. Better results could be obtained with more basis functions and/or optimized basis parameters. Note, however, that perfect agreement cannot be reached, since here we used a finite-range interaction whereas the results taken from the article are for a contact interaction. Only in the limit of vanishing two-body binding energy, the two potentials should yield the same results.
+
+# ## Page References
+
+# ```@bibliography
+# Pages = ["1D_2+1.md"]
+# Canonical = false
+# ```
+
+# See also the [full bibliography](@ref References) for further references cited throughout this documentation.

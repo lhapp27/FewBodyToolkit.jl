@@ -1,6 +1,6 @@
 # # 1D Example: Two particles with Pöschl–Teller interaction
 #
-# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 1D. Here we use the Pöschl–Teller interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation:
+# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 1D. Here we use the Pöschl–Teller interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (``\hbar, \mu=1``)
 # \\[ -\frac{1}{2} \frac{d^2}{dr^2}\psi + V(r)\psi = E\psi \\]
 # with the Pöschl–Teller potential
 # \\[ V(r) = -\frac{\lambda(\lambda+1)}{2} \frac{1}{\cosh^2(r)}. \\]
@@ -47,7 +47,7 @@ simax = findlast(energies_arr.<0)
 
 # The Pöschl–Teller potential has `lambda = 8` eigenvalues. In this example we focus on the even states, hence there are only 4 bound states. Their energies can be found exactly:
 # \\[ E_n = -\frac{(\lambda-n)^2}{2\mu} \\]
-# where \\( n = 1, 2, ... , \lambda-1 \\) is the state index. The package Antique.jl provides these exact energies in a convenient way.
+# where `` n = 1, 2, ... , \lambda-1 `` is the state index. The package [Antique.jl](https://github.com/ohno/Antique.jl) provides these exact energies in a convenient way.
 
 PT = Antique.PoschlTeller(λ=8)
 ex_arr = [Antique.E(PT,n=i) for i=0:2:Int(floor(lambda-1))]
@@ -109,5 +109,5 @@ println("After scaling:")
 @printf("%-15s %-15s %-15s %-15s %-15s\n", "r1", "rnmax", "E2[$(stateindex-1)]", "E2[$stateindex]", "E2[$(stateindex+1)]")
 @printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", num_params_scaled.gem_params.r1, num_params_scaled.gem_params.rnmax, e2_v0[stateindex-1], e2_v0[stateindex], e2_v0[stateindex+1])
 
-# Here, we scale the potential such that the energy of the state with `stateindex = 3` is equal to `target_e2 = -18.0`. For this special potential, this corresponds to increasing the number of states, and therefore `lambda` by 2. Hence, the we expect the scaling factor to be approximately `(lambda+2)*(lambda+2+1)/(lambda*(lambda+1))`
+# Here, we scale the potential such that the energy of the state with `stateindex = 3` is equal to `target_e2 = -18.0`. So far this was the energy of the state with index 2. For this special potential, this corresponds therefore to increasing the number of states and `lambda` by 2. Hence, the we expect the scaling factor to be approximately ``(\lambda+2)(\lambda+2+1)/(\lambda(\lambda+1))``
 println("vscale = $(round(vscale,digits=8)) should be approximately (λ+2)*(λ+2+1)/(λ*(λ+1)) = ", round((lambda+2)*(lambda+2+1)/(lambda*(lambda+1)),digits=8) )

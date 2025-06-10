@@ -9,7 +9,7 @@ In this example we solve the three-body Coulomb problem of a proton, deuteron an
 ## Setup
 
 ````@example ISGL_HD+
-using Printf, FewBodyToolkit#.ISGL
+using Printf, FewBodyToolkit
 ````
 
 ## Input parameters:
@@ -38,7 +38,7 @@ num_params = make_num_params3B3D(;gem_params=gp);
 nothing #hide
 ````
 
-In this example we also calculate central observables like the mean radii (and squared radii) between two of the three particles. With "central", we mean observables of any form that only depend on r, the direct distance between two particles. For this we define the observables as functions:
+In this example we also calculate central observables like the mean radii (and squared radii) between two of the three particles. With "central", we mean observables of any form that only depend on ``r``, the direct distance between two particles. For this we define the observables as functions:
 
 ````@example ISGL_HD+
 rad(r) = r # radius
@@ -46,7 +46,7 @@ rad2(r) = r^2; # squared radius
 nothing #hide
 ````
 
-The code also allows for the observable \\( \langle R^2\rangle \\) in the other Jacobi coordinate, via the input `R2_arr`.
+The code also allows for the observable `` \langle R^2\rangle `` in the other Jacobi coordinate, via the input `R2_arr`.
 
 ````@example ISGL_HD+
 stateindices = 1:3 # for which states to calculate observables
@@ -141,7 +141,16 @@ for i in 1:length(row_labels)
 end
 ````
 
-Due to the almost negligible mass of the electron, the results for ⟨R²⟩ in the first two rows are almost identical and also almost match to the first column of the mean radii ⟨r²⟩ between proton and deuteron. The third row shows the results for the electron with respect to the center-of-ass of the proton-deuteron pair and are clearly smaller, since it feels an attractive Coulomb force of twice the strength (the effective pair of proton and deuteron has charge +2).
+Due to the almost negligible mass of the electron, the results for ⟨R²⟩ in the first two rows are almost identical and also almost match to the first column of the mean radii ⟨r²⟩ between proton and deuteron. The third row shows the results for the electron with respect to the center-of-mass of the proton-deuteron pair and are clearly smaller, probably since it feels an attractive Coulomb force of twice the strength (the effective pair of proton and deuteron has charge +2).
+
+## page References
+
+```@bibliography
+Pages = ["ISGL_HD+.md"]
+Canonical = false
+```
+
+See also the [full bibliography](@ref References) for further references cited throughout this documentation.
 
 ---
 

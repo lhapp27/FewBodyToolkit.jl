@@ -19,7 +19,7 @@ Create and return a named tuple containing the physical parameters for a three-b
 # Example
 ```julia
 make_phys_params3B1D() # default: system of three different particles with the same mass and Gaussian interactions
-make_phys_params2B(mass_arr=[1.0,10.0,20.0], svals=["i","j","k"], vint_arr=[[v23],[v31],[v12_1,v12_2]]) # system of three different particles with interactions v23 (between particles 2 and 3), v31 (between particles 3 and 1), and v12_1, v12_2 (between particles 1 and 2). The interaction need to be defined before this call.
+make_phys_params3B1D(mass_arr=[1.0,10.0,20.0], svals=["i","j","k"], vint_arr=[[v23],[v31],[v12_1,v12_2]]) # system of three different particles with interactions v23 (between particles 2 and 3), v31 (between particles 3 and 1), and v12_1, v12_2 (between particles 1 and 2). The interactions need to be defined before this call.
 ```
 """
 function make_phys_params3B1D(;hbar = 1.0, mass_arr=[1.0,1.0,1.0], svals=["x","y","z"], vint_arr=[[GaussianPotential(-1.0, 1.0)],[GaussianPotential(-1.0, 1.0)],[GaussianPotential(-1.0, 1.0)]], parity=+1)
@@ -33,13 +33,13 @@ end
 Create and return a named tuple containing the numerical parameters for a three-body GEM calculation in 1D.
 
 # Keyword arguments
-- `lmin::Int = 0`: Minimum power `r^l` used in the basis functions of the \\(r\\) Jacobi coordinate.	
-- `Lmin::Int = 0`: Minimum power `r^L` used in the basis functions of the \\(R\\) Jacobi coordinate.
-- `lmax::Int = 0`: Maximum power `r^l` used in the basis functions of the \\(r\\) Jacobi coordinate.
-- `Lmax::Int = 0`: Maximum power `r^L` used in the basis functions of the \\(R\\) Jacobi coordinate.
+- `lmin::Int = 0`: Minimum power `r^l` used in the basis functions of the ``r`` Jacobi coordinate.	
+- `Lmin::Int = 0`: Minimum power `r^L` used in the basis functions of the ``R`` Jacobi coordinate.
+- `lmax::Int = 0`: Maximum power `r^l` used in the basis functions of the ``r`` Jacobi coordinate.
+- `Lmax::Int = 0`: Maximum power `r^L` used in the basis functions of the ``R`` Jacobi coordinate.
 - `gem_params::NamedTuple = (nmax=5, r1=1.0, rnmax=10.0, Nmax=5, R1=1.0, RNmax=10.0)`: Parameters for the Gaussian Expansion Method (number of basis functions, smallest and largest range parameters for both Jacobi coordinates).
 - `theta_csm::Float64 = 0.0`: Complex scaling angle (in degrees) for the Complex Scaling Method.
-- `omega_cr::Float64 = 0.9`: Parameter controlling the frequency for complex-ranged basis functions.
+- `omega_cr::Float64 = 0.9`: Parameter controlling the frequency for complex-ranged basis functions. Currently unsupported.
 - `kmax_interpol::Int = 1000`: Number of numerical integration with effective Gaussian ranges used for interpolation.
 - `threshold::Float64 = 1e-8`: Numerical threshold for the generalized eigenvalue solver.
 
@@ -49,7 +49,7 @@ Create and return a named tuple containing the numerical parameters for a three-
 # Example
 ```julia
 make_num_params3B1D() # for the default basis set
-make_num_params3B1d(gem_params=(nmax=10, r1=0.5, rnmax=20.0, Nmax=15, R1=1.0, RNmax=100.0), theta_csm=0.0) for a larger basis set and non-zero rotation angle for complex scaling method
+make_num_params3B1D(gem_params=(nmax=10, r1=0.5, rnmax=20.0, Nmax=15, R1=1.0, RNmax=100.0), theta_csm=10.0) for a larger basis set and non-zero rotation angle for complex scaling method
 ```
 """
 function make_num_params3B1D(;lmin=0,Lmin=0, lmax=0, Lmax=0, gem_params=(nmax=5, r1=1.0, rnmax=10.0, Nmax=5, R1=1.0, RNmax=10.0), theta_csm=0.0, omega_cr=0.9, kmax_interpol=1000, threshold=10^-8)

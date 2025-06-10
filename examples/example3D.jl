@@ -1,13 +1,13 @@
 # # 3D Example: Two particles with Coulomb interaction
 #
-# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 3D. Here we use the Coulomb interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation:
+# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 3D. Here we use the Coulomb interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (``\hbar, \mu=1``)
 # \\[ -\frac{1}{2} \frac{1}{r}\frac{d^2}{dr^2}\left( r\psi \right) + V(r)\psi = E\psi \\]
 # with the Colomb potential
 # \\[ V(r) = -\frac{Z}{r}. \\]
 
 # ## Setup
 
-using Printf, Interpolations, Plots, Antique, FewBodyToolkit#.GEM2B
+using Printf, Interpolations, Plots, Antique, FewBodyToolkit
 
 # ## Input parameters
 
@@ -19,14 +19,14 @@ Z = 1.0
 
 function v_coulomb(r)
     return -Z/r
-end
+end;
 
 # We define the physical parameters as a `NamedTuple` which carries the information about the Hamiltonian.
 phys_params = make_phys_params2B(;vint_arr=[v_coulomb])
 # By leaving out the optional parameters, we use the defaults:
 # - `mur = 1.0`: reduced mass
 # - `dim = 3`: dimension of the problem
-# - `lmin = lmax = 0`: minimum and maximum angular momentum (in 1D this corresponds to even states)
+# - `lmin = lmax = 0`: minimum and maximum angular momentum
 # - `hbar = 1.0`: when working in dimensionless units
 
 # #### Numerical parameters
@@ -48,7 +48,7 @@ energies = GEM2B.GEM2B_solve(phys_params,num_params)
 # Number of bound states to consider:
 simax = min(lastindex(energies),6); # max state index
 
-# The Coulomb potential has infinitely many bound states, whose energies can be found exaclty. We can use the package Antique.jl to provide these energies.
+# The Coulomb potential has infinitely many bound states, whose energies can be found exactly. We can use the package [Antique.jl](https://github.com/ohno/Antique.jl) to provide these energies.
 CTB = Antique.CoulombTwoBody(m₁=mass_arr[1], m₂=mass_arr[2])
 energies_exact = [Antique.E(CTB,n=i) for i=1:40]
 
@@ -83,7 +83,7 @@ comparison(energies_opt,energies_exact,simax; s1="Optimized")
 
 # ## 3. Example with many basis functions
 
-# Highly accurate results can indeed be obtained by using a larger basis. For a two-body system this comes only at a moderate computational cost. Here, we reproduce the table 2 of Ref. [hiyama2003](@cite) with the following numerical parameters:
+# Highly accurate results can indeed be obtained by using a larger basis. For a two-body system this comes only at a moderate computational cost. Here, we reproduce table 2 of Ref. [hiyama2003](@cite) with the following numerical parameters:
 println("\n3. Highly accurate solution using many basis functions:")
 np = make_num_params2B(;gem_params=(;nmax=80,r1=0.015,rnmax=2000.0),omega_cr=1.5,threshold=10^-11)
 @time energies_accurate = GEM2B.GEM2B_solve(phys_params,np;cr_bool=1) # ~3s on an average laptop

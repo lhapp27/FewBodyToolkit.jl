@@ -1,6 +1,6 @@
 # # 2D Example: Two particles with Harmonic oscillator interaction
 #
-# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 2D. Here we use the harmonic oscillator, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (we set the magnetic quantum number \\(m = 0\\), and \\(\hbar = 1\\))
+# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 2D. Here we use the harmonic oscillator, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (we set the magnetic quantum number ``m = 0``, and ``\hbar = 1``)
 # \\[ -\frac{1}{2 \mu} \left[\frac{d^2}{dr^2} + \frac{1}{r} \frac{d}{dr} \right] \psi + V(r)\psi = E\psi \\]
 # with the Harmonic oscillator potential
 # \\[ V(r) = -\frac{1}{2} \mu \omega^2 r^2. \\]
@@ -8,7 +8,7 @@
 
 # ## Setup
 
-using Printf, Interpolations, FewBodyToolkit#.GEM2B
+using Printf, Interpolations, FewBodyToolkit
 
 # ## Input parameters
 
@@ -20,7 +20,7 @@ omega = 0.5
 
 function v_ho(r)
     return 0.5*mur*omega^2*r^2
-end
+end;
 
 # We define the physical parameters as a `NamedTuple` which carries the information about the Hamiltonian.
 phys_params = make_phys_params2B(;mur,vint_arr=[v_ho],dim=2)
@@ -31,7 +31,7 @@ phys_params = make_phys_params2B(;mur,vint_arr=[v_ho],dim=2)
 # #### Numerical parameters
 
 nmax=14 # number of Gaussian basis functions
-r1=0.5;rnmax=8.0;
+r1=0.5;rnmax=10.0;
 gem_params = (;nmax,r1,rnmax);
 
 # We define the numerical parameters as a `NamedTuple`:
@@ -44,8 +44,6 @@ num_params = make_num_params2B(;gem_params,threshold=10^-8)
 # We solve the two-body system by calling `GEM2B_solve`.
 energies = GEM2B.GEM2B_solve(phys_params,num_params)
 
-# Determine the number of bound states
-simax = min(lastindex(energies),10); # max state index
 
 # The Harmonic Oscillator has infinitely many eigenvalues. For the radially symmetric states (m = 0) their energies are given by
 # \\[ E_n = \omega (2n+1) \\]
@@ -53,6 +51,7 @@ simax = min(lastindex(energies),10); # max state index
 energies_exact = ([2*i for i=0:15] .+ 1) .*omega
 
 println("1. Numerical solution of the 2D problem:")
+simax=10;
 comparison(energies, energies_exact, simax)
 
 # Especially for the first few states, the numerical energies are already reasonably close to the exact energies.
@@ -76,7 +75,7 @@ println("Before optimization:")
 println("after optimization:")
 @printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", params_opt[1], params_opt[2], energies_opt[stateindex-1], energies_opt[stateindex], energies_opt[stateindex+1])
 
-# The optimized parameters yield not much of an iprovement, since the basis parameters were already quite good.
+# The optimized parameters yield not much of an iprovement, since the basis parameters were already quite good. We can improve the results by either using more basis functions, or by complex-ranged basis functions (see below)
 comparison(energies_opt,energies_exact,simax; s1="Optimized")
 
 
@@ -92,7 +91,7 @@ energies_v0 = GEM2B.GEM2B_solve(phys_params_scaled,num_params_scaled)
 @printf("%-15s %-15s %-15s %-15s %-15s\n", "r1", "rnmax", "E2[$(stateindex-1)]", "E2[$stateindex]", "E2[$(stateindex+1)]")
 @printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", num_params_scaled.gem_params.r1, num_params_scaled.gem_params.rnmax, energies_v0[stateindex-1], energies_v0[stateindex], energies_v0[stateindex+1])
 
-# Here, we scale the potential such that the energy of the state with `stateindex = 2` is equal to `target_e2 = 3.0`, i.e. twice its original value. Since the potential scales quadratically  with \\(\omega\\), we expect a scaling factor of 4.0.
+# Here, we scale the potential such that the energy of the state with `stateindex = 2` is equal to `target_e2 = 3.0`, i.e. twice its original value. Since the potential scales quadratically  with ``\omega``, we expect a scaling factor of 4.0.
 println("vscale = $(round(vscale,digits=8)) should be approximately 4.0")
 
 

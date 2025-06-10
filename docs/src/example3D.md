@@ -4,17 +4,15 @@ EditURL = "../../examples/example3D.jl"
 
 # 3D Example: Two particles with Coulomb interaction
 
-This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 3D. Here we use the Coulomb interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation:
+This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 3D. Here we use the Coulomb interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (``\hbar, \mu=1``)
 \\[ -\frac{1}{2} \frac{1}{r}\frac{d^2}{dr^2}\left( r\psi \right) + V(r)\psi = E\psi \\]
 with the Colomb potential
 \\[ V(r) = -\frac{Z}{r}. \\]
 
-This example can also be found as a runnable script: examples/example3D.jl.
-
 ## Setup
 
 ````@example example3D
-using Printf, Interpolations, Plots, Antique, FewBodyToolkit#.GEM2B
+using Printf, Interpolations, Plots, Antique, FewBodyToolkit
 ````
 
 ## Input parameters
@@ -28,7 +26,8 @@ Z = 1.0
 
 function v_coulomb(r)
     return -Z/r
-end
+end;
+nothing #hide
 ````
 
 We define the physical parameters as a `NamedTuple` which carries the information about the Hamiltonian.
@@ -40,7 +39,7 @@ phys_params = make_phys_params2B(;vint_arr=[v_coulomb])
 By leaving out the optional parameters, we use the defaults:
 - `mur = 1.0`: reduced mass
 - `dim = 3`: dimension of the problem
-- `lmin = lmax = 0`: minimum and maximum angular momentum (in 1D this corresponds to even states)
+- `lmin = lmax = 0`: minimum and maximum angular momentum
 - `hbar = 1.0`: when working in dimensionless units
 
 #### Numerical parameters
@@ -73,11 +72,11 @@ simax = min(lastindex(energies),6); # max state index
 nothing #hide
 ````
 
-The Coulomb potential has infinitely many bound states, whose energies can be found exaclty. We can use the package Antique.jl to provide these energies.
+The Coulomb potential has infinitely many bound states, whose energies can be found exactly. We can use the package [Antique.jl](https://github.com/ohno/Antique.jl) to provide these energies.
 
 ````@example example3D
 CTB = Antique.CoulombTwoBody(m₁=mass_arr[1], m₂=mass_arr[2])
-energies_exact = [Antique.E(CTB,n=i) for i=1:simax]
+energies_exact = [Antique.E(CTB,n=i) for i=1:40]
 
 println("1. Numerical solution of the 3D problem:")
 comparison(energies,energies_exact,simax)
@@ -112,7 +111,19 @@ Optimizing the parameters for the 6th excited states finds more bound states, wh
 comparison(energies_opt,energies_exact,simax; s1="Optimized")
 ````
 
-## 3. Using an interpolated interaction
+## 3. Example with many basis functions
+
+Highly accurate results can indeed be obtained by using a larger basis. For a two-body system this comes only at a moderate computational cost. Here, we reproduce table 2 of Ref. [hiyama2003](@cite) with the following numerical parameters:
+
+````@example example3D
+println("\n3. Highly accurate solution using many basis functions:")
+np = make_num_params2B(;gem_params=(;nmax=80,r1=0.015,rnmax=2000.0),omega_cr=1.5,threshold=10^-11)
+@time energies_accurate = GEM2B.GEM2B_solve(phys_params,np;cr_bool=1) # ~3s on an average laptop
+nlist=[1,2,3,4,5,10,14,18,22,26,30,32,34,36,38,40]; # states shown in the article
+comparison(energies_accurate,energies_exact,lastindex(nlist); s1="Numerical", s2="Exact",indexlist=nlist)
+````
+
+## 4. Using an interpolated interaction
 We can also create a potential from interpolated data. Since the Coulomb potential diverges at the origin, a relatively fine grid is required.
 
 ````@example example3D
@@ -128,12 +139,12 @@ As input to the solver we need to define new physical parameters with the interp
 ````@example example3D
 phys_params_i = make_phys_params2B(;mur,vint_arr=[v_int],dim=3)
 
-println("\n3. Numerical solution using an interpolated interaction:")
+println("\n4. Numerical solution using an interpolated interaction:")
 energies_interpol = GEM2B.GEM2B_solve(phys_params_i,num_params_opt)
 comparison(energies_interpol, energies_opt, simax;s1="Interpolated", s2="Optimized")
 ````
 
-## 4. Coupled-channel problem
+## 5. Coupled-channel problem
 
 The package also supports coupled-channel problems via `GEM2B_solveCC`. In this case the interaction is not provided via phys_params
 
@@ -158,11 +169,11 @@ energiesCC = GEM2B.GEM2B_solveCC(phys_paramsCC, num_params_opt, WCC, DCC; diff_b
 
 energies_exactCC = repeat(energies_exact, inner=(2,))
 
-println("\n4. Coupled channel calculation:")
+println("\n5. Coupled channel calculation:")
 comparison(energiesCC, energies_exactCC, simax; s1="Coupled-Channel")
 ````
 
-## 5. Calculation of the wave function
+## 6. Calculation of the wave function
 
 Adding the optional argument `wf_bool=1` to `GEM2B_solve` also computes and returns a matrix of eigenvectors (in each column). These eigenvectors contain the weights of the basis functions.
 
@@ -202,7 +213,7 @@ The normalization of the wave function can be checked by integrating the density
 
 ````@example example3D
 norms = density[:,1:4]'*fill(dr,lastindex(r_arr)) # A simple Riemann sum is sufficient here
-println("\n5. Norms of the wave functions:")
+println("\n6. Norms of the wave functions:")
 comparison(norms, ones(4), 4; s1="Norm", s2="Exact")
 ````
 

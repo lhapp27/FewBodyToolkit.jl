@@ -14,7 +14,6 @@ using .. FewBodyToolkit
 using LinearAlgebra,StaticArrays,OffsetArrays,Interpolations, SpecialFunctions,QuadGK,PartialWaveFunctions, WignerSymbols
 using Printf: @printf
 
-
 include("sanitycheck.jl")
 include("size_estimate.jl")
 include("auxiliary.jl")
@@ -26,9 +25,38 @@ include("solveHS.jl")
 include("../common/eigen2step.jl")
 include("observables.jl")
 
-
 export ISGL_solve, make_phys_params3B3D, make_num_params3B3D
 
+"""
+    ISGL_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+
+Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
+
+# Arguments
+- `phys_params`: Physical parameters for the three-body system (e.g., masses, interaction potentials, etc.).
+- `num_params`: Numerical parameters for the GEM calculation (e.g., basis size, grid parameters, etc.).
+- `wf_bool`: (optional) If `1`, also returns wavefunction-related observables. Default is `0`.
+- `csm_bool`: (optional) If `1`, uses complex scaling method. Default is `0`.
+- `observ_params`: (optional) Parameters for observable calculations.
+    + `stateindices`: Indices of states for which observables are calculated.
+    + `centobs_arr`: Array of central (only dependent on `` r ``; must be defined as functions) observables, for each Jacobi set (similar to `vint_arr` in `phys_params`).
+    + `R2_arr`: Array which indicates whether the observable `` \\langle R^2 \\rangle `` should be calculated (1) for any of the three Jacobi sets, or not (0).
+
+# Returns
+- If `wf_bool == 0`: Returns an array of computed energies.
+- If `wf_bool == 1`: Returns a tuple `(energies, wavefunctions, centobs_output, R2_output)`.
+    + `energies`: Vector of computed energies.
+    + `wavefunctions`: Matrix of eigenvectors (column-wise) which contain the coefficients of the basis functions.
+    + `centobs_output`: Mean values of central observables for the specified states. The first dimension corresponds to the Jacobi sets, the second to the observables, and the third to the states.
+    + `R2_output`: Mean squared radii for the R-coordinate. Rows corresond to the Jacobi sets, columns to the states.
+
+# Example
+```julia
+phys_params = make_phys_params3B3D()
+num_params = make_num_params3B3D()
+energies = ISGL_solve(phys_params, num_params) #solving with default parameters: three particles with the same mass and gaussian interaction
+```
+"""
 function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
     
     ## 1. interpretation of inputs

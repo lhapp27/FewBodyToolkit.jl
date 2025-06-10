@@ -1,10 +1,11 @@
 # # Consistency check with two-body module GEM2B
 
-# In this example we check if we can reproduce two-body results using the three-body code. This is a good test for new features of the three-body code and whenever there are no other known results to compare to. For that we use only one interaction between particles 1 and 2, i.e. particle 3 remains a spectator. Moreover, we employ only a single basis function to describe the relative motion of particle 3 relative to the center of mass of particles 1 and 2. This ensures minimal impact on the two-body subsystem and hence reproduces the two-body results.
+# In this example we show how to reproduce two-body results using the three-body code. This is a good test for new features of a three-body code and whenever there are no other known results to compare to.
+
+# For that we use only one interaction between particles 1 and 2, i.e. particle 3 remains a spectator. Moreover, we employ only a single basis function to describe the relative motion of particle 3 relative to the center of mass of particles 1 and 2. This ensures minimal impact on the two-body subsystem and hence reproduces the two-body results.
 
 # ## Setup
-using Printf, Plots, FewBodyToolkit#.GEM3B1D, FewBodyToolkit.GEM2B
-#import FewBodyToolkit:comparison
+using Printf, Plots, FewBodyToolkit
 
 
 # ## Input parameters:
@@ -23,7 +24,7 @@ phys_params3B = make_phys_params3B1D(;mass_arr,vint_arr)
 
 # #### Numerical parameters
 
-# For the \\( R \\)- Jacobi coordinate we use only a single basis function with a very large range. This ensures the contribution from the kinetic energy operator corresponding to this Jacobi-coordinate is negligible. 
+# For the `` R ``- Jacobi coordinate we use only a single basis function with a very large range. This ensures the contribution from the kinetic energy operator corresponding to this Jacobi-coordinate is negligible. 
 
 nmax = 8; r1=1.0;rnmax=10.0;
 num_params2B = make_num_params2B(;gem_params=(;nmax, r1, rnmax))

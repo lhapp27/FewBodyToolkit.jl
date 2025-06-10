@@ -3,12 +3,20 @@ using FewBodyToolkit, Documenter, Literate, DocumenterCitations, Plots, Antique,
 bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"))
 
 # Convert example scripts to markdown
-Literate.markdown("examples/example1D.jl", joinpath(@__DIR__, "src"), name="example1D",flavor=Literate.DocumenterFlavor())
-Literate.markdown("examples/example2D.jl", joinpath(@__DIR__, "src"), name="example2D",flavor=Literate.DocumenterFlavor())
-Literate.markdown("examples/example3D.jl", joinpath(@__DIR__, "src"), name="example3D",flavor=Literate.DocumenterFlavor())
-Literate.markdown("examples/3B1D_23body.jl", joinpath(@__DIR__, "src"), name="3B1D_23body",flavor=Literate.DocumenterFlavor())
-Literate.markdown("examples/1D_2+1.jl", joinpath(@__DIR__, "src"), name="1D_2+1",flavor=Literate.DocumenterFlavor())
-Literate.markdown("examples/ISGL_HD+.jl", joinpath(@__DIR__, "src"), name="ISGL_HD+",flavor=Literate.DocumenterFlavor())
+example_files = [
+  "example1D.jl",
+  "example2D.jl",
+  "example3D.jl",
+  "3B1D_23body.jl",
+  "1D_2+1.jl",
+  "ISGL_HD+.jl",
+]
+
+for examplename in example_files
+  exname = examplename[1:end-3]  # Remove the ".jl" extension
+  Literate.markdown(joinpath(@__DIR__, "..", "examples", examplename), joinpath(@__DIR__, "src"), name=exname, flavor=Literate.DocumenterFlavor())
+end
+
 
 
 makedocs(
@@ -28,6 +36,7 @@ makedocs(
             "3B1D: 2+1 system" => "1D_2+1.md",
             "3B3D: HD+ system" => "ISGL_HD+.md",
         ],
+    "Advanced Options" => "AdvancedOptions.md",
     "API"  => "api.md",
     "References" => "references.md",
   ],

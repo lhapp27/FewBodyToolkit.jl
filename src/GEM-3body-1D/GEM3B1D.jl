@@ -1,13 +1,6 @@
 ## Function/Module for using the Gaussian expansion method (GEM) for solving three-body problems in 1D(!)
 ## the code might seem unnecessary complicated at places. this is due to reusing the structure from the 3D ISGL code.
 
-#TD:
-#- 2Bdocs: Antique
-#- 3B1D: finish cleanup, fix missing arguments, potential type dispatch and handling
-#- 3B1D: example (and tests)
-#- 3B1D: docs based on example
-
-
 
 module GEM3B1D
 
@@ -46,9 +39,9 @@ Solves the 1D three-body problem using the Gaussian Expansion Method (GEM).
 
 # Example
 ```julia
-phys_params = make_phys_params2B()
-num_params = make_num_params2B()
-energies = GEM2B_solve(phys_params, num_params) #solving with default parameters: three particles with the same mass and gaussian interaction
+phys_params = make_phys_params3B1D()
+num_params = make_num_params3B1D()
+energies = GEM3B3D_solve(phys_params, num_params) #solving with default parameters: three particles with the same mass and gaussian interaction
 ```
 """
 function GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
