@@ -6,17 +6,39 @@
 A Julia package for solving quantum systems of 2 or 3 particles with general potentials in 1D, 2D, and 3D.
 
 ## Features and modules overview
-Currently three separate modules are provided by FewBodyToolkit.jl
 
-| Feature/Module        | [GEM2B](@ref GEM2B)       | [GEM3B1D](@ref GEM3B1D)  | [ISGL](@ref ISGL)         |
-|:-----------------------:|:-------------------------:|:------------------------:|:-------------------------:|
-| **Particle Number**     | 2                         | 3                        | 3                         |
-| **Dimensions**          | 1D, 2D, 3D                | 1D                       | 3D                        |
-| **Interactions**        | Symmetric                 | Any                      | Central symmetric         |
-| **Gaussian basis**      | Real- and complex-ranged  | Jacobi-sets, Real ranged | Jacobi-sets, Real ranged  |
-| **complex scaling**     | Yes                       | Yes                      | Yes                       |
-| **Output**              | Energies, Wavefunctions   | Energies                 | Energies, Observables     |
-| **Extra features**      | Inverse problem, parameter optimization, coupled-channel | (Anti-) symmetrization | (Anti-) symmetrization
+The FewBodyToolkit.jl package currently provides three modules with the following features:
+
+### `GEM2B` - Two-body solver (1D,2D,3D)
+* Supports 1D, 2D, and 3D geometries
+* Symmetric interaction potentials
+* Real-ranged Gaussian basis functions
+* Optional complex-ranged Gaussian basis functions for highly excited states
+* Complex scaling method (CSM) for resonances
+* Basis optimization routine
+* Routine for scaling the interaction to yield a desired eigenenergy (inverse problem)
+* Coupled-channel problems with additional derivative terms (up to 4th order)
+* Output of the wave function
+
+### `GEM3B1D` - Three-body solver (1D)
+* Supports 1D three-body problems
+* Symmetric two-body pair-interactions, no three-body forces
+* Expansion in up to three Fadeev components (rearrangement channels)
+* Automatic (anti-)symmetrization for identical bosons or fermions
+* Product basis in Jacobi coordinates
+* Complex scaling method (CSM) for resonances
+* No separate output of the wave function
+
+### `ISGL` - Three-body solver (3D)
+* Supports 3D three-body problems
+* Central two-body pair-interactions, no three-body forces
+* Employs infinitesimally-shifted Gaussian basis functions to handle arbitrary high intrinsic angular momenta (computationally expensive for high values)
+* Expansion in up to three Fadeev components (rearrangement channels)
+* Automatic (anti-) symmetrization for identical bosons or fermions
+* Product basis in Jacobi coordinates
+* Complex scaling method (CSM) for resonances
+* On-the-fly calculation of central observables and mean-square radii
+* No separate output of the wave function
 
 
 ## Installation

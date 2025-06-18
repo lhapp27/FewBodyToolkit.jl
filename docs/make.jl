@@ -10,6 +10,7 @@ example_files = [
   "3B1D_23body.jl",
   "1D_2+1.jl",
   "ISGL_HD+.jl",
+  "ISGL_ps-.jl",
 ]
 
 for examplename in example_files
@@ -35,6 +36,7 @@ makedocs(
             "3B1D: Consistency with 2-body" => "3B1D_23body.md",
             "3B1D: 2+1 system" => "1D_2+1.md",
             "3B3D: HD+ system" => "ISGL_HD+.md",
+            "3B3D: ps- system" => "ISGL_ps-.md",
         ],
     "Advanced Options" => "AdvancedOptions.md",
     "API"  => "api.md",

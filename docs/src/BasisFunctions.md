@@ -7,7 +7,7 @@ This page provides an overview of the centered Gaussian basis functions used for
 
 The module [GEM2B](@ref GEM2B) provides a solver for two-body systems described by the Schrödinger equation
 ```math
-\left[-\frac{\hbar^2}{2\mu} \nabla_{\vec{r}}^2 + V(|\vec{r}|) \right]\phi(r) = E \phi(r).
+\left[-\frac{\hbar^2}{2\mu} \nabla_{\vec{r}}^2 + V(|\vec{r}|) \right]\phi(\vec{r}) = E \phi(\vec{r}).
 ```
 The Laplacian should be interpreted according to the dimensionality (1D, 2D, 3D).
 
@@ -59,7 +59,7 @@ with the reduced masses ``\mu_{ij} = (m_i m_j)/(m_i + m_j)) ``, and `` \mu_k = (
 
 **Figure 1**: Three sets of Jacobi coordinates for a three-body system.
 
-For three-body systems we employ Jacobi coordinates. This allows to describe the full system inits center-of-mass frame by two relative coordinates. However, there are three equivalent sets of these coordinates, related to the three different partitions of three particles into a pair of two, and a single one, see Fig. 1. In few-body physics it is therefore common to decompose any given three-body state into a sum
+For three-body systems we employ Jacobi coordinates. This allows to describe the full system in its center-of-mass frame by two relative coordinates. However, there are three equivalent sets of these coordinates, related to the three different partitions of three particles into a pair of two, and a single one, see Fig. 1. In few-body physics it is therefore common to decompose any given three-body state into a sum
 ```math
 |\Psi\rangle = |\Psi^{(1)}\rangle + |\Psi^{(2)}\rangle + |\Psi^{(3)}\rangle
 ```
