@@ -2,8 +2,8 @@
 
 using FewBodyToolkit, Plots
 
-# This function computes the complex energy spectrum for a given lambda of the potential defined int eh reference
-function csm2b(lambda)
+# This function computes the complex energy spectrum for a given lambda of the potential defined in the reference
+function csm2b(lambda,nmax)
     function v(r)
         r > 50.0 && return 0.0
         return lambda*(678.1*exp(-2.55*r) - 166.0*exp(-0.68*r))/r
@@ -11,7 +11,7 @@ function csm2b(lambda)
     
     mur = 1/(2*27.647)
     pp = make_phys_params2B(;mur,vint_arr=[v],dim=3,lmin=1,lmax=1)
-    np = make_num_params2B(;gem_params=(nmax=30, r1=0.3, rnmax=30.8),theta_csm=40.0)
+    np = make_num_params2B(;gem_params=(nmax=nmax, r1=0.3, rnmax=30.8),theta_csm=40.0)
     
     e2 = GEM2B_solve(pp,np,csm_bool=1)
     
@@ -44,12 +44,13 @@ end
 
 # Arrays and loop to store the results for various lambda values of the article.
 lambda_arr = [1.0,1.25,1.5,1.75]
-e2_arr = zeros(ComplexF64,30,lastindex(lambda_arr))
+nmax = 30 # number of basis functions
+e2_arr = zeros(ComplexF64,nmax,lastindex(lambda_arr))
 reso_arr = zeros(ComplexF64,lastindex(lambda_arr))
 for (il,lambda) in enumerate(reverse(lambda_arr))
-    e2_arr[:,il] = csm2b(lambda)
+    e2_arr[:,il] = csm2b(lambda,nmax)
 
-    reso = e2_arr[is_in_triangle(e2_arr[:,il], 0.0, 2.0, 2*40),il]
+    reso = e2_arr[is_in_triangle(e2_arr[:,il], 0.0, 2.0, 2*40*0.80),il] # in principle anything within 2*theta_csm is a resonance, but to allow for numerical inaccuracy, we go with 80% of that.
     if lambda == 1.75 # in this case there is only a bound state, no resonance
         reso_arr[il] = e2_arr[1,il]
     else

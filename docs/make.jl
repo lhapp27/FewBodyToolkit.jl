@@ -28,16 +28,20 @@ makedocs(
   pages      = [
     "Home" => "index.md",
     "Basis Functions" => "BasisFunctions.md",
-     "Examples" => [
-            "Overview" => "examples.md",
-            "2B: Example 1D" => "example1D.md",
-            "2B: Example 2D" => "example2D.md",
-            "2B: Example 3D" => "example3D.md",
-            "3B1D: Consistency with 2-body" => "3B1D_23body.md",
-            "3B1D: 2+1 system" => "1D_2+1.md",
-            "3B3D: HD+ system" => "ISGL_HD+.md",
-            "3B3D: ps- system" => "ISGL_ps-.md",
+    "Examples" => [
+        #"Overview" => "examples.md",
+        "Two-body" => [
+            "1D Example" => "example1D.md",
+            "2D Example" => "example2D.md",
+            "3D Example" => "example3D.md",
         ],
+        "Three-body" => [
+            "1D: Consistency with 2-body" => "3B1D_23body.md",
+            "1D: 2+1 system" => "1D_2+1.md",
+            "3D: HD+ system" => "ISGL_HD+.md",
+            "3D: ps- system" => "ISGL_ps-.md",
+        ],
+    ],
     "Advanced Options" => "AdvancedOptions.md",
     "API"  => "api.md",
     "References" => "references.md",

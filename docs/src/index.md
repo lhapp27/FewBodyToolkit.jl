@@ -79,7 +79,7 @@ plot(rgrid,firstexcited)
 ```
 
 
-Explicit examples showing this procedure for each of the modules can be found under [Examples](@ref) with fully runnable scripts in the /examples subfolder.
+Explicit examples showing this procedure for each of the modules can be found under the Examples page with fully runnable scripts in the `/examples` subfolder.
 
 ## Method and advanced options
 
