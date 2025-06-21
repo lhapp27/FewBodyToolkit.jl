@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>3D Example · FewBodyToolkit.jl</title><meta name="title" content="3D Example · FewBodyToolkit.jl"/><meta property="og:title" content="3D Example · FewBodyToolkit.jl"/><meta property="twitter:title" content="3D Example · FewBodyToolkit.jl"/><meta name="description" content="Documentation for FewBodyToolkit.jl."/><meta property="og:description" content="Documentation for FewBodyToolkit.jl."/><meta property="twitter:description" content="Documentation for FewBodyToolkit.jl."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">FewBodyToolkit.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../BasisFunctions/">Basis Functions</a></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox" checked/><label class="tocitem" for="menuitem-3"><span class="docs-label">Examples</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-3-1" type="checkbox" checked/><label class="tocitem" for="menuitem-3-1"><span class="docs-label">Two-body</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../example1D/">1D Example</a></li><li><a class="tocitem" href="../example2D/">2D Example</a></li><li class="is-active"><a class="tocitem" href>3D Example</a><ul class="internal"><li><a class="tocitem" href="#Setup"><span>Setup</span></a></li><li><a class="tocitem" href="#Input-parameters"><span>Input parameters</span></a></li><li><a class="tocitem" href="#1.-Numerical-solution"><span>1. Numerical solution</span></a></li><li><a class="tocitem" href="#2.-Optimization-of-basis-parameters"><span>2. Optimization of basis parameters</span></a></li><li><a class="tocitem" href="#3.-Example-with-many-basis-functions"><span>3. Example with many basis functions</span></a></li><li><a class="tocitem" href="#4.-Using-an-interpolated-interaction"><span>4. Using an interpolated interaction</span></a></li><li><a class="tocitem" href="#5.-Coupled-channel-problem"><span>5. Coupled-channel problem</span></a></li><li><a class="tocitem" href="#6.-Calculation-of-the-wave-function"><span>6. Calculation of the wave function</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3-2" type="checkbox"/><label class="tocitem" for="menuitem-3-2"><span class="docs-label">Three-body</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../3B1D_23body/">1D: Consistency with 2-body</a></li><li><a class="tocitem" href="../1D_2+1/">1D: 2+1 system</a></li><li><a class="tocitem" href="../ISGL_HD+/">3D: HD+ system</a></li><li><a class="tocitem" href="../ISGL_ps-/">3D: ps- system</a></li></ul></li></ul></li><li><a class="tocitem" href="../AdvancedOptions/">Advanced Options</a></li><li><a class="tocitem" href="../api/">API</a></li><li><a class="tocitem" href="../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li><a class="is-disabled">Two-body</a></li><li class="is-active"><a href>3D Example</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>3D Example</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/lhapp27/FewBodyToolkit.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/lhapp27/FewBodyToolkit.jl/blob/main/examples/example3D.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="3D-Example:-Two-particles-with-Coulomb-interaction"><a class="docs-heading-anchor" href="#3D-Example:-Two-particles-with-Coulomb-interaction">3D Example: Two particles with Coulomb interaction</a><a id="3D-Example:-Two-particles-with-Coulomb-interaction-1"></a><a class="docs-heading-anchor-permalink" href="#3D-Example:-Two-particles-with-Coulomb-interaction" title="Permalink"></a></h1><p>This example demonstrates how to use the <code>FewBodyToolkit.jl</code> package to compute bound states for two particles in 3D. Here we use the Coulomb interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (<span>$\hbar, \mu=1$</span>) \[ -\frac{1}{2} \frac{1}{r}\frac{d^2}{dr^2}\left( r\psi \right) + V(r)\psi = E\psi \] with the Colomb potential \[ V(r) = -\frac{Z}{r}. \]</p><h2 id="Setup"><a class="docs-heading-anchor" href="#Setup">Setup</a><a id="Setup-1"></a><a class="docs-heading-anchor-permalink" href="#Setup" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Printf, Interpolations, Plots, Antique, FewBodyToolkit</code></pre><h2 id="Input-parameters"><a class="docs-heading-anchor" href="#Input-parameters">Input parameters</a><a id="Input-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Input-parameters" title="Permalink"></a></h2><h4 id="Physical-parameters"><a class="docs-heading-anchor" href="#Physical-parameters">Physical parameters</a><a id="Physical-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Physical-parameters" title="Permalink"></a></h4><pre><code class="language-julia hljs">mass_arr = [1.0, Inf] # array of masses of particles [m1,m2]
+mur = 1 / (1/mass_arr[1] + 1/mass_arr[2])
+Z = 1.0
+
+function v_coulomb(r)
+    return -Z/r
+end;</code></pre><p>We define the physical parameters as a <code>NamedTuple</code> which carries the information about the Hamiltonian.</p><pre><code class="language-julia hljs">phys_params = make_phys_params2B(;vint_arr=[v_coulomb])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(hbar = 1.0, mur = 1.0, vint_arr = [Main.v_coulomb], lmin = 0, lmax = 0, dim = 3)</code></pre><p>By leaving out the optional parameters, we use the defaults:</p><ul><li><code>mur = 1.0</code>: reduced mass</li><li><code>dim = 3</code>: dimension of the problem</li><li><code>lmin = lmax = 0</code>: minimum and maximum angular momentum</li><li><code>hbar = 1.0</code>: when working in dimensionless units</li></ul><h4 id="Numerical-parameters"><a class="docs-heading-anchor" href="#Numerical-parameters">Numerical parameters</a><a id="Numerical-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Numerical-parameters" title="Permalink"></a></h4><pre><code class="language-julia hljs">nmax=10 # number of Gaussian basis functions
+r1=0.1;rnmax=30.0; # r1 and rnmax defining the widths of the basis functions
+gem_params = (;nmax,r1,rnmax);</code></pre><p>We define the numerical parameters as a <code>NamedTuple</code>:</p><pre><code class="language-julia hljs">num_params = make_num_params2B(;gem_params)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(gem_params = (nmax = 10, r1 = 0.1, rnmax = 30.0), theta_csm = 0.0, omega_cr = 0.9, threshold = 1.0e-8)</code></pre><h2 id="1.-Numerical-solution"><a class="docs-heading-anchor" href="#1.-Numerical-solution">1. Numerical solution</a><a id="1.-Numerical-solution-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Numerical-solution" title="Permalink"></a></h2><p>We solve the two-body system by calling <code>GEM2B_solve</code>.</p><pre><code class="language-julia hljs">energies = GEM2B.GEM2B_solve(phys_params,num_params)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">10-element Vector{Float64}:
+  -0.4998757180240628
+  -0.12454305401429006
+  -0.05443710110158085
+  -0.02864355774575035
+   0.007342103389141706
+   0.6031764481212917
+   3.674495968760052
+  16.18142428223919
+  64.2068555797109
+ 251.37534725527286</code></pre><p>Number of bound states to consider:</p><pre><code class="language-julia hljs">simax = min(lastindex(energies),6); # max state index</code></pre><p>The Coulomb potential has infinitely many bound states, whose energies can be found exactly. We can use the package <a href="https://github.com/ohno/Antique.jl">Antique.jl</a> to provide these energies.</p><pre><code class="language-julia hljs">CTB = Antique.CoulombTwoBody(m₁=mass_arr[1], m₂=mass_arr[2])
+energies_exact = [Antique.E(CTB,n=i) for i=1:40]
+
+println(&quot;1. Numerical solution of the 3D problem:&quot;)
+comparison(energies,energies_exact,simax)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1. Numerical solution of the 3D problem:
+Index   Numerical       Reference       Difference
+1       -0.499876       -0.500000       -0.000124
+2       -0.124543       -0.125000       -0.000457
+3       -0.054437       -0.055556       -0.001118
+4       -0.028644       -0.031250       -0.002606
+5       0.007342        -0.020000       -0.027342
+6       0.603176        -0.013889       -0.617065</code></pre><p>The numerical solutions are good only for the few lowest state. Also, we only find 5 bound states.</p><h2 id="2.-Optimization-of-basis-parameters"><a class="docs-heading-anchor" href="#2.-Optimization-of-basis-parameters">2. Optimization of basis parameters</a><a id="2.-Optimization-of-basis-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Optimization-of-basis-parameters" title="Permalink"></a></h2><p>We can optimize the basis parameters for a specific state indicated by <code>stateindex</code> using <code>GEM_Optim_2B</code>.</p><pre><code class="language-julia hljs">stateindex = 6
+params_opt = GEM2B.GEM_Optim_2B(phys_params, num_params, stateindex)
+gem_params_opt = (;nmax, r1 = params_opt[1], rnmax = params_opt[2])
+num_params_opt = make_num_params2B(;gem_params=gem_params_opt)
+energies_opt = GEM2B.GEM2B_solve(phys_params,num_params_opt)
+
+println(&quot;\n2. Optimization of GEM parameters for E2[$stateindex]:&quot;)
+@printf(&quot;%-15s %-15s %-15s %-15s %-15s\n&quot;, &quot;r1&quot;, &quot;rnmax&quot;, &quot;E2[$(stateindex-1)]&quot;, &quot;E2[$stateindex]&quot;, &quot;E2[$(stateindex+1)]&quot;)
+
+println(&quot;Before optimization:&quot;)
+@printf(&quot;%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n&quot;, gem_params.r1, gem_params.rnmax, energies[stateindex-1], energies[stateindex], energies[stateindex+1])
+
+println(&quot;after optimization:&quot;)
+@printf(&quot;%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n&quot;, params_opt[1], params_opt[2], energies_opt[stateindex-1], energies_opt[stateindex], energies_opt[stateindex+1])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
+2. Optimization of GEM parameters for E2[6]:
+r1              rnmax           E2[5]           E2[6]           E2[7]
+Before optimization:
+0.100000        30.000000       0.007342        0.603176        3.674496
+after optimization:
+0.871259        45.664907       -0.019847       -0.013823       0.025770</code></pre><p>Optimizing the parameters for the 6th excited states finds more bound states, while loosing some accuracy for the lower states. Here, only more basis functions would help.</p><pre><code class="language-julia hljs">comparison(energies_opt,energies_exact,simax; s1=&quot;Optimized&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Index   Optimized       Reference       Difference
+1       -0.489956       -0.500000       -0.010044
+2       -0.123714       -0.125000       -0.001286
+3       -0.055167       -0.055556       -0.000388
+4       -0.031063       -0.031250       -0.000187
+5       -0.019847       -0.020000       -0.000153
+6       -0.013823       -0.013889       -0.000066</code></pre><h2 id="3.-Example-with-many-basis-functions"><a class="docs-heading-anchor" href="#3.-Example-with-many-basis-functions">3. Example with many basis functions</a><a id="3.-Example-with-many-basis-functions-1"></a><a class="docs-heading-anchor-permalink" href="#3.-Example-with-many-basis-functions" title="Permalink"></a></h2><p>Highly accurate results can indeed be obtained by using a larger basis. For a two-body system this comes only at a moderate computational cost. Here, we reproduce table 2 of Ref. [<a href="../references/#hiyama2003">1</a>] with the following numerical parameters:</p><pre><code class="language-julia hljs">println(&quot;\n3. Highly accurate solution using many basis functions:&quot;)
+np = make_num_params2B(;gem_params=(;nmax=80,r1=0.015,rnmax=2000.0),omega_cr=1.5,threshold=10^-11)
+@time energies_accurate = GEM2B.GEM2B_solve(phys_params,np;cr_bool=1) # ~3s on an average laptop
+nlist=[1,2,3,4,5,10,14,18,22,26,30,32,34,36,38,40]; # states shown in the article
+comparison(energies_accurate,energies_exact,lastindex(nlist); s1=&quot;Numerical&quot;, s2=&quot;Exact&quot;,indexlist=nlist)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
+3. Highly accurate solution using many basis functions:
+  1.656321 seconds (50.23 M allocations: 1.104 GiB, 4.84% gc time, 27.26% compilation time)
+Index   Numerical       Exact           Difference
+1       -0.500000       -0.500000       -0.000000
+2       -0.125000       -0.125000       -0.000000
+3       -0.055556       -0.055556       -0.000000
+4       -0.031250       -0.031250       -0.000000
+5       -0.020000       -0.020000       -0.000000
+10      -0.005000       -0.005000       -0.000000
+14      -0.002551       -0.002551       -0.000000
+18      -0.001543       -0.001543       -0.000000
+22      -0.001033       -0.001033       -0.000000
+26      -0.000740       -0.000740       0.000000
+30      -0.000556       -0.000556       0.000000
+32      -0.000488       -0.000488       -0.000000
+34      -0.000432       -0.000433       -0.000000
+36      -0.000386       -0.000386       0.000000
+38      -0.000347       -0.000346       0.000001
+40      -0.000311       -0.000313       -0.000001</code></pre><h2 id="4.-Using-an-interpolated-interaction"><a class="docs-heading-anchor" href="#4.-Using-an-interpolated-interaction">4. Using an interpolated interaction</a><a id="4.-Using-an-interpolated-interaction-1"></a><a class="docs-heading-anchor-permalink" href="#4.-Using-an-interpolated-interaction" title="Permalink"></a></h2><p>We can also create a potential from interpolated data. Since the Coulomb potential diverges at the origin, a relatively fine grid is required.</p><pre><code class="language-julia hljs">r_arr = 0.001:0.01:50.001
+v_arr = v_coulomb.(r_arr)
+v_interpol = cubic_spline_interpolation(r_arr,v_arr,extrapolation_bc=Line())
+v_int(r) = v_interpol(r); # we have to transform the interaction to an object of type &quot;function&quot;</code></pre><p>As input to the solver we need to define new physical parameters with the interpolated interaction. Moreover, we use the optimized numerical parameters from the previous step.</p><pre><code class="language-julia hljs">phys_params_i = make_phys_params2B(;mur,vint_arr=[v_int],dim=3)
+
+println(&quot;\n4. Numerical solution using an interpolated interaction:&quot;)
+energies_interpol = GEM2B.GEM2B_solve(phys_params_i,num_params_opt)
+comparison(energies_interpol, energies_opt, simax;s1=&quot;Interpolated&quot;, s2=&quot;Optimized&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
+4. Numerical solution using an interpolated interaction:
+Index   Interpolated    Optimized       Difference
+1       -0.489984       -0.489956       0.000028
+2       -0.123717       -0.123714       0.000004
+3       -0.055168       -0.055167       0.000001
+4       -0.031063       -0.031063       -0.000000
+5       -0.019783       -0.019847       -0.000064
+6       -0.012595       -0.013823       -0.001228</code></pre><h2 id="5.-Coupled-channel-problem"><a class="docs-heading-anchor" href="#5.-Coupled-channel-problem">5. Coupled-channel problem</a><a id="5.-Coupled-channel-problem-1"></a><a class="docs-heading-anchor-permalink" href="#5.-Coupled-channel-problem" title="Permalink"></a></h2><p>The package also supports coupled-channel problems via <code>GEM2B_solveCC</code>. In this case the interaction is not provided via phys_params</p><pre><code class="language-julia hljs">phys_paramsCC = make_phys_params2B(;vint_arr=[r-&gt;0.0])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(hbar = 1.0, mur = 1.0, vint_arr = [Main.var&quot;#3#4&quot;()], lmin = 0, lmax = 0, dim = 3)</code></pre><p>but via extra arguments WCC: <code>wfun</code> on the diagonal; <code>wfun2</code> for off-diagonal couplings, and DCC: derivative terms of order <code>dor</code>, and radial prefactors <code>dfun</code> (diagonal) and <code>dfun2</code> (off-diagonal).</p><pre><code class="language-julia hljs">wfun(r) = v_coulomb(r);wfun2(r) = 0.05*exp(-r^2)
+dfun(r) = 0.0; dfun2(r) = 0.0
+WCC = [wfun wfun2; wfun2 wfun]
+dor = 1; #derivative-order
+DCC = reshape([ [dor, dfun], [dor, dfun2], [dor, dfun2], [dor, dfun] ], 2, 2)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2×2 Matrix{Vector{Any}}:
+ [1, dfun]   [1, dfun2]
+ [1, dfun2]  [1, dfun]</code></pre><p>As a test-case we use the coulomb interaction on the diagonal, and a weak repulsion on the off-diagonal. We don&#39;t consider any extra derivatives. Since the coupling is weak, we get approximately twofold degenerate eigenvalues, splitted around the original Coulomb results.</p><pre><code class="language-julia hljs">energiesCC = GEM2B.GEM2B_solveCC(phys_paramsCC, num_params_opt, WCC, DCC; diff_bool=0)
+
+energies_exactCC = repeat(energies_exact, inner=(2,))
+
+println(&quot;\n5. Coupled channel calculation:&quot;)
+comparison(energiesCC, energies_exactCC, simax; s1=&quot;Coupled-Channel&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
+5. Coupled channel calculation:
+Index   Coupled-Channel Reference       Difference
+1       -0.503324       -0.500000       0.003324
+2       -0.476991       -0.500000       -0.023009
+3       -0.125008       -0.125000       0.000008
+4       -0.122410       -0.125000       -0.002590
+5       -0.055536       -0.055556       -0.000020
+6       -0.054793       -0.055556       -0.000762</code></pre><h2 id="6.-Calculation-of-the-wave-function"><a class="docs-heading-anchor" href="#6.-Calculation-of-the-wave-function">6. Calculation of the wave function</a><a id="6.-Calculation-of-the-wave-function-1"></a><a class="docs-heading-anchor-permalink" href="#6.-Calculation-of-the-wave-function" title="Permalink"></a></h2><p>Adding the optional argument <code>wf_bool=1</code> to <code>GEM2B_solve</code> also computes and returns a matrix of eigenvectors (in each column). These eigenvectors contain the weights of the basis functions.</p><pre><code class="language-julia hljs">energiesw,wfs = GEM2B.GEM2B_solve(phys_params,num_params_opt;wf_bool=1,cr_bool=0);</code></pre><p>We can use the functions <code>GEM2B.wavefun_arr</code> and <code>GEM2B.wavefun_point</code> to compute the wave function at a set of points or at a specific point, respectively. The information on the basis functions is provided via the optimized numerical parameters <code>num_params_opt</code>, the vector of Gaussian widths. We compare the numerical wave function with the exact solutions provided by Antique.jl and find very good agreement.</p><pre><code class="language-julia hljs">dr = 0.1
+r_arr = 0.0:dr:50.0
+redind = vcat(1:2:30,31:5:50,51:10:lastindex(r_arr)) # We evaluate the analytical solutions at a coarser grid to avoid overloading the plot.
+
+wfA(r,n) = Antique.R(CTB, r; n, l=0) # Exact wave function for the n-th state
+
+p = plot(xlabel=&quot;\$ r \$&quot;, ylabel=&quot;\$ r^2\\,|\\psi(r)|^2 \$&quot;, title=&quot;Two-body radial s-wave densities\n for a 3D Coulomb system&quot;, guidefont=18,legendfont=10)
+density = zeros(length(r_arr),4)
+density_exact = zeros(length(r_arr),4)
+markers = [:circ, :square, :utriangle, :star]
+for si = 1:4
+    wf = wfs[:,si]
+    psi_arr = GEM2B.wavefun_arr(r_arr,phys_params,num_params_opt,wf;cr_bool=0)
+
+    density[:,si] .= abs2.(psi_arr).*r_arr.^2
+    density_exact[:,si] = abs2.(wfA.(r_arr,si)).*r_arr.^2
+
+    scatter!(r_arr[redind],density_exact[redind,si],label=&quot;n=$(si), exact&quot;, lw=2,color=si, marker=markers[si],markersize=3)
+    plot!(r_arr, density[:,si], label=&quot;n=$(si), num&quot;, lw=2, color=si)
+end
+
+p</code></pre><img src="39bbe80f.svg" alt="Example block output"/><p>The normalization of the wave function can be checked by integrating the density:</p><pre><code class="language-julia hljs">norms = density[:,1:4]&#39;*fill(dr,lastindex(r_arr)) # A simple Riemann sum is sufficient here
+println(&quot;\n6. Norms of the wave functions:&quot;)
+comparison(norms, ones(4), 4; s1=&quot;Norm&quot;, s2=&quot;Exact&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
+6. Norms of the wave functions:
+Index   Norm            Exact           Difference
+1       0.999999        1.000000        0.000001
+2       0.999999        1.000000        0.000001
+3       0.999997        1.000000        0.000003
+4       0.998430        1.000000        0.001570</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../example2D/">« 2D Example</a><a class="docs-footer-nextpage" href="../3B1D_23body/">1D: Consistency with 2-body »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.13.0 on <span class="colophon-date" title="Saturday 21 June 2025 20:48">Saturday 21 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
