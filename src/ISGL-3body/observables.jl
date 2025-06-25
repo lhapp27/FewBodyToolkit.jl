@@ -43,7 +43,7 @@
                 
                 temp_obs = 0.0
                 for index in 1:flati # sum over contributions of all basis functions
-                    rowi,coli=temp_args_arr[index]
+                    (;rowi,coli) = temp_args_arr[index]
                     
                     obs_elem = 2*oab(jmat,gij_arr,mu0,c_shoulder,w_obs_interpol_arr,wn_obs_interpol_arr,temp_args_arr[index],cco,obsind,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
                     #@show([cco,rowi,coli,obs_elem])
@@ -67,7 +67,7 @@
         for (sik,si) in enumerate(stateindices)
             temp_R2 = 0.0
             for index in 1:flati
-                rowi,coli=temp_args_arr[index]
+                (;rowi,coli) = temp_args_arr[index]
                 
                 R2_elem = 2*R2ab(jmat,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_arr[index],cco,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)                            
                 
