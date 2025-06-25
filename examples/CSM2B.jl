@@ -1,4 +1,4 @@
-# Example script for using the complex-scaling method for resonance calculations in a two-body system. Comparison with https://doi.org/10.1007/s00601-023-01808-x
+# Example script for using the complex-scaling method for resonance calculations in a two-body system. Comparison with [lazauskas2023](@cite), https://doi.org/10.1007/s00601-023-01808-x.
 
 using FewBodyToolkit, Plots
 
@@ -65,3 +65,13 @@ comparison(real.(reso_arr), real.(reso_exact),4)
 
 println("\nImaginary part:")
 comparison(imag.(reso_arr), imag.(reso_exact),4)
+
+
+# ## page References
+
+# ```@bibliography
+# Pages = ["ISGL_ps-.md"]
+# Canonical = false
+# ```
+
+# See also the [full bibliography](@ref References) for further references cited throughout this documentation.

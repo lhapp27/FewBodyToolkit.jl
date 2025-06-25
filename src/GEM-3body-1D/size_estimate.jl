@@ -87,7 +87,7 @@ function index_interaction_types(vint_arr)
             if i in gauss_indices[c] # if this is a Gaussian potential
                 push!(gaussopt_arr[c], (v.v0, v.mu_g)) # store the parameters of the Gaussian potential
             else
-                push!(gaussopt_arr[c], (NaN, NaN)) # if not a Gaussian potential, store NaN
+                push!(gaussopt_arr[c], (NaN, NaN)) # if not a Gaussian potential, store NaN. This is necessary to keep the order of indices.
             end
 
         end

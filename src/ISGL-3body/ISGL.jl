@@ -27,6 +27,13 @@ include("observables.jl")
 
 export ISGL_solve, make_phys_params3B3D, make_num_params3B3D
 
+# default parameters for the observables
+const DEFAULT_OBS = (
+    stateindices = Int[],                           # Vector{Int}
+    centobs_arr  = [Vector{PotentialFunction}() for _ in 1:3],  # Vector{Vector{PotentialFunction}}
+    R2_arr       = Int[0, 0, 0],                    # Vector{Int}
+)
+
 """
     ISGL_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
 
@@ -57,7 +64,7 @@ num_params = make_num_params3B3D()
 energies = ISGL_solve(phys_params, num_params) #solving with default parameters: three particles with the same mass and gaussian interaction
 ```
 """
-function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_params=DEFAULT_OBS)
     
     ## 1. interpretation of inputs
     show_details_bool = 0
@@ -76,7 +83,7 @@ function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_p
     end
     
     ## 3. computations to determine sizes of arrays for allocation:   
-    size_params = size_estimate(phys_params,num_params,observ_params)
+    size_params = size_estimate(phys_params,num_params,observ_params,csm_bool)
     
     ## 4. preallocation: #is it really necessary? and/or can it not simply be done within the precomputation? better like this for performance analysis    
     precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,csm_bool)

@@ -9,11 +9,11 @@
 # - imax_fun for imax in ISGL
 # - kmax_fun for kmax in ISGL
 
-struct SizeParams
+struct SizeParams{T<:Number}
     abvals_arr::Vector{Vector{Int64}}
     cvals::Vector{Int64}
     gauss_indices::Vector{Vector{Int}}
-    gaussopt_arr::Vector{Vector{Tuple{Float64,Float64}}}
+    gaussopt_arr::Vector{Vector{Tuple{Float64,T}}}
     central_indices::Vector{Vector{Int}}
     so_indices::Vector{Vector{Int}}
     nint_arr::Vector{Int64}
@@ -50,7 +50,7 @@ struct SizeParams
     maxobs::Int64
 end
 
-function size_estimate(phys_params,num_params,observ_params)
+function size_estimate(phys_params,num_params,observ_params,csm_bool)
     
     # input interpretation:
     (;mass_arr,svals,vint_arr,J_tot,parity,spin_arr) = phys_params
@@ -62,7 +62,7 @@ function size_estimate(phys_params,num_params,observ_params)
     cvals = findall(isempty.(vint_arr) .==0 ) # consider only values for c where there are interactions (any type)
     
     # number of interactions per Jacobi-set c:
-    gauss_indices, gaussopt_arr, central_indices, so_indices, nint_arr, nintmax = index_interaction_types(vint_arr)
+    gauss_indices, gaussopt_arr, central_indices, so_indices, nint_arr, nintmax = index_interaction_types(vint_arr,csm_bool, theta_csm)
 
     # box sizes, indices and factors for symmetrization
     abvals_arr,groupindex_arr,nboxes,abI,factor_bf = abc_size(cvals,svals)
@@ -105,7 +105,30 @@ function size_estimate(phys_params,num_params,observ_params)
 end
 
 
-function index_interaction_types(vint_arr)
+"""
+    csmgaussopt(gaussopt, csm_bool, theta_csm)
+
+If `csm_bool == 1`, returns a new
+`Vector{Vector{Tuple{Float64,ComplexF64}}}` where each
+`mu` has been scaled by `exp(2im * theta_csm * pi/180)`.
+Otherwise returns the original `gaussopt` unchanged.
+"""
+function csmgaussopt(gaussopt::Vector{Vector{Tuple{Float64,Float64}}},csm_bool::Integer,theta_csm::Real)
+    if csm_bool == 1
+        csmfac = exp(2im * theta_csm * pi / 180)
+        # build a new array with ComplexF64 mu’s
+        return [ 
+            [ (v0, mu0 * csmfac) 
+              for (v0, mu0) in cc ] 
+            for cc in gaussopt 
+        ]
+    else
+        return gaussopt
+    end
+end
+
+
+function index_interaction_types(vint_arr,csm_bool, theta_csm)
     gauss_indices = [Int[] for _ in 1:3]
     gaussopt_arr = [Tuple{Float64,Float64}[] for _ in 1:3]
     central_indices = [Int[] for _ in 1:3]
@@ -128,7 +151,7 @@ function index_interaction_types(vint_arr)
             if i in gauss_indices[c] # if this is a Gaussian potential
                 push!(gaussopt_arr[c], (v.v0, v.mu_g)) # store the parameters of the Gaussian potential
             else
-                push!(gaussopt_arr[c], (NaN, NaN)) # if not a Gaussian potential, store NaN
+                push!(gaussopt_arr[c], (NaN, NaN)) # if not a Gaussian potential, store NaN. This is necessary to keep the order of indices.
             end
 
         end
@@ -137,7 +160,9 @@ function index_interaction_types(vint_arr)
 
     nintmax = maximum(nint_arr)
 
-    return gauss_indices, gaussopt_arr, central_indices, so_indices, nint_arr, nintmax
+    gaussopt_arrC = csmgaussopt(gaussopt_arr, csm_bool, theta_csm) # adjust to complex values in case of csm_bool == 1
+
+    return gauss_indices, gaussopt_arrC, central_indices, so_indices, nint_arr, nintmax
 end
 
 

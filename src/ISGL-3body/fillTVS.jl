@@ -14,7 +14,7 @@
     
     ## Calculation of matrix elements and matrix filling via 1d loop (so we dont have redundant loops over all spin configs, lL combinations, and nmax)
     for index in 1:flati
-        rowi,coli=temp_args_arr[index]
+        (;rowi,coli) = temp_args_arr[index]
         temp_fill_mat[rowi,coli] = sab(jmat,temp_args_arr[index],abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
     end
     # transpose fill:
@@ -22,7 +22,7 @@
     
     #combined t and v for some speedup: removed combination to cope for CSM
     for index in 1:flati
-        rowi,coli=temp_args_arr[index]
+        (;rowi,coli) = temp_args_arr[index]
         temp_fill_mat[rowi,coli] = tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_arr[index],abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict,hbar)
     end
     # transpose fill:
@@ -34,7 +34,7 @@
     
     #v
     for index in 1:flati
-        rowi,coli=temp_args_arr[index]
+        (;rowi,coli) = temp_args_arr[index]
         temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,csm_bool) # do we need hbar^2 for SO?
     end
     # transpose fill:
@@ -132,7 +132,7 @@ function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_arg
                 for ivg in gauss_indices[c] #loop over the gaussian interactions for this c.
                     (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
                     v0,mu_g = gaussopt_arr[c][ivg]
-                    csm_bool == 1 && (mu_g *= exp(2*im*theta_csm*pi/180)) # apply CSM factor to the range of the Gaussian 
+
                     tempV += factor_ab*factor_symm*uab*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,Lsum,wn_interpol_arr,v0,mu_g,JlLa)
                 end
                 for ivc in central_indices[c] #loop over the central interactions for this c.
@@ -482,7 +482,7 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,bvalsdiag,abvals_arr,s_arr
                                                             
                                                             flati += 1
 
-                                                            temp_args_arr[flati] = (;rowi,coli,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,JlLa,JlLb,la,La,lb,Lb,Lsum,avals_new,bvals_new,factor_ab,avals,bvals) # write all loop-index-depending function-arguments into a temporary 1D array
+                                                            temp_args_arr[flati] = TempArgs(rowi,coli,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,JlLa,JlLb,la,La,lb,Lb,Lsum,avals_new,bvals_new,factor_ab,avals,bvals) # write all loop-index-depending function-arguments into a temporary 1D array
                                                         end
                                                     end
                                                 end

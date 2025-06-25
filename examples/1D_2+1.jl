@@ -33,7 +33,7 @@ v0 = -1.0; mu_g = 1.0;
 vg = GaussianPotential(v0,mu_g)
 
 phys_params2B = make_phys_params2B(;mur,vint_arr=[vg],dim=1)
-num_params2B = make_num_params2B(;gem_params=(;nmax=6, r1=1.0, rnmax=20.0))
+num_params2B = make_num_params2B(;gem_params=(;nmax=16, r1=1.0, rnmax=120.0))
 
 stateindex = 1; target_e2 = -1e-3;
 println("1. Two-body inverse problem")
@@ -62,7 +62,7 @@ phys_params3B = make_phys_params3B1D(;mass_arr=mass_arr,svals=["x","b","b"],vint
 # For the numerical parameters `nmax`, `r1`, and `rnmax` we use the optimized ones, found by the two-body inverse problem. The parameters for the other Jacobi coordinates are set manually.
 nmax = nps.gem_params.nmax;
 r1 = nps.gem_params.r1; rnmax = nps.gem_params.rnmax;
-num_params3B = make_num_params3B1D(;gem_params=(;nmax, r1, rnmax, Nmax=8, R1=1.5, RNmax=250.0))
+num_params3B = make_num_params3B1D(;gem_params=(;nmax, r1, rnmax, Nmax=16, R1=1.5, RNmax=250.0))
 
 # #### Solving the three-body problem
 
@@ -85,7 +85,7 @@ comparison(epsilon, ex_arr, min(length(epsilon),length(ex_arr)); s1="Gaussian", 
 # For fermions we can use the same potential. To account for their different statistics and parity, we use `svals=["x","f","f"]` and `parity=-1`. To allow for basis functions that obey these requirements, we need to set `lmax, Lmax=1`.
 println("\n3. Results for the fermionic case, mass ratio = $massratio")
 phys_params3B_F = make_phys_params3B1D(;mass_arr=mass_arr,svals=["x","f","f"],vint_arr,parity=-1)
-num_params3B_F = make_num_params3B1D(;gem_params=(;nmax, r1, rnmax, Nmax=8, R1=1.5, RNmax=250.0), lmin=0, Lmin=0, lmax=1, Lmax=1)
+num_params3B_F = make_num_params3B1D(;gem_params=(;nmax, r1, rnmax, Nmax=16, R1=1.5, RNmax=250.0), lmin=0, Lmin=0, lmax=1, Lmax=1)
 e3_F = GEM3B1D.GEM3B1D_solve(phys_params3B_F,num_params3B_F);
 
 # We compute the ratio of three-body to two-body binding energies.

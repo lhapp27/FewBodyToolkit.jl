@@ -42,6 +42,33 @@ struct InterpolationStruct{T}
     w_obs_interpol_arr::OffsetArray{Interpolations.Extrapolation{Float64, 1, ScaledInterpolation{Float64, 1, Interpolations.BSplineInterpolation{Float64, 1, OffsetVector{Float64, Vector{Float64}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4, Array{Interpolations.Extrapolation{Float64, 1, ScaledInterpolation{Float64, 1, Interpolations.BSplineInterpolation{Float64, 1, OffsetVector{Float64, Vector{Float64}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4}}
 end
 
+# new struct for temporary arguments
+struct TempArgs
+  rowi::Int
+  coli::Int
+  ranges::NamedTuple{(:nua, :nub, :NUa, :NUb),
+                     Tuple{Float64,Float64,Float64,Float64}}
+  norm4::Float64
+  mij_arr::Array{SArray{Tuple{6},Int,1,6},1}
+  sa::Float64
+  JsSa::Float64
+  sb::Float64
+  JsSb::Float64
+  JlLa::Int
+  JlLb::Int
+  la::Int
+  La::Int
+  lb::Int
+  Lb::Int
+  Lsum::Int
+  avals_new::Vector{Int}
+  bvals_new::Vector{Int}
+  factor_ab::Float64
+  avals::Vector{Int}
+  bvals::Vector{Int}
+end
+
+
 struct FillStruct{T}
     fij_arr::Matrix{Float64}
     Kij_arr::Matrix{Float64}
@@ -52,7 +79,7 @@ struct FillStruct{T}
     T::Matrix{T}
     V::Matrix{T}
     S::Matrix{Float64}
-    temp_args_arr::Vector{NamedTuple{(:rowi, :coli, :ranges, :norm4, :mij_arr, :sa, :JsSa, :sb, :JsSb, :JlLa, :JlLb, :la, :La, :lb, :Lb, :Lsum, :avals_new, :bvals_new, :factor_ab, :avals, :bvals),Tuple{Int64,Int64,NamedTuple{(:nua, :nub, :NUa, :NUb),Tuple{Float64,Float64,Float64,Float64}},Float64,Array{SArray{Tuple{6},Int64,1,6},1},Float64,Float64,Float64,Float64,Int64,Int64,Int64,Int64,Int64,Int64,Int64,Array{Int64,1},Vector{Int64},Int64,Vector{Int64},Vector{Int64}}}}
+    temp_args_arr::Vector{TempArgs}
     temp_fill_mat::Matrix{T}
     wn_obs_interpol_arr::OffsetVector{Float64, Vector{Float64}}
 end
@@ -160,7 +187,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,csm_b
     ntot = Int64((nbasis_total^2+nbasis_total)/2) # only for lower triangular!
     # Define the type of the tuple for the function arguments
     tuple_type = NamedTuple{(:rowi, :coli, :ranges, :norm4, :mij_arr, :sa, :JsSa, :sb, :JsSb, :JlLa, :JlLb, :la, :La, :lb, :Lb, :Lsum, :avals_new, :bvals_new, :factor_ab, :avals, :bvals),Tuple{Int64,Int64,NamedTuple{(:nua, :nub, :NUa, :NUb),Tuple{Float64,Float64,Float64,Float64}},Float64,Array{SArray{Tuple{6},Int64,1,6},1},Float64,Float64,Float64,Float64,Int64,Int64,Int64,Int64,Int64,Int64,Int64,Array{Int64,1},Vector{Int64},Int64,Vector{Int64},Vector{Int64}}}
-    temp_args_arr = Vector{tuple_type}(undef, ntot)
+    temp_args_arr = Vector{TempArgs}(undef, ntot)
     temp_fill_mat = zeros(TT,nbasis_total, nbasis_total)
         
     
