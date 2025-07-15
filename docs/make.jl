@@ -52,6 +52,6 @@ makedocs(
 deploydocs(
     repo = "github.com/lhapp27/FewBodyToolkit.jl.git",
     devbranch = "main",
-    #push_preview = true,
-    #target = "build",
+#    push_preview = true,
+#    target = "build",
 )
