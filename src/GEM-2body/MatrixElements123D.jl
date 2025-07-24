@@ -44,20 +44,19 @@ end =#
 norm(nu,lmax,gamma_dict,dim) = (2*(2*nu)^(lmax+dim/2)/gamma_dict[lmax+dim/2])^(1/2) # result for integration over [0,\infty); in 1D we therefore need an additional factor 1/sqrt(2), but this is taken care of in element_V
 integrand(r,lmax,nu1,nu2,vint,dim) = r^(2*lmax+(dim-1))*exp(-(nu1+nu2)*r^2)*vint(r)
 
-function element_V(vint::GaussianPotential,lmax,nu1,nu2,gamma_dict,buf,dim,lower_limit,dimfac) #gaussian interaction
+function element_V(vint::GaussianPotential,lmax,nu1,nu2,gamma_dict,buf,dim,domain,dimfac) #gaussian interaction
     v0 = vint.v0
     mu_g = vint.mu_g
     return v0*(2*(nu1*nu2)^(1/2)/(nu1+nu2+mu_g))^(lmax+dim/2)
 end
 
-function element_V(vint::CentralPotential,lmax,nu1,nu2,gamma_dict,buf,dim,lower_limit,dimfac) # 1D; needs different integration limits
-    return quadgk(r -> integrand(r,lmax,nu1,nu2,vint,dim),lower_limit,Inf;segbuf=buf)[1]*norm(nu1,lmax,gamma_dict,dim)*norm(nu2,lmax,gamma_dict,dim) * dimfac
-    # for 1D an additional segmentation at 0 can be useful. Not sure how to implement this in quadgk since providing the domain as a single argument [-Inf,0,Inf] yields an error
+function element_V(vint::CentralPotential,lmax,nu1,nu2,gamma_dict,buf,dim,domain,dimfac) # 1D; needs different integration domain
+    return quadgk(r -> integrand(r,lmax,nu1,nu2,vint,dim),domain...;segbuf=buf)[1]*norm(nu1,lmax,gamma_dict,dim)*norm(nu2,lmax,gamma_dict,dim) * dimfac
 end
 
 # if central potential is simply defined as a function: wrap into CentralPotential type
-function element_V(vint::Function,lmax,nu1,nu2,gamma_dict,buf,dim,lower_limit,dimfac)
-    return element_V(CentralPotential(vint),lmax,nu1,nu2,gamma_dict,buf,dim,lower_limit,dimfac)
+function element_V(vint::Function,lmax,nu1,nu2,gamma_dict,buf,dim,domain,dimfac)
+    return element_V(CentralPotential(vint),lmax,nu1,nu2,gamma_dict,buf,dim,domain,dimfac)
 end
 
 ## functions for the full (lower-triangular) matrices. requires already preallocated matrices S,T,V
@@ -95,10 +94,10 @@ function MatrixV(V, lmax, nu_arr, vint_arr, gamma_dict, buf, csm_bool, theta_csm
     end
     
     if dim == 1
-        lower_limit = -Inf # for 1D, the integration limits are different
+        domain = (-Inf,0,Inf) # for 1D, the integration domain is different
         dimfac = 1/2 # additional factor for 1D to cope for the norm
     elseif (dim == 2) || (dim == 3)
-        lower_limit = 0.0 # for 2D and 3D, the integration limits are the same
+        domain = (0,Inf) # for 2D and 3D, the integration limits are the same
         dimfac = 1.0 # no additional factor for 2D and 3D
     else
         error("Invalid dimension: $dim")
@@ -112,7 +111,7 @@ function MatrixV(V, lmax, nu_arr, vint_arr, gamma_dict, buf, csm_bool, theta_csm
             nucol = nu_arr[ncol]*csmfacnu
             for nrow in row_start:lastindex(nu_arr)
                 nurow = nu_arr[nrow]'*csmfacnu
-                V[nrow, ncol] += element_V(vint, lmax, nurow, nucol, gamma_dict, buf, dim, lower_limit, dimfac)
+                V[nrow, ncol] += element_V(vint, lmax, nurow, nucol, gamma_dict, buf, dim, domain, dimfac)
             end
         end
 
@@ -180,10 +179,10 @@ function MatrixWD(WD,lmax,nu_arr,WCC,DCC,gamma_dict,buf,csm_bool,theta_csm,diff_
     end
 
     if dim == 1
-        lower_limit = -Inf # for 1D, the integration limits are different
+        domain = (-Inf,0,Inf) # for 1D, the integration domain is different
         dimfac = 1/2 # additional factor for 1D
     elseif (dim == 2) || (dim == 3)
-        lower_limit = 0.0 # for 2D and 3D, the integration limits are the same
+        domain = (0,Inf) # for 2D and 3D, the integration limits are the same
         dimfac = 1.0 # no additional factor for 2D and 3D
     else
         error("Invalid dimension: $dim")
@@ -191,33 +190,33 @@ function MatrixWD(WD,lmax,nu_arr,WCC,DCC,gamma_dict,buf,csm_bool,theta_csm,diff_
     
     ## not adopted yet to support simultaneous CSM and CR!
     if csm_bool == 0
-        MatrixWD_cr(WD,lmax,nu_arr,wdfun,gamma_dict,buf,dim,lower_limit,dimfac)
+        MatrixWD_cr(WD,lmax,nu_arr,wdfun,gamma_dict,buf,dim,domain,dimfac)
     elseif csm_bool == 1
-        MatrixWD_csm(WD,lmax,nu_arr,wdfun,gamma_dict,buf,theta_csm,dim,lower_limit,dimfac)
+        MatrixWD_csm(WD,lmax,nu_arr,wdfun,gamma_dict,buf,theta_csm,dim,domain,dimfac)
     end
 end
 
 
 # no csm
-function MatrixWD_cr(WD,lmax,nu_arr,wdfun,gamma_dict,buf,dim,lower_limit,dimfac)
+function MatrixWD_cr(WD,lmax,nu_arr,wdfun,gamma_dict,buf,dim,domain,dimfac)
     #roots,weights = rootsweights(1.0)
     for ncol = 1:lastindex(nu_arr)
         for nrow = ncol:lastindex(nu_arr)
             wdfunr(r) = wdfun(r,lmax,nu_arr[ncol])# function definition in each loop iteration... slow?
-            WD[nrow,ncol] = element_V(wdfunr,lmax,nu_arr[nrow]',nu_arr[ncol],gamma_dict,buf,dim,lower_limit,dimfac)
+            WD[nrow,ncol] = element_V(wdfunr,lmax,nu_arr[nrow]',nu_arr[ncol],gamma_dict,buf,dim,domain,dimfac)
             #WD[nrow,ncol] = element_V_Num2(lmax,nu_arr[nrow]',nu_arr[ncol],wdfunr,gamma_dict,buf,roots,weights)
         end
     end
 end
 
 #csm
-function MatrixWD_csm(WD,lmax,nu_arr,wdfun,gamma_dict,buf,theta_csm,dim,lower_limit,dimfac)
+function MatrixWD_csm(WD,lmax,nu_arr,wdfun,gamma_dict,buf,theta_csm,dim,domain,dimfac)
     csmfac=exp(-2*im*theta_csm*pi/180)
     #roots,weights = rootsweights(1.0)
     for ncol = 1:lastindex(nu_arr)
         for nrow = ncol:lastindex(nu_arr)
             wdfunr(r) = wdfun(r,lmax,nu_arr[ncol]*csmfac)
-            WD[nrow,ncol] = element_V(wdfunr,lmax,nu_arr[nrow]'*csmfac,nu_arr[ncol]*csmfac,gamma_dict,buf,dim,lower_limit,dimfac)
+            WD[nrow,ncol] = element_V(wdfunr,lmax,nu_arr[nrow]'*csmfac,nu_arr[ncol]*csmfac,gamma_dict,buf,dim,domain,dimfac)
             #WD[nrow,ncol] = element_V_Num2(lmax,nu_arr[nrow]',nu_arr[ncol],r->vint_csm(r,wdfunr,theta_csm),gamma_dict,buf,roots,weights)
         end
     end
