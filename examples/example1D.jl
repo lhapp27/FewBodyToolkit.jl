@@ -102,7 +102,7 @@ comparison(energies_interpol, e2_opt, simax;s1="Interpolated", s2="Optimized")
 
 stateindex = 3; target_e2 = -18.0;
 println("\n4. Scaling the potential such that E2[$stateindex] = $target_e2:")
-phys_params_scaled,num_params_scaled,vscale = GEM2B.v0GEMOptim(phys_params,num_params,stateindex,target_e2)
+@time phys_params_scaled,num_params_scaled,vscale = GEM2B.v0GEMOptim(phys_params,num_params,stateindex,target_e2)
 e2_v0 = GEM2B.GEM2B_solve(phys_params_scaled,num_params_scaled)
 
 println("After scaling:")
@@ -111,3 +111,9 @@ println("After scaling:")
 
 # Here, we scale the potential such that the energy of the state with `stateindex = 3` is equal to `target_e2 = -18.0`. So far this was the energy of the state with index 2. For this special potential, this corresponds therefore to increasing the number of states and `lambda` by 2. Hence, the we expect the scaling factor to be approximately ``(\lambda+2)(\lambda+2+1)/(\lambda(\lambda+1))``
 println("vscale = $(round(vscale,digits=8)) should be approximately (λ+2)*(λ+2+1)/(λ*(λ+1)) = ", round((lambda+2)*(lambda+2+1)/(lambda*(lambda+1)),digits=8) )
+
+
+# A much more efficient way to solve the inverse problem is to use the `inverse_bool` option in `GEM2B_solve`. This finds the critical values of `v0` as eigenvalues of a generalized eigenvalue problem for which the energy is close to `target_energy`. Note, however that this does not optimize the basis parameters on-the-fly. If the basis is not optimal, the results might not be very accurate. Moreover, a different threshold in num_params might be required.
+println("\n4b. Using the inverse_bool option in GEM2B_solve to find the critical values of v0:")
+@time v0crits = GEM2B.GEM2B_solve(phys_params,num_params_scaled,inverse_bool=1,target_energy=target_e2)
+println("v0crits[3] = $(round(v0crits[3],digits=8)), should be close to ", round((lambda+2)*(lambda+2+1)/(lambda*(lambda+1)),digits=8) )

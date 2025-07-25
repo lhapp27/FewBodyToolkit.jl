@@ -24,7 +24,7 @@ make_phys_params2B(vint_arr=[GaussianPotential(-1.0, 0.5)], dim=1) # 1D system w
 make_phys_params2B(mur=0.5, vint_arr=[r -> -1/r], lmax=2)       # 3D Coulomb potential in d-wave (l=2) with reduced mass 0.5
 ```
 """
-function make_phys_params2B(;hbar = 1.0, mur=1.0, vint_arr=[[GaussianPotential(-1.0, 1.0)]], lmin=0, lmax=0, dim=3)
+function make_phys_params2B(;hbar = 1.0, mur=1.0, vint_arr=[GaussianPotential(-1.0, 1.0)], lmin=0, lmax=0, dim=3)
     return (;hbar, mur, vint_arr, lmin, lmax, dim)
 end
 

@@ -57,17 +57,24 @@ energies, wavefunctions = GEM2B_solve(phys_params, num_params; wf_bool=1)
 # Note: The function can handle 1D, 2D, or 3D problems based on the `dim` parameter in `phys_params`.
 ```
 """
-function GEM2B_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
+function GEM2B_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0, debug_bool=0, inverse_bool=0, target_energy=0.0)
         
     # preallocations:
     prealloc_arrs = PreallocStruct2B(num_params, cr_bool, csm_bool)
     
     # function call with preallocations:
-    GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_bool)
+    GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_bool,debug_bool,inverse_bool,target_energy)
     
     if wf_bool == 0
+        if debug_bool == 1
+            return prealloc_arrs
+        end
         return prealloc_arrs.energies
+
     elseif wf_bool == 1
+        if debug_bool == 1
+            return prealloc_arrs
+        end
         return prealloc_arrs.energies, prealloc_arrs.wavefunctions
     else
         error("error in wf_bool: only values of 0 or 1 allowed.")
@@ -75,8 +82,8 @@ function GEM2B_solve(phys_params, num_params; wf_bool=0, cr_bool=0, csm_bool=0)
 end
 
 # function with preallocated arrays:
-function GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_bool)
-    
+function GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_bool,debug_bool,inverse_bool,target_energy)
+
     (;nu_arr,S,T,V,energies,wavefunctions) = prealloc_arrs
     
     # Destructuring struct:
@@ -111,7 +118,6 @@ function GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_b
     MatrixT(T,lmax,nu_arr,hbar,mur,csm_bool,theta_csm,cr_bool,dim)
     MatrixV(V,lmax,nu_arr,vint_arr,gamma_dict,buf,csm_bool,theta_csm,cr_bool,dim)
     
-    debug_bool = 0
     if debug_bool == 1
         minsize = min(10, size(T, 1))
         print_matrix("T", T, minsize)
@@ -122,28 +128,39 @@ function GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_b
     # symmetric fill:
     S .= Hermitian(S,:L) # if Hermitian or Symmetric: type-unstable? hermitian overall is ok, even if real-symmetric
     if csm_bool == 0 && cr_bool == 0
-        T .+= V # T becomes H=T+V
+        #T .+= V # T becomes H=T+V
         T .= Symmetric(T,:L)
+        V .= Symmetric(V,:L)
     elseif csm_bool == 1 && cr_bool == 0
-        T .+= V # can be added before symmetry
+        #T .+= V # can be added before symmetry
         T .= Symmetric(T,:L) # T will be complex-symmetric
+        V .= Symmetric(V,:L) # V will be complex-symmetric
     elseif csm_bool == 0 && cr_bool == 1
-        T .+= V 
+        #T .+= V 
         T .= Hermitian(T,:L) 
+        V .= Hermitian(V,:L)
     elseif csm_bool == 1 && cr_bool == 1 # no symmetric filling possible for T and V !!!
-        T .+= V 
+        #T .+= V 
     end
-    
-    if debug_bool == 1
-        #print_matrix("H", T, 2)
-    end
+
     
     ## 3. Eigensolver
     if wf_bool == 0
-        eigen2step(energies,T,S;threshold=threshold) # only energies
+        if inverse_bool == 1
+            # solve the inverse problem: find the values of v0 such that the first energy is close to target_energy
+            eigen2step(energies,T .- target_energy.*S,-V;threshold=threshold) # The usual variable "energies" is used for the eigenvalues which are the critical values of v0 leading to the target energy; a smaller threshold might be required!
+        else
+            eigen2step(energies,T.+V,S;threshold=threshold) # only energies
+        end
+        
         return energies
     else
-        eigen2step_valvec(energies,wavefunctions,T,S;threshold=threshold)
+        if inverse_bool == 1
+            # solve the inverse problem: find basis parameters such that the first energy is close to target_energy
+            eigen2step_valvec(energies,wavefunctions,T .- target_energy.*S,-V;threshold=threshold)
+        else
+            eigen2step_valvec(energies,wavefunctions,T.+V,S;threshold=threshold)
+        end
         return energies,wavefunctions
     end    
 end

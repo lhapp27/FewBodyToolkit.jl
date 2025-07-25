@@ -5,9 +5,9 @@
 function eigen2step(e_arr,H, S; threshold::Float64 = 10^-13)
     
     if typeof(S[1,1]) == Float64
-        dvec,y = eigen!(Symmetric(S)); #careful, this overwrites S
+        dvec,y = eigen(Symmetric(S));
     elseif typeof(S[1,1]) == ComplexF64
-        dvec,y = eigen!(Hermitian(S));
+        dvec,y = eigen(Hermitian(S));
     end
     
     dvec_mask,y_mask = cutSmallEV(dvec,y,threshold=threshold)
