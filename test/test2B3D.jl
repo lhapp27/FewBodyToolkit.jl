@@ -23,7 +23,7 @@ energies_arr = GEM2B.GEM2B_solve(phys_params,num_params)
 
 # 2. Test of preallocation
 pa = GEM2B.PreallocStruct2B(num_params, 0, 0) #csm_bool = 0, cr_bool = 0
-GEM2B.GEM2B_solve!(pa,phys_params,num_params,0,0,0)
+GEM2B.GEM2B_solve!(pa,phys_params,num_params,0,0,0,0,0,0.0)
 energies_arr = pa.energies
 @test all(isapprox.(energies_arr[1:4], exact_results; atol=1e-3))
 
