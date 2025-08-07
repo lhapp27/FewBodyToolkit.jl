@@ -4,7 +4,7 @@
     
     (;gem_params,theta_csm) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
-    (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,lL_arr,maxlmax,gauss_indices,central_indices,gaussopt_arr) = size_params
+    (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,lL_arr,maxlmax,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr) = size_params
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
     (;alpha_arr,v_arr,w_interpol_arr) = interpol_arrs
     (;wn_interpol_arr,T,V,S,temp_args_arr,temp_fill_mat) = fill_arrs
@@ -39,7 +39,7 @@
     # Interaction V
     for index in 1:flati
         rowi,coli=temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,gauss_indices,central_indices,gaussopt_arr,csm_bool,theta_csm)
+        temp_fill_mat[rowi,coli] = vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,csm_bool,theta_csm)
     end
     V .= Symmetric(temp_fill_mat,:L); # transpose fill:
     
@@ -99,7 +99,7 @@ function tab(jmat,murR_arr,temp_args_i,abI,factor_bf,gamma_dict,hbar)
 end
 
 # calculation of a single matrix element: interaction V(r_c)
-function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma_dict,gauss_indices,central_indices,gaussopt_arr,csm_bool,theta_csm)
+function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,csm_bool,theta_csm)
     (;avals_new,bvals_new,factor_ab,ranges,norm4,la,La,lb,Lb,cvals) = temp_args_i
     tempV = 0.0                                    
     for a in avals_new
@@ -114,6 +114,11 @@ function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma
                 
                 for ivc in central_indices[c]
                     tempV += factor_ab*factor_symm*element_V(c,ivc,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,w_interpol_arr,wn_interpol_arr,gamma_dict)
+                end
+
+                for ivc1D in contact1D_indices[c]
+                    contactopt = contact1Dopt_arr[c][ivc1D] # Contact potential parameters are stored in contact1Dopt_arr
+                    tempV += factor_ab*factor_symm*element_VContact(c,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,contactopt,gamma_dict,csm_bool,theta_csm)
                 end
                 
             end
@@ -260,6 +265,57 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,c
                     sums = 0.0
                     for s = 0:floor(KK/2)
                         sums += eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * gamma_dict[(LL-2*s+1)/2]/((eta5-eta6^2/4/eta7)^((LL-2*s+1)/2))
+                    end
+                    
+                    sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * (pi/eta7)^(1/2)*(-1/2/eta7)^KK
+                    
+                end
+                sumkp += sumKp
+            end
+            sumK += sumkp
+        end
+        sumk += sumK
+    end
+    sumk *= norm4 * v0
+    
+    return sumk    
+end
+
+# calculation of a single matrix element: interaction VContact(r_c)
+function element_VContact(c,ranges,norm4,jac,jbc,la,La,lb,Lb,contactopt,gamma_dict,csm_bool,theta_csm)
+    
+    (;nua,nub,NUa,NUb) = ranges;
+    (alphaAC,gammaAC,betaAC,deltaAC) = jac
+    (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
+    #GEM review: alpha <-> gamma; beta <-> delta
+    
+    v0,z0 = contactopt
+    csm_bool == 1 && (z0 *= exp(2*im*theta_csm*pi/180)) # apply CSM factor to the position of the contact interaction
+    
+    LL = la+La+lb+Lb;
+        
+    eta5 = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2
+    eta6 = 2*(nua*alphaAC*betaAC + NUa*gammaAC*deltaAC + nub*alphaBC*betaBC + NUb*gammaBC*deltaBC)
+    eta7 = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2
+    
+    sumk = 0.0
+    for k = 0:la
+        sumK = 0.0
+        for K = 0:La
+            sumkp = 0.0
+            for kp = 0:lb
+                sumKp = 0.0
+                for Kp = 0:Lb                    
+                    KK = k+K+kp+Kp;
+
+                    if z0 == 0
+                        mod(KK,2) == 1 && continue
+                        KK-LL != 0 && continue
+                    end
+
+                    sums = 0.0
+                    for s = 0:floor(KK/2) #expression via 1F1 exists too
+                        sums += eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * z0^(LL-2*s) *exp(-(eta5-eta6^2/4/eta7)*z0^2) #eta7^(-KK) in external factor, like for Gaussian
                     end
                     
                     sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * (pi/eta7)^(1/2)*(-1/2/eta7)^KK

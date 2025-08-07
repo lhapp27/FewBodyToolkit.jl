@@ -44,9 +44,16 @@ println("Found potential parameters: v0 = ", vscale*v0, ", mu_g = ", mu_g)
 vgscaled = GaussianPotential(v0*vscale,mu_g)
 pps = make_phys_params2B(;mur,vint_arr=[vgscaled],dim=1)
 
-#Check if the two-body system indeed has the desired binding energy:
+# Check if the two-body system indeed has the desired binding energy:
 e2s = GEM2B.GEM2B_solve(pps,nps)
 println("Two-body binding energy: ", e2s[1], " (target: $(target_e2) )")
+
+# We can also perform the calculation with a contact potential:
+vc = ContactPotential1D(-sqrt(-2*target_e2),0.0)
+ppc = make_phys_params2B(;mur,vint_arr=[vc],dim=1)
+npc = make_num_params2B(;gem_params=(;nmax=16, r1=1.0, rnmax=120.0))
+# For a contact interaction we don't need to find the potential strength, but parameters should be optimized
+r1cs,rnmaxcs,e2copt=GEM_Optim_2B(ppc,npc,stateindex)
 
 
 # ## Three-body problem
@@ -74,8 +81,18 @@ println("Results for the bosonic case, mass ratio = $massratio")
 epsilon = e3 /abs(e2s[1])
 
 ex_arr = exfun(massratio)[1:2:end]
-comparison(epsilon, ex_arr, min(length(epsilon),length(ex_arr)); s1="Gaussian", s2="Contact")
+comparison(epsilon, ex_arr, min(length(epsilon),length(ex_arr)); s1="Gaussian", s2="Contact (Ref)")
 
+# Again, we can also do the calculation with a contact potential:
+vint_arrC=[[],[vc],[vc]]
+pp3BC = make_phys_params3B1D(;mass_arr=mass_arr,svals=["x","b","b"],vint_arr = vint_arrC)
+nmax = nps.gem_params.nmax;
+np3BC = make_num_params3B1D(;gem_params=(;nmax, r1=r1cs, rnmax=rnmaxcs, Nmax=16, R1=1.5, RNmax=250.0))
+println("\nThree-body problem with contact potential")
+e3c = GEM3B1D.GEM3B1D_solve(pp3BC,np3BC);
+epsilonC = e3c /abs(e2copt);
+
+comparison(epsilonC, ex_arr, min(length(epsilonC),length(ex_arr)); s1="Contact (GEM)", s2="Contact (Ref)")
 
 
 # ## Two identical fermions
@@ -92,9 +109,18 @@ e3_F = GEM3B1D.GEM3B1D_solve(phys_params3B_F,num_params3B_F);
 epsilon_F = e3_F /abs(e2s[1])
 
 ex_arr_F = exfun(massratio)[2:2:end]
-comparison(epsilon_F, ex_arr_F, min(length(epsilon_F),length(ex_arr_F)); s1="Gaussian", s2="Contact")
+comparison(epsilon_F, ex_arr_F, min(length(epsilon_F),length(ex_arr_F)); s1="Gaussian", s2="Contact (Ref)")
 
-# Overall, we can reproduce the article's results quite well for both bosonic and fermionic systems. Better results could be obtained with more basis functions and/or optimized basis parameters. Note, however, that perfect agreement cannot be reached, since here we used a finite-range interaction whereas the results taken from the article are for a contact interaction. Only in the limit of vanishing two-body binding energy, the two potentials should yield the same results.
+# Again, we can also do the calculation with a contact potential:
+pp3BC = make_phys_params3B1D(;mass_arr=mass_arr,svals=["x","f","f"],vint_arr = vint_arrC, parity=-1)
+np3BC = make_num_params3B1D(;gem_params=(;nmax, r1=r1cs, rnmax=rnmaxcs, Nmax=16, R1=1.5, RNmax=250.0),lmin=0,Lmin=0,lmax=1,Lmax=1)
+println("\nThree-body problem with contact potential")
+e3c_F = GEM3B1D.GEM3B1D_solve(pp3BC,np3BC);
+epsilonC_F = e3c_F /abs(e2copt);
+
+comparison(epsilonC_F, ex_arr_F, min(length(epsilonC_F),length(ex_arr_F)); s1="Contact (GEM)", s2="Contact (Ref)")
+
+# Overall, we can reproduce the article's results quite well for both bosonic and fermionic systems. For the contact interaction, the results match within the provided accuracy. For the Gaussian interaction, better results could be obtained with more basis functions and/or optimized basis parameters. Note, however, that perfect agreement between the finite-range Gaussian interaction and the contact interaction cannot be reached. Only in the limit of vanishing two-body binding energy, the two potentials should yield the same results.
 
 # ## Page References
 

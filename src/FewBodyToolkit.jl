@@ -6,7 +6,7 @@ using LinearAlgebra, SpecialFunctions, QuadGK, Optim, Roots, StaticArrays, Inter
 include("common/potentialtypes.jl")
 include("common/eigen2step.jl")
 include("common/auxiliary.jl")
-export PotentialFunction, CentralPotential, GaussianPotential, SpinOrbitPotential, comparison
+export PotentialFunction, CentralPotential, GaussianPotential, ContactPotential1D, SpinOrbitPotential, comparison
 
 ### GEM-2body
 include("GEM-2body/GEM2B.jl")

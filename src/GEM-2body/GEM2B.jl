@@ -216,8 +216,6 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC; wf_bool=0, cr_bool=0, 
     TT = typeof(T[1])
     TT2 = typeof(energies[1])
     
-    #gaussopt = SA[0,1.0,1.0] # i.e. no gaussopt
-    
     # for convenience
     cmax = size(WCC,1) # number of channels
     nmax = lastindex(nu_arr) # incorporates already factor 2 in case of cr_bool=1

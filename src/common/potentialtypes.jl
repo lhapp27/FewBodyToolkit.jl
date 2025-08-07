@@ -64,3 +64,34 @@ V_{SO}(r) = f(r) \\vec{l} \\cdot \\vec{s}
 struct SpinOrbitPotential <: PotentialFunction
     f::Function
 end
+
+
+"""
+    ContactPotential1D(v0::Float64, z0::Float64)
+A concrete implementation of `PotentialFunction` that represents a 1D Contact (Dirac) potential:
+```math
+V(z) = v_0  \\delta(z - z_0)
+```
+where `z` is the 1D coordinate.
+
+# Arguments:
+- `v0::Float64`: The strength of the potential.
+- `z0::Float64`: The position of the delta function.
+"""
+struct ContactPotential1D <: PotentialFunction
+    v0::Float64
+    z0::Float64
+
+    function ContactPotential1D(v0::Float64, z0::Float64)
+        new(v0, z0)
+    end
+end
+
+"""
+    function (gp::ContactPotential1D)(z::Float64)
+
+Evaluates the contact potential at a given 1D coordinate `z`.
+"""
+function (gp::ContactPotential1D)(z::Float64)
+    z == gp.z0 ? Inf : 0.0
+end

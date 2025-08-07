@@ -6,6 +6,8 @@ struct SizeParams
     central_indices::Vector{Vector{Int}}
     gauss_indices::Vector{Vector{Int}}
     gaussopt_arr::Vector{Vector{Tuple{Float64,Float64}}}
+    contact1D_indices::Vector{Vector{Int}}
+    contact1Dopt_arr::Vector{Vector{Tuple{Float64,Float64}}}
     nint_arr::Vector{Int64}
     nintmax::Int64
     groupindex_arr::Vector{Int64}
@@ -37,7 +39,7 @@ function size_estimate(phys_params,num_params,observ_params)
     # size of Hamiltonian matrix due to symmetries and interactions
     cvals = findall(isempty.(vint_arr) .==0) # consider only values for c where there are interactions (any type)
     # number of interactions per Jacobi-set c:
-    central_indices, gauss_indices, gaussopt_arr, nint_arr, nintmax = index_interaction_types(vint_arr)
+    central_indices, gauss_indices, gaussopt_arr, contact1D_indices, contact1Dopt_arr, nint_arr, nintmax = index_interaction_types(vint_arr)
     
     # box sizes, indices and factors for symmetrization
     abvals_arr,groupindex_arr,nboxes,abI,factor_bf = abc_size(cvals,svals)
@@ -62,7 +64,7 @@ function size_estimate(phys_params,num_params,observ_params)
     maxobs = maximum(lastindex.(centobs_arr)) # max number of observables
 
     # Constructing Struct (collective data structure size_params with all the size parameters)
-    size_params = SizeParams(abvals_arr,cvals,central_indices,gauss_indices,gaussopt_arr,nint_arr,nintmax,groupindex_arr,nboxes,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,lL_arr,lL_complete,l_complete,nlL,nl,maxlmax,maxobs) #13diff
+    size_params = SizeParams(abvals_arr,cvals,central_indices,gauss_indices,gaussopt_arr,contact1D_indices,contact1Dopt_arr,nint_arr,nintmax,groupindex_arr,nboxes,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,lL_arr,lL_complete,l_complete,nlL,nl,maxlmax,maxobs) #13diff
 
     ## overall not so many differences between 1D and 3D. --> possible to reduce code via additional argument dim?
     return size_params
@@ -72,22 +74,32 @@ end
 function index_interaction_types(vint_arr)
     central_indices = [Int[] for _ in 1:3]
     gauss_indices = [Int[] for _ in 1:3]
+    contact1D_indices = [Int[] for _ in 1:3]
 
     gaussopt_arr = [Tuple{Float64,Float64}[] for _ in 1:3]
+    contact1Dopt_arr = [Tuple{Float64,Float64}[] for _ in 1:3]
     nint_arr = zeros(Int64,3)
 
-    pushindexpotentialtype!(v::Function, central_indices, gauss_indices, i) = push!(central_indices, i) # treat function as a central potential
-    pushindexpotentialtype!(v::CentralPotential, central_indices, gauss_indices, i) = push!(central_indices, i)
-    pushindexpotentialtype!(v::GaussianPotential, central_indices, gauss_indices, i) = push!(gauss_indices, i)    
+    pushindexpotentialtype!(v::Function, central_indices, gauss_indices, contact1D_indices, i) = push!(central_indices, i) # treat function as a central potential
+    pushindexpotentialtype!(v::CentralPotential, central_indices, gauss_indices, contact1D_indices, i) = push!(central_indices, i)
+    pushindexpotentialtype!(v::GaussianPotential, central_indices, gauss_indices, contact1D_indices, i) = push!(gauss_indices, i)
+    pushindexpotentialtype!(v::ContactPotential1D, central_indices, gauss_indices, contact1D_indices, i) = push!(contact1D_indices, i)
 
     for c in 1:3
         for (i, v) in enumerate(vint_arr[c])
-            pushindexpotentialtype!(v, central_indices[c], gauss_indices[c], i)
+            pushindexpotentialtype!(v, central_indices[c], gauss_indices[c], contact1D_indices[c], i)
 
+            # Gaussians:
             if i in gauss_indices[c] # if this is a Gaussian potential
                 push!(gaussopt_arr[c], (v.v0, v.mu_g)) # store the parameters of the Gaussian potential
             else
                 push!(gaussopt_arr[c], (NaN, NaN)) # if not a Gaussian potential, store NaN. This is necessary to keep the order of indices.
+            end
+
+            if i in contact1D_indices[c] # if this is a contact potential
+                push!(contact1Dopt_arr[c], (v.v0, v.z0)) # store the parameters of the contact potential
+            else
+                push!(contact1Dopt_arr[c], (NaN, NaN)) # if not a contact potential, store NaN. This is necessary to keep the order of indices.
             end
 
         end
@@ -96,7 +108,7 @@ function index_interaction_types(vint_arr)
 
     nintmax = maximum(nint_arr)
 
-    return central_indices, gauss_indices, gaussopt_arr, nint_arr, nintmax
+    return central_indices, gauss_indices, gaussopt_arr, contact1D_indices, contact1Dopt_arr, nint_arr, nintmax
 end
 
 #this function is maybe a bit confusing due to numerous names and definitions. thats why there are many examples and explanations.

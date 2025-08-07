@@ -19,27 +19,6 @@ element_T2D(lmax,nu1,nu2,hbar,mur) = -hbar^2/2/mur * (-2^(3+lmax)*(1+lmax)*(nu1*
 element_T3D(lmax,nu1,nu2,hbar,mur) = hbar^2/2/mur * (2*lmax+3)*(nu1*nu2)^(1/2)*(2*(nu1*nu2)^(1/2)/(nu1+nu2))^(lmax+5/2) # kinetic energy
 
 
-## old functions with if-conditions for dimensions
-#= element_VGauss(lmax,nu1,nu2,v0,mu_g,dim) = v0*(2*(nu1*nu2)^(1/2)/(nu1+nu2+mu_g))^(lmax+dim/2) # gaussian interaction
-
-function element_V(lmax,nu1,nu2,vint,gamma_dict,buf,dim) # maybe slow
-    if dim == 1
-        return element_V1D(lmax,nu1,nu2,vint,gamma_dict,buf,dim)
-    elseif (dim == 2) || (dim == 3)
-        return element_V23D(lmax,nu1,nu2,vint,gamma_dict,buf,dim)
-    else
-        error("Invalid dimension: $dim")
-    end
-end
-function element_V1D(lmax,nu1,nu2,vint,gamma_dict,buf,dim) # 1D needs different integration limits
-    return quadgk(r -> integrand(r,lmax,nu1,nu2,vint,dim),-Inf,0,Inf;segbuf=buf)[1]*norm(nu1,lmax,gamma_dict,dim)*norm(nu2,lmax,gamma_dict,dim)/2 # 1D needs additional factor 1/2
-end
-
-function element_V23D(lmax,nu1,nu2,vint,gamma_dict,buf,dim)
-    return quadgk(r -> integrand(r,lmax,nu1,nu2,vint,dim),0,Inf;segbuf=buf)[1]*norm(nu1,lmax,gamma_dict,dim)*norm(nu2,lmax,gamma_dict,dim)
-end =#
-
-
 # for central interaction via numerical integration:
 norm(nu,lmax,gamma_dict,dim) = (2*(2*nu)^(lmax+dim/2)/gamma_dict[lmax+dim/2])^(1/2) # result for integration over [0,\infty); in 1D we therefore need an additional factor 1/sqrt(2), but this is taken care of in element_V
 integrand(r,lmax,nu1,nu2,vint,dim) = r^(2*lmax+(dim-1))*exp(-(nu1+nu2)*r^2)*vint(r)
@@ -48,6 +27,19 @@ function element_V(vint::GaussianPotential,lmax,nu1,nu2,gamma_dict,buf,dim,domai
     v0 = vint.v0
     mu_g = vint.mu_g
     return v0*(2*(nu1*nu2)^(1/2)/(nu1+nu2+mu_g))^(lmax+dim/2)
+end
+
+function element_V(vint::ContactPotential1D,lmax,nu1,nu2,gamma_dict,buf,dim,domain,dimfac) #contact interaction
+    v0 = vint.v0
+    z0 = vint.z0
+
+    if z0 == 0
+        int = lmax == 0 ? 1.0 : 0.0 # for lmax=0, the integral is 1, otherwise it is zero
+    else
+        int = z0^(2*lmax)*exp(-(nu1+nu2)*z0^2)
+    end
+
+    return v0 * int * norm(nu1,lmax,gamma_dict,dim)*norm(nu2,lmax,gamma_dict,dim) * dimfac
 end
 
 function element_V(vint::CentralPotential,lmax,nu1,nu2,gamma_dict,buf,dim,domain,dimfac) # 1D; needs different integration domain
@@ -118,36 +110,6 @@ function MatrixV(V, lmax, nu_arr, vint_arr, gamma_dict, buf, csm_bool, theta_csm
     end
     
 end
-
-#= # central potential
-function MatrixV_central(V, lmax, nu_arr, vint, gamma_dict, buf, fill_full, csmfacnu, dim)
-    for ncol in 1:lastindex(nu_arr)
-        row_start = fill_full ? 1 : ncol # full fill if csm and cr, otherwise only lower triangular
-        nucol = nu_arr[ncol]*csmfacnu
-        for nrow in row_start:lastindex(nu_arr)
-            nurow = nu_arr[nrow]'*csmfacnu
-            V[nrow, ncol] += element_V(lmax, nurow, nucol, vint, gamma_dict, buf,dim)
-        end
-    end
-end
-
-# Gaussian potential
-function MatrixV_gauss(V, lmax, nu_arr, gaussopt, gamma_dict, buf, fill_full, csmfacnu, dim)
-    gmax = lastindex(gaussopt)
-    for gi in 1:gmax # there could be several gaussians
-        v0, mu_g = gaussopt[gi][2:3]
-        for ncol in 1:lastindex(nu_arr)
-            row_start = fill_full ? 1 : ncol # full fill if csm and cr
-            nucol = nu_arr[ncol]*csmfacnu
-            for nrow in row_start:lastindex(nu_arr)
-                nurow = nu_arr[nrow]'*csmfacnu
-                V[nrow, ncol] += element_VGauss(lmax, nurow, nucol, v0, mu_g, dim)
-            end
-        end
-    end
-end =#
-
-
 
 
 ####  for coupled-channels:
