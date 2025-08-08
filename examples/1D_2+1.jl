@@ -1,7 +1,7 @@
 # # 2+1 system in 1D
 
-# This example reproduces the results in the article [happ2019](@cite). It studies a one-dimensional 2+1 system of two identical particles interacting with a third particle via a central potential. Here, the interaction is taken to be a Gaussian potential, which supports a weakly-bound ground state. The two identical particles do not interact.
- 
+# This example reproduces the results in the article [happ2019](@cite). It studies a one-dimensional 2+1 system of two identical particles interacting with a third particle via a central potential. Here, we consider the interaction to be either a contact interaction or a Gaussian potential, which supports a weakly-bound ground state. The two identical particles do not interact.
+
 # ## Setup
 using Printf, FewBodyToolkit
 
