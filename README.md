@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/lhapp27/FewBodyToolkit.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/lhapp27/FewBodyToolkit.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://lhapp27.github.io/FewBodyToolkit.jl/dev/)
-[![Coverage](https://codecov.io/gh/ohno/Antique.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/ohno/Antique.jl)
+[![Coverage](https://codecov.io/gh/lhapp27/FewBodyToolkit.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/lhapp27/FewBodyToolkit.jl)
 
 FewBodyToolkit.jl is a Julia package for solving quantum few-body systems. Currently it supports
 - two-body systems in 1D,2D,3D
