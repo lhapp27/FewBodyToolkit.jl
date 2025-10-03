@@ -1,6 +1,6 @@
 ## Function for calculating the matrix elements and filling the matrices T,V,S within the ISGL program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,hbar)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,hbar,debug_bool)
     
     (;gem_params,mu0,c_shoulder,theta_csm) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
@@ -20,7 +20,7 @@
     # transpose fill:
     S .= Symmetric(temp_fill_mat,:L);
     
-    #combined t and v for some speedup: removed combination to cope for CSM
+    #combined t and v for some speedup: reverted combination for CSM
     for index in 1:flati
         (;rowi,coli) = temp_args_arr[index]
         temp_fill_mat[rowi,coli] = tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_arr[index],abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict,hbar)
@@ -40,28 +40,20 @@
     # transpose fill:
     V .= Symmetric(temp_fill_mat,:L);
     
-    debug_bool = 0
     if debug_bool == 1
         stp = min(9, size(T, 1))  # Adjust size_to_print as needed
         println("T:")
         display(T[1:stp,1:stp])
         println("V:")
         display(V[1:stp,1:stp])
-        #println("S:")
-        #print_matrices(S, size_to_print)
+        println("S:")
+        print_matrices(S, size_to_print)
     end
     
     T .+= V
     
 end
 
-# Debugging: Print matrices in a formatted way
-function print_matrices(M, size_to_print)
-    for i in 1:size_to_print, j in 1:size_to_print
-        @printf("%10.3f ", real(M[i, j]))
-        j == size_to_print && println()
-    end
-end
 
 ## functions to calculate one matrix element, summing over the necessary a,b,c values:
 function sab(jmat,temp_args_i,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
@@ -73,22 +65,18 @@ function sab(jmat,temp_args_i,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
     
     for a in avals_new # this does not indicate the "boxes"!! just if in one box several a and b values are summed over (mostly due to identical particles)!
         for b in bvals_new
-            #factor_symm = facsymm(a,b,abI,la,lb,factor_bf,spin_arr,sa,sb)
             factor_symm = facsymm_dict[a,b,la,lb,sa,sb]
             
             uab = spintrafo_dict[a,b,JsSa,sa,sb]
             JlL = JlLa
             
             tempS += factor_ab*factor_symm*uab*element_S(ranges,norm4,jmat[a,b],mij_arr,S_arr,la,La,lb,Lb,JlL)
-            #@show(factor_ab,factor_symm,uab,sss)
-            #println("sab: a=$a, b=$b, uab=$uab, factor_ab=$factor_ab, factor_symm=$factor_symm, sss=$sss")
         end
     end
     return tempS
 end
 
 function tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_i,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict,hbar)
-    #rowi,coli,ranges,norm4,mij_arr,S_arr,la,La,lb,Lb,Lsum,avals_new,bvals_new,cvals,factor_ab,factor_symm = temp_args_i # is this faster?
     (;avals_new,bvals_new,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,Lsum,JlLa,JlLb) = temp_args_i
     tempT = 0.0
     
@@ -97,7 +85,6 @@ function tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_
     
     for a in avals_new
         for b in bvals_new
-            #factor_symm = facsymm(a,b,abI,la,lb,factor_bf,spin_arr,sa,sb)
             factor_symm = facsymm_dict[a,b,la,lb,sa,sb]
             
             uab = spintrafo_dict[a,b,JsSa,sa,sb]
@@ -111,13 +98,10 @@ end
 
 function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,csm_bool)
     (;rowi,coli,avals_new,bvals_new,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,Lsum,JlLa,JlLb) = temp_args_i
-    #println("vab: $rowi, $coli, JsSa=$JsSa, JsSb=$JsSb")
     tempV = 0.0
-    
     
     for a in avals_new
         for b in bvals_new
-            #factor_symm = facsymm(a,b,abI,la,lb,factor_bf,spin_arr,sa,sb)
             factor_symm = facsymm_dict[a,b,la,lb,sa,sb]
             
             # for spin-independent interactions: overlap of spin functions can be calculated in advance:
@@ -126,8 +110,6 @@ function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_arg
             for c in cvals
                 
                 spinoverlap = spinoverlap_dict[a,b,c,JsSa,JsSb,sa,sb]
-                
-                #@show([uab,spinoverlap,global6jfac])
                 
                 for ivg in gauss_indices[c] #loop over the gaussian interactions for this c.
                     (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
@@ -151,7 +133,6 @@ function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_arg
             
         end
     end
-    #@show(tempV)
     return tempV
 end
 
@@ -167,7 +148,6 @@ function element_S(ranges,norm4,jab,mij_arr_i,S_arr,la,La,lb,Lb,JlL)
     etapr = eta - xi^2/zeta
     
     # p, pprime, f, q:
-    # unclear how to relate to AetaAB
     p = SA[nua*beta,NUa*delta,0.0,NUb]
     ppr = SA[nua*alpha,NUa*gamma,nub,0.0]
     f = xi/zeta
@@ -206,7 +186,6 @@ function element_T(ranges,norm4,jab,murR_arr,mij_arr_i,S_arr,la,La,lb,Lb,w_arr_k
     zetapr = zeta - xi^2/eta    
     
     # p, pprime, f, q:
-    # unclear how to relate to AetaAB
     p = SA[nua*beta,NUa*delta,0.0,NUb]
     ppr = SA[nua*alpha,NUa*gamma,nub,0.0]
     f = xi/zeta
@@ -251,7 +230,6 @@ function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
     (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
-    #there exist other definitions! alpha <-> gamma; beta <-> delta    
     
     etac  = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2
     zetac = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2 
@@ -259,7 +237,6 @@ function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu
     etaprc = etac - xic^2/zetac
     
     # p, pprime, f, q:
-    # unclear how to relate to AetaAB
     p = SA[nua*betaAC,NUa*deltaAC,nub*betaBC,NUb*deltaBC]
     ppr = SA[nua*alphaAC,NUa*gammaAC,nub*alphaBC,NUb*gammaBC]
     f = xic/zetac
@@ -289,7 +266,7 @@ function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu
         
         sum2 = 0.0
         for n=0:Lsum
-            sum2 += wn_interpol_arr[n]*gij_arr[1,2,n]^m12*gij_arr[1,3,n]^m13*gij_arr[1,4,n]^m14*gij_arr[2,3,n]^m23*gij_arr[2,4,n]^m24*gij_arr[3,4,n]^m34 # abh von ii nur in S, welches unabh von n ist.... nein, mij hängen von ii ab!
+            sum2 += wn_interpol_arr[n]*gij_arr[1,2,n]^m12*gij_arr[1,3,n]^m13*gij_arr[1,4,n]^m14*gij_arr[2,3,n]^m23*gij_arr[2,4,n]^m24*gij_arr[3,4,n]^m34
         end
         
         summe += S_arr[la,La,lb,Lb,JlL,ii]*sum2
@@ -298,10 +275,11 @@ function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu
     return prefac*summe
 end
 
-# I really think we need a second function. I dont see how we can combine it efficiently into a single one.
+# matrix element for Spin-Orbit interaction; postponed to future version
+#=
 function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,JlLb,ivso)
     
-    #prechecks: they should ideally never trigger, due to proper handling before. not sure if they cost performance
+    #prechecks: they should ideally never trigger, due to proper handling before.
     Lsum < 1 && return 0.0
     #(abs(JlLa-JlLb) <= 1 <= JlLa+JlLb) == false && return 0.0 # done outside already?
     LsumSO = Lsum - 1
@@ -309,7 +287,6 @@ function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,g
     (;nua,nub,NUa,NUb) = ranges; # is this usage of named tuple slow?
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
     (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
-    #careful of other definitions! 
     
     etac  = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2
     zetac = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2 
@@ -317,7 +294,6 @@ function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,g
     etaprc = etac - xic^2/zetac
     
     # p, pprime, f, q:
-    # unclear how to relate to AetaAB
     p = SA[nua*betaAC,NUa*deltaAC,nub*betaBC,NUb*deltaBC]
     ppr = SA[nua*alphaAC,NUa*gammaAC,nub*alphaBC,NUb*gammaBC]
     f = xic/zetac
@@ -374,7 +350,7 @@ function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,g
         summe += sumi * hij_arr[iv,jv]
     end
     return prefac*summe
-end
+end =#
 
 
 
@@ -393,7 +369,6 @@ function element_VGauss(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_a
     etaprc = etac - xic^2/zetac
     
     # p, pprime, f, q:
-    # unclear how to relate to AetaAB
     p = SA[nua*betaAC,NUa*deltaAC,nub*betaBC,NUb*deltaBC]
     ppr = SA[nua*alphaAC,NUa*gammaAC,nub*alphaBC,NUb*gammaBC]
     f = xic/zetac

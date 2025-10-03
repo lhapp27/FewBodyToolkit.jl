@@ -194,7 +194,7 @@ function lLcoupl(parity,lmax,Lmax,cvals,svals,lmin,Lmin)
                 if parity == +1 || parity == -1 # select allowed l,L from parity only if parity is +-1
                     (-1)^(l+L) != parity && continue # allowed combination of l,L from global parity
                 elseif parity == 0
-                    # do nothing, we use 0 as indicator for parity violation
+                    # dont skip; all l,L combinations are allowed; we use 0 as indicator for parity violation
                 else
                     error("Error in lLcoupl: parity=$parity must be +1, -1 or 0.")
                 end

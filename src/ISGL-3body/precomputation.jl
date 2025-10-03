@@ -83,9 +83,7 @@ end
                                 continue
                             end
                             
-                            #@show([la,ma,La,Ma,J,M_tot])
                             cleb_arr[la,ma,La,Ma,JlL] = PartialWaveFunctions.clebschgordan(la,ma,La,Ma,J,M_tot)
-                            #println("la,ma,La,Ma,cleb=",la,", ",ma,", ",La,", ",Ma,", ",", ",cleb_arr[la,ma,La,Ma])
                         end
                     end
                 end
@@ -191,7 +189,6 @@ function precompute_spintrafo(spin_arr,s_arr,JsS_arr,spintrafo_dict)
                     for JsSc in JsS_arr[c][is]
                         # here we implicitly assume that JsSc is the same as JsScprime. Otherwise the spin-overlap is zero. This is however treated explicitly only in fill_TVS's sab,tab,vab
                         spintrafo_dict[c,cprime,JsSc,sc,scp] = spintrafo_fun(c,cprime,JsSc,sc,scp,spin_arr)
-                        #@show(c,cprime,JsSc,JsS_arr[cprime][isp],sc,scp,spintrafo_dict[c,cprime,JsSc,sc,scp])
                     end
                 end
             end
@@ -576,7 +573,7 @@ end
                                 m24 = mij_arr_i[i][5]
                                 m34 = mij_arr_i[i][6]
                                 
-                                # mij_fac = FACTNO:
+                                # ref: mij_fac = factno:
                                 mij_fac = 1/(gamma_dict[m12+1.0]*gamma_dict[m13+1.0]*gamma_dict[m14+1.0]*gamma_dict[m23+1.0]*gamma_dict[m24+1.0]*gamma_dict[m34+1.0])
                                 
                                 sss = D12^m12*D13^m13*D14^m14*D23^m23*D24^m24*D34^m34*ccleb_fac*mij_fac*Dcrossz

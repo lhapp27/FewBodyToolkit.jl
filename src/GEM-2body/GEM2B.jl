@@ -148,7 +148,7 @@ function GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_b
     if wf_bool == 0
         if inverse_bool == 1
             # solve the inverse problem: find the values of v0 such that the first energy is close to target_energy
-            eigen2step(energies,T .- target_energy.*S,-V;threshold=threshold) # The usual variable "energies" is used for the eigenvalues which are the critical values of v0 leading to the target energy; a smaller threshold might be required!
+            eigen2step(energies,T .- target_energy.*S,-V;threshold=threshold) # The usual variable "energies" is used here for the eigenvalues which are the critical values of v0 leading to the target energy; a smaller threshold might be required!
         else
             eigen2step(energies,T.+V,S;threshold=threshold) # only energies
         end
@@ -205,7 +205,7 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC; wf_bool=0, cr_bool=0, 
         error("Currently only either CSM or CR are supported, but not both simultaneously.")
     end
     
-    # diff_bool denotes whether derivative terms in DCC should be included. changing this to diff_order = 0 would be better...
+    # diff_bool denotes whether derivative terms in DCC should be included. it might be better to change this to diff_order = 0
     pa = GEM2B.PreallocStruct2B(num_params, cr_bool, csm_bool) # preallocate only once
     
     (;nu_arr,S,T,V,energies,wavefunctions) = pa # de-struct
@@ -222,7 +222,6 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC; wf_bool=0, cr_bool=0, 
     
     ## 1. Allocation of big matrices:
     WD = similar(V) # dummy matrix for WCC matrices
-    #D = similar(V) # dummy matrix for DCC matrices
     Hbig = zeros(TT, cmax*nmax, cmax*nmax)
     Sbig = zeros(TT, cmax*nmax, cmax*nmax)
     energiesbig = zeros(TT2, cmax*nmax)
@@ -256,7 +255,7 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC; wf_bool=0, cr_bool=0, 
     GEM2B.MatrixT(T,lmax,nu_arr,phys_params.hbar,mur,csm_bool,theta_csm,cr_bool,dim)
     GEM2B.MatrixV(V,lmax,nu_arr,phys_params.vint_arr,gamma_dict,buf,csm_bool,theta_csm,cr_bool,dim)
     
-    # symmetric fill: is this correct even for coupled channels? probably ok, since the same basis is used in each channel
+    # symmetric fill: seems correct even for coupled channels, since the same basis is used in each channel
     S .= Hermitian(S,:L) # if Hermitian or Symmetric: type-unstable?
     if csm_bool == 0
         T .= Hermitian(T,:L)
@@ -275,7 +274,6 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC; wf_bool=0, cr_bool=0, 
             #sym_bool == 1 && cp > c && continue # only fill lower triangle of big matrix
             
             # WCC and DCC matrices:
-            #GEM2B.MatrixV(W,lmax,nu_arr,WCC[c,cp],gamma_dict,buf,gaussopt,csm_bool,theta_csm) # can be combined into the function below
             GEM2B.MatrixWD(WD,lmax,nu_arr,WCC[c,cp],DCC[c,cp],gamma_dict,buf,csm_bool,theta_csm,diff_bool,dim)
             
             if csm_bool == 0
@@ -287,7 +285,6 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC; wf_bool=0, cr_bool=0, 
             # fill Hbig:
             Hbig[(c-1)*nmax+1:c*nmax,(cp-1)*nmax+1:cp*nmax] .= WD
             c == cp && (Hbig[(c-1)*nmax+1:c*nmax,(cp-1)*nmax+1:cp*nmax] .+= T .+ V)
-            #@show([c,cp,WD,T,V,Hbig])
             
             # fill Sbig:
             c == cp && (Sbig[(c-1)*nmax+1:c*nmax,(cp-1)*nmax+1:cp*nmax] .= S)
@@ -302,8 +299,6 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC; wf_bool=0, cr_bool=0, 
     elseif csm_bool == 1
         Hbig .= Symmetric(Hbig,:L) # matrix will be complex-symmetric
     end
-    
-    #@show([Hbig,Sbig])
     
     ## 3. Eigensolver
     if wf_bool == 0

@@ -1,4 +1,3 @@
-## ISGL_solve is some kind of "main-method"
 ## Function/Module for using the Infinitesimally shifted Gaussian lobe functions (ISGL) within the Gaussian expansion method (GEM) for solving three-body problems
 
 ## see bottom for a documentation ("concept of the program"); might be a bit outdated
@@ -64,7 +63,7 @@ num_params = make_num_params3B3D()
 energies = ISGL_solve(phys_params, num_params) #solving with default parameters: three particles with the same mass and gaussian interaction
 ```
 """
-function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_params=DEFAULT_OBS)
+function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_params=DEFAULT_OBS, debug_bool = 0)
     
     ## 1. interpretation of inputs
     show_details_bool = 0
@@ -95,7 +94,7 @@ function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_p
     interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,wf_bool,csm_bool)
     
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,phys_params.hbar)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,phys_params.hbar,debug_bool)
     
     ## 8. Solving the generalized eigenproblem:
     solveHS(num_params,fill_arrs,result_arrs,wf_bool)

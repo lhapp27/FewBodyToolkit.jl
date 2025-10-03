@@ -15,7 +15,7 @@ function interpolNshoulder(phys_params,num_params,observ_params,size_params,prec
     precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
     
     # wrap function types:
-    # Auto-wrap plain functions as central, for keeping backwards compatibility
+    # Auto-wrap plain functions as central, to ensure compatibility
     wrap_potential(f::Function) = CentralPotential(f)
     # Identity if already wrapped
     wrap_potential(p::PotentialFunction) = p
@@ -33,7 +33,7 @@ end
 function precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
     # returns alpha_arr [1:kmax_interpol] via buildnu function for geometric series
     max_r = max(rnmax,RNmax) # should be roughly ok, can be improved if the mass-coefficients are included!
-    min_r = min(r1,R1) # maybe we need indeed mass-depenendet max,min values in order to avoid extrapolation.
+    min_r = min(r1,R1) # maybe we need indeed mass-dependent max,min values in order to avoid extrapolation.
     
     # for calculating the minimum and maximum values of r and then effectively for etac which is necessary in the interpolation, in order to avoid extrapolation:
     # maybe a bit heavy numerically?
@@ -83,7 +83,7 @@ function precompute_varr!(v_arr,alpha_arr,Lsum,gamma_dict,vcent_fun::CentralPote
     end
 end
 
-# spin-orbit interaction
+#= # spin-orbit interaction; postponed to future version
 function precompute_varr!(v_arr,alpha_arr,Lsum,gamma_dict,vcent_fun::SpinOrbitPotential,buf,csmfac)
     for n = 0:Lsum # n=j
         nLS = n + 1 # for highlighting the difference due to LS
@@ -93,7 +93,7 @@ function precompute_varr!(v_arr,alpha_arr,Lsum,gamma_dict,vcent_fun::SpinOrbitPo
             v_arr[k,n+1] = vcent_integration(vcent_fun,alpha_arr[k]*csmfac^2,nLS,buf)/gamma_dict[n+1.0]/norm_interpol * csmfac^(2*n+3) * so_extrafac
         end
     end
-end
+end =#
 
 function vcent_integration(vcent_fun,alpha,n,buf) #where {V}
     val = quadgk(r -> integrand(r,alpha,n,vcent_fun),0,Inf;segbuf=buf)[1]
@@ -106,7 +106,7 @@ end
 ### w_arr: upon-the-shoulder method
 @views @inbounds function precompute_w(w_arr,v_arr,alpha_arr,A_mat,w_interpol_arr,Ainv_arr_kine,gamma_dict,maxlmax,mu0,c_shoulder,cvals,vint_arr,centobs_arr,w_obs_arr,v_obs_arr,w_obs_interpol_arr,wf_bool,csm_bool,theta_csm,central_indices,so_indices,nint_arr)
     # returns the Array w_arr[c in cvals,alpha=1:alphamax,Lsum = 1:2*maxlmax,n=1:Lsum+1]
-    # note the +1 in the last argument: w_arr, v_arr ar NOT offset-arrays due to problems with linear algebra package. 
+    # note the +1 in the last argument: w_arr, v_arr are NOT offset-arrays due to problems with linear algebra package. 
     
     log_alpha_range=range(log(alpha_arr[1]),log(alpha_arr[end]),lastindex(alpha_arr))
     

@@ -166,7 +166,6 @@ function MatrixWD_cr(WD,lmax,nu_arr,wdfun,gamma_dict,buf,dim,domain,dimfac)
         for nrow = ncol:lastindex(nu_arr)
             wdfunr(r) = wdfun(r,lmax,nu_arr[ncol])# function definition in each loop iteration... slow?
             WD[nrow,ncol] = element_V(wdfunr,lmax,nu_arr[nrow]',nu_arr[ncol],gamma_dict,buf,dim,domain,dimfac)
-            #WD[nrow,ncol] = element_V_Num2(lmax,nu_arr[nrow]',nu_arr[ncol],wdfunr,gamma_dict,buf,roots,weights)
         end
     end
 end
@@ -179,7 +178,6 @@ function MatrixWD_csm(WD,lmax,nu_arr,wdfun,gamma_dict,buf,theta_csm,dim,domain,d
         for nrow = ncol:lastindex(nu_arr)
             wdfunr(r) = wdfun(r,lmax,nu_arr[ncol]*csmfac)
             WD[nrow,ncol] = element_V(wdfunr,lmax,nu_arr[nrow]'*csmfac,nu_arr[ncol]*csmfac,gamma_dict,buf,dim,domain,dimfac)
-            #WD[nrow,ncol] = element_V_Num2(lmax,nu_arr[nrow]',nu_arr[ncol],r->vint_csm(r,wdfunr,theta_csm),gamma_dict,buf,roots,weights)
         end
     end
 end

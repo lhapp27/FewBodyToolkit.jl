@@ -54,7 +54,8 @@ function (gp::GaussianPotential)(r)
 end
 
 
-"""
+# postponed to future version
+#= """
     SpinOrbitPotential(f::Function)
 Defines a potential of the type `SpinOrbitPotential`. The function `f(r)` represents the radial part of a spin-orbit interaction
 ```math
@@ -63,7 +64,7 @@ V_{SO}(r) = f(r) \\vec{l} \\cdot \\vec{s}
 """
 struct SpinOrbitPotential <: PotentialFunction
     f::Function
-end
+end =#
 
 
 """

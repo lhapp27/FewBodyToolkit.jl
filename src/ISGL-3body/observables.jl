@@ -35,10 +35,9 @@
     end
     
     ## Calculation of matrix elements and matrix filling via 1d loop for CENTRAL observables:
-    # no parallelization:
     for cco = 1:3 # cvals for centobs_arr
         isempty(centobs_arr[cco]) && continue
-        for (obsind,obs) in enumerate(centobs_arr[cco]) # ich glaube obsind ist ausreichend, oder? obs steckt ja in interpolation drin.
+        for (obsind,obs) in enumerate(centobs_arr[cco]) # obs might not be needed here, obsind should be sufficient.
             for (sik,si) in enumerate(stateindices) # for which states should the observables be calculated?
                 
                 temp_obs = 0.0
@@ -46,7 +45,6 @@
                     (;rowi,coli) = temp_args_arr[index]
                     
                     obs_elem = 2*oab(jmat,gij_arr,mu0,c_shoulder,w_obs_interpol_arr,wn_obs_interpol_arr,temp_args_arr[index],cco,obsind,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
-                    #@show([cco,rowi,coli,obs_elem])
                     
                     rowi == coli && (obs_elem *= 1/2) # only lower triangular matrix, therefore global factor 2, but not on the diagonal!
                     
@@ -84,11 +82,10 @@ end
 
 ## functions to calculate one observables matrix element, summing over the necessary a,b values:
 function oab(jmat,gij_arr,mu0,c_shoulder,w_obs_interpol_arr,wn_obs_interpol_arr,temp_args_i,cco,obsind,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
-    #rowi,coli,ranges,norm4,mij_arr,S_arr,la,La,lb,Lb,Lsum,avals_new,bvals_new,cvals,factor_ab,avals,bvals = temp_args_i
     (;rowi,coli,avals,bvals,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,Lsum,JlLa,JlLb) = temp_args_i
-    
-    factor_ab = 1; # für observablen, Symmetrieausnutzung schwieriger, deshalb: factor_ab -> 1, avals_new -> avals; factor_symm ist trotzdem wichtig für die korrekte symmetrisierung der WF
-    
+
+    factor_ab = 1; # for observables it is more difficult to make use of the symmetry, hence: factor_ab -> 1, avals_new -> avals; factor_symm is still necessary for the correct symmetrization of the WF
+
     tempO = 0.0
 
     (JsSa != JsSb || JlLa != JlLb) && return tempO #immediately skip if either one is violated
@@ -102,7 +99,6 @@ function oab(jmat,gij_arr,mu0,c_shoulder,w_obs_interpol_arr,wn_obs_interpol_arr,
             uabc = spintrafo_dict[a,b,JsSa,sa,sb]
             
             tempO += factor_ab*factor_symm*uabc*element_O(cco,ranges,norm4,jmat[a,cco],jmat[b,cco],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_obs_interpol_arr,Lsum,wn_obs_interpol_arr,obsind,JlLa);
-            #@show([cco,avals,bvals,a,b,la,lb,factor_symm,tempO])
         end
     end
     return tempO
@@ -110,7 +106,6 @@ end
 
 ## same as oab, but for R^2 (noncentral) observable
 function R2ab(jmat,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_i,cco,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
-    #rowi,coli,ranges,norm4,mij_arr,S_arr,la,La,lb,Lb,Lsum,avals_new,bvals_new,cvals,factor_ab,avals,bvals = temp_args_i
     (;rowi,coli,avals,bvals,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,Lsum,JlLa,JlLb) = temp_args_i
 
     factor_ab = 1;
@@ -126,14 +121,7 @@ function R2ab(jmat,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_i,c
             else
                 uabc = 0.0; continue # we dont need to calculate the matrix element any further since the spin parts are orthogonal
             end
-            
-            # is this correct even for the potential, which is evaluated in c-set?
-            if JlLa == JlLb
-                JlL = JlLa
-            else
-                #println("JlLa!=JlLb. this can actually happen!")
-                continue
-            end
+        
             tempR2 += factor_ab*factor_symm*uabc*element_R2(ranges,norm4,jmat[a,cco],jmat[b,cco],mij_arr,S_arr,la,La,lb,Lb,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,Lsum,JlLa);
         end
     end
@@ -147,7 +135,6 @@ function element_O(cco,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
     (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
-    # alpha <-> gamma; beta <-> delta    
     
     etac  = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2
     zetac = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2 
@@ -155,7 +142,6 @@ function element_O(cco,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,
     etaprc = etac - xic^2/zetac
     
     # p, pprime, f, q:
-    # unclear how to relate to AetaAB
     p = SA[nua*betaAC,NUa*deltaAC,nub*betaBC,NUb*deltaBC]
     ppr = SA[nua*alphaAC,NUa*gammaAC,nub*alphaBC,NUb*gammaBC]
     f = xic/zetac
@@ -187,7 +173,7 @@ function element_O(cco,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,
         
         sum2 = 0.0
         for n=0:Lsum
-            sum2 += wn_obs_interpol_arr[n]*gij_arr[1,2,n]^m12*gij_arr[1,3,n]^m13*gij_arr[1,4,n]^m14*gij_arr[2,3,n]^m23*gij_arr[2,4,n]^m24*gij_arr[3,4,n]^m34 # abh von ii nur in S, welches unabh von n ist.... nein, mij hängen von ii ab!
+            sum2 += wn_obs_interpol_arr[n]*gij_arr[1,2,n]^m12*gij_arr[1,3,n]^m13*gij_arr[1,4,n]^m14*gij_arr[2,3,n]^m23*gij_arr[2,4,n]^m24*gij_arr[3,4,n]^m34
         end        
         summe += S_arr[la,La,lb,Lb,JlL,ii]*sum2
     end
@@ -204,7 +190,6 @@ function element_R2(ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,w_arr_kine,
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
     (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
-    #alpha <-> gamma; beta <-> delta    
     
     etac  = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2
     zetac = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2 

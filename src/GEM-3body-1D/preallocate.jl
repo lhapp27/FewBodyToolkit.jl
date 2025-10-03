@@ -97,7 +97,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,csm_b
     #centobs_output = Array{Float64}(undef, 3, maxobs, lastindex(stateindices))
     #R2_output = zeros(3, lastindex(stateindices))
     
-    # temporary arrays for filling: function arguments and matrix for parallelization
+    # temporary arrays for filling: function arguments and matrix
     ntot = Int64((nbasis_total^2+nbasis_total)/2) # only for lower triangular!
     # Define the type of the tuple for the function arguments
     tuple_type = NamedTuple{(:rowi, :coli, :ranges, :norm4, :la, :La, :lb, :Lb, :Lsum, :avals_new, :bvals_new, :cvals, :factor_ab, :avals, :bvals), Tuple{Int64, Int64, NamedTuple{(:nua, :nub, :NUa, :NUb), NTuple{4, Float64}}, Float64, Int64, Int64, Int64, Int64, Int64, Vector{Int64}, Vector{Int64}, Vector{Int64}, Float64, Vector{Int64}, Vector{Int64}}} #diff13

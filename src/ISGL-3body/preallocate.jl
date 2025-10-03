@@ -1,8 +1,5 @@
 # functions to preallocate all arrays for the ISGL program
 
-# contains:
-# - preallocate_data: for everything
-
 struct PrecomputeStruct
     gamma_dict::Dict{Float64, Float64}
     cleb_arr::OffsetArray{Float64, 5, Array{Float64, 5}}
@@ -16,7 +13,7 @@ struct PrecomputeStruct
     NU_arr::Vector{Float64}
     norm_arr::OffsetMatrix{Float64, Matrix{Float64}}#OffsetMatrix{Float64, Matrix{Float64}}
     NORM_arr::OffsetMatrix{Float64, Matrix{Float64}}#OffsetMatrix{Float64, Matrix{Float64}}
-    Clmk_arr::OffsetArray{Float64, 3, Array{Float64, 3}} # 3,4,5 gibt einfach nur die dimensionen an, nicht deren Länge!
+    Clmk_arr::OffsetArray{Float64, 3, Array{Float64, 3}} # 3,4,5 defines the dimensions of the array, not the size.
     Dlmk_arr::OffsetArray{ComplexF64, 4, Array{ComplexF64, 4}}
     S_arr::OffsetArray{Float64, 6, Array{Float64, 6}}
     SSO_arr::OffsetArray{Float64,8,Array{Float64, 8}}
@@ -183,7 +180,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,csm_b
     temp_D1=zeros(3)#MVector{3, ComplexF64}(zeros(3))
     temp_D2=zeros(3)#MVector{3, ComplexF64}(zeros(3))
     
-    # temporary arrays for filling: function arguments and matrix for parallelization
+    # temporary arrays for filling: function arguments and matrix
     ntot = Int64((nbasis_total^2+nbasis_total)/2) # only for lower triangular!
     # Define the type of the tuple for the function arguments
     tuple_type = NamedTuple{(:rowi, :coli, :ranges, :norm4, :mij_arr, :sa, :JsSa, :sb, :JsSb, :JlLa, :JlLb, :la, :La, :lb, :Lb, :Lsum, :avals_new, :bvals_new, :factor_ab, :avals, :bvals),Tuple{Int64,Int64,NamedTuple{(:nua, :nub, :NUa, :NUb),Tuple{Float64,Float64,Float64,Float64}},Float64,Array{SArray{Tuple{6},Int64,1,6},1},Float64,Float64,Float64,Float64,Int64,Int64,Int64,Int64,Int64,Int64,Int64,Array{Int64,1},Vector{Int64},Int64,Vector{Int64},Vector{Int64}}}

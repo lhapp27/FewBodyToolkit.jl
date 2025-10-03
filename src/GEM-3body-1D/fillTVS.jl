@@ -1,6 +1,6 @@
 ## Function for calculating the matrix elements and filling the matrices T,V,S within the GEM3B1D program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,hbar)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,hbar,debug_bool)
     
     (;gem_params,theta_csm) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
@@ -12,7 +12,6 @@
 
     # create a 1D array of NamedTuples to hold the arguments for the matrix element calculation. This also carries the matrix structure via row- and column indices.
     flati = flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax,Nmax,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals)
-    # NamedTuple might be slow due to many name fields.
     
     ## Calculation of matrix elements and filling via 1D loop:
     # Norm-Overlap S
@@ -30,7 +29,6 @@
     end
     T .= Symmetric(temp_fill_mat,:L); # transpose fill:
     
-    ## problem with type-stability?
     if csm_bool == 1
         T .*= exp(-2*im*theta_csm*pi/180)
     end
@@ -44,7 +42,6 @@
     V .= Symmetric(temp_fill_mat,:L); # transpose fill:
     
     # Example usage for debugging
-    debug_bool = 0
     if debug_bool == 1
         stp = min(9, size(T, 1))  # Adjust size_to_print as needed
         println("T:")
@@ -287,7 +284,6 @@ function element_VContact(c,ranges,norm4,jac,jbc,la,La,lb,Lb,contactopt,gamma_di
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
     (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
-    #GEM review: alpha <-> gamma; beta <-> delta
     
     v0,z0 = contactopt
     csm_bool == 1 && (z0 *= exp(2*im*theta_csm*pi/180)) # apply CSM factor to the position of the contact interaction

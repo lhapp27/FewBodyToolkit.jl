@@ -44,7 +44,7 @@ num_params = make_num_params3B1D()
 energies = GEM3B3D_solve(phys_params, num_params) #solving with default parameters: three particles with the same mass and gaussian interaction
 ```
 """
-function GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+function GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), debug_bool=0)
     
     ## 1. interpretation of inputs
     show_details_bool = 0
@@ -78,7 +78,7 @@ function GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_pa
     interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,wf_bool,csm_bool)
     
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,phys_params.hbar)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,phys_params.hbar,debug_bool)
     
     ## 8. Solving the generalized eigenproblem:
     solveHS(num_params,fill_arrs,result_arrs,wf_bool)

@@ -16,9 +16,6 @@ function eigen2step(e_arr,H, S; threshold::Float64 = 10^-13)
     dinv = diagm(1 ./sqrt.(abs.(dvec_mask)));
     l = y_mask*dinv;
     
-    #@show([issymmetric(H),issymmetric(l' * H * l),maximum(l' * H * l .- transpose(l' * H * l))])
-    # l'*H*l is almost symmetric... maybe we can use that for speedup?
-    
     e3 = eigvals!(l' * H * l);
     if (typeof(H[1,1]) == Float64 && issymmetric(H)) || (typeof(H[1,1]) == ComplexF64 && ishermitian(H))
         e_arr[1:lastindex(dvec_mask)] .= real.(e3)
