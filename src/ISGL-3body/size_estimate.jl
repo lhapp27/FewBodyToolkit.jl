@@ -137,7 +137,7 @@ function index_interaction_types(vint_arr,csm_bool, theta_csm)
 
     pushindexpotentialtype!(v::Function, central_indices, gauss_indices, so_indices, i) = push!(central_indices, i) # treat function as a central potential
     pushindexpotentialtype!(v::CentralPotential, central_indices, gauss_indices, so_indices, i) = push!(central_indices, i)
-    pushindexpotentialtype!(v::SpinOrbitPotential, central_indices, gauss_indices, so_indices, i) = push!(so_indices, i)
+    #pushindexpotentialtype!(v::SpinOrbitPotential, central_indices, gauss_indices, so_indices, i) = push!(so_indices, i) # postponed to future version
     pushindexpotentialtype!(v::GaussianPotential, central_indices, gauss_indices, so_indices, i) = push!(gauss_indices, i)
     
 
