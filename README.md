@@ -48,4 +48,4 @@ For full details on the method, basis choices, and research-driven examples, see
 - [TwoBody.jl](https://github.com/ohno/TwoBody.jl) - Solutions to two-body systems using various methods, e.g. finite differences
 - [QMsolve](https://github.com/quantum-visualizations/qmsolve) - Solving and visualizing the Schrödinger equation in Python
 - [MOLSCAT](https://github.com/molscat/molscat) -  Atom-molecule scattering in Fortran
-- [JPublicThreeBodySolver] (https://github.com/roudnev/JPublicThreeBodySolver) - Solver for Faddeev equations in Java
+- [JPublicThreeBodySolver](https://github.com/roudnev/JPublicThreeBodySolver) - Solver for Faddeev equations in Java
