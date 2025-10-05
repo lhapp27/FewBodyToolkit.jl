@@ -1,7 +1,7 @@
 
 # Gaussian Basis Functions
 
-This page provides an overview of the centered Gaussian basis functions used for 2‑ and 3‑body quantum calculations in the package. It covers standard real-range Gaussians, an extension to complex-ranged Gaussians, and the methods used for higher angular momenta in three-body systems. A more extensive introduction, however limited to 3D systems can be found in [hiyama2003](@cite).
+This page provides an overview of the centered Gaussian basis functions used for 2‑ and 3‑body quantum calculations in the package. It covers standard real-range Gaussians, an extension to complex-ranged Gaussians, and the methods used for higher angular momenta in three-body systems. A more extensive introduction, however limited to 3D systems, can be found in Ref. [hiyama2003](@cite).
 
 ## Two-Body
 
@@ -11,13 +11,13 @@ The module [GEM2B](@ref GEM2B) provides a solver for two-body systems described 
 ```
 The Laplacian should be interpreted according to the dimensionality (1D, 2D, 3D).
 
-### Real-range (centered) Gaussian basis functions
+### Centered, real-range Gaussian basis functions
 
 The Gaussian expansion method is based on expanding an unknown state into a set
 ```math
-|\phi\rangle = \sum_\alpha c_\alpha |\phi_\alpha\rangle
+\phi(r) = \sum_\alpha c_\alpha |\phi_\alpha(r)
 ```
-of Gaussian basis functions `` |\phi_\alpha\rangle `` . They are originally defined in 3D as
+of Gaussian basis functions `` \phi_\alpha `` . They are originally defined in 3D as
 ```math
 \phi_\alpha^{(3D)}(r) = N_{n,l}\, r^l e^{-\nu_n r^2} Y_{l,m}(\theta,\phi)
 ```
@@ -31,13 +31,13 @@ In 3D, the index `` l `` denotes the angular momentum. In 1D, we can associate e
 ```math
 \nu_n = 1/r_n^2, \qquad r_n = r_1 a^{n-1}, \qquad a = \left(\frac{r_{n_{max}}}{r_1} \right)^{1/(n_{max}-1)}
 ```
-defined by the parameters `nmax`, `r1`, `rnmax`. This choice allows for a large function space, while keeping a low number of numerical parameters. The series of ranges is created in the function `buildnu`
+defined by the parameters `nmax`, `r1`, `rnmax`. This choice allows for a large function space, while keeping a low number of numerical parameters. The series of ranges is created in the function `buildnu`.
 
-Using Gaussian basis functions allows to treat many steps fully analytically, and is especially useful for 3-body calculations. However, they are not orthogonal which implies that finding the solution to a few-body problem requires solving a generalized eigenvalue problem, and not a standard one. For this, we provide the function `eigen2step`, which is similar to `eigen(A,B)`, but it removes eigenvalues of `B` below a certain threshold, to cure a possibly ill-posed problem. Such a situation can arise if a set of too many basis functions with similar ranges is used.
+Using Gaussian basis functions allows to treat many steps fully analytically, and is especially useful for 3-body calculations. However, they are not orthogonal which implies that finding the solution to a few-body problem requires solving a generalized eigenvalue problem, instead of a standard one. For this, we provide the function `eigen2step`, which is similar to `eigen(A,B)`, but it removes eigenvalues of `B` below a certain threshold, to cure a possibly ill-posed problem. Such a situation can arise if a set of too many basis functions with similar ranges is used.
 
 ### Complex-ranged Gaussians
 
-For oscillatory states, e.g. highly excited states or metastable resonant states, it can be difficult to capture their details with standard Gaussians basis functions. A simple extension suggested in [hiyama2003](@cite) are complex-ranged Gaussians which are obtained from the standard real-ranged ones by the transformation
+For oscillatory states, e.g. highly-excited states or metastable resonant states, it can be difficult to capture their details with standard Gaussians basis functions. A simple extension suggested in Ref. [hiyama2003](@cite) are complex-ranged Gaussians which are obtained from the standard real-ranged ones by the transformation
 ```math
 \nu \to \nu (1 \pm i\,\omega).
 ```
@@ -61,9 +61,9 @@ with the reduced masses ``\mu_{ij} = (m_i m_j)/(m_i + m_j)) ``, and `` \mu_k = (
 
 For three-body systems we employ Jacobi coordinates. This allows to describe the full system in its center-of-mass frame by two relative coordinates. However, there are three equivalent sets of these coordinates, related to the three different partitions of three particles into a pair of two, and a single one, see Fig. 1. In few-body physics it is therefore common to decompose any given three-body state into a sum
 ```math
-|\Psi\rangle = |\Psi^{(1)}\rangle + |\Psi^{(2)}\rangle + |\Psi^{(3)}\rangle
+\Psi(\vec{r},\vec{R}) = \Psi^{(1)}(\vec{r}_{1},\vec{R}_{1}) + \Psi^{(2)}(\vec{r}_{2},\vec{R}_{2}) + \Psi^{(3)}(\vec{r}_{3},\vec{R}_{3})
 ```
-of Faddeev components `` |\Psi^{(i)}\rangle  `` (sometimes called rearrangement channels), each described in a different Jacobi set `` \{\vec{r}_i,\vec{R}_i\} ``. In case some particles do not interact, or two or more are identical, the number of Faddeev components can be reduced. The code does this automatically.
+of Faddeev components `` \Psi^{(i)} `` (sometimes called rearrangement channels), each described in a different Jacobi set `` \{\vec{r}_i,\vec{R}_i\} ``. In case some particles do not interact, or two or more are identical, the number of Faddeev components can be reduced. The code does this automatically.
 
 Each component is then expanded into a set
 ```math
@@ -80,9 +80,7 @@ These functions are each defined as in the [two-body case](#Two-body)
 ```math
 \Phi_\alpha(\vec{R}) = N_{L,M} R^L e^{-\lambda_N R^2} Y_{L,M}(\hat{R})
 ```
-where now `` \alpha = \{n,l,N,L\}  ``. For 2D and 1D systems, the spherical harmonics are simply replaced by `` e^{i m \varphi} `` or 1, respectively.
-
-The basis is automatically constructed based on the inputs `nmax,r1,rnmax,Nmax,R1,RNmax ` from `gem_params` in `num_params`.
+where now `` \alpha = \{n,l,N,L\}  ``. For 2D and 1D systems, the spherical harmonics are simply replaced by `` e^{i m \varphi} `` or 1, respectively. The basis is automatically constructed based on the inputs `nmax,r1,rnmax,Nmax,R1,RNmax ` from `gem_params` in the input `num_params`.
 
 The decomposition into different Faddeev components requires that we have to compute matrix elements of the form
 ```math

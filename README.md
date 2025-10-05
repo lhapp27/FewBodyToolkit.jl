@@ -44,7 +44,8 @@ For full details on the method, basis choices, and research-driven examples, see
 
 ## Related packages:
 - [Antique.jl](https://github.com/ohno/Antique.jl) - Analytical solutions to solvable quantum mechanical models
-- [ApproxFun.jl](https://github.com/JuliaApproximation/ApproxFun.jl) - Approximating functions and operators using spectral methods
-- [DifferentialEquations.jl](https://github.com/SciML/DifferentialEquations.jl) - Comprehensive package for differential equations
 - [FewBodyECG.jl](https://github.com/JuliaFewBody/FewBodyECG.jl) - For coulombic few-body systems in 3D, using explicitly correlated Gaussians
 - [TwoBody.jl](https://github.com/ohno/TwoBody.jl) - Solutions to two-body systems using various methods, e.g. finite differences
+- [QMsolve](https://github.com/quantum-visualizations/qmsolve) - Solving and visualizing the Schrödinger equation in Python
+- [MOLSCAT](https://github.com/molscat/molscat) -  Atom-molecule scattering in Fortran
+- [JPublicThreeBodySolver] (https://github.com/roudnev/JPublicThreeBodySolver) - Solver for Faddeev equations in Java

@@ -82,7 +82,7 @@ println("1. Numerical solution of the 3D problem:")
 comparison(energies,energies_exact,simax)
 ````
 
-The numerical solutions are good only for the few lowest state. Also, we only find 5 bound states.
+The numerical solutions are good only for the few lowest state. Also, we only find four bound states.
 
 ## 2. Optimization of basis parameters
 

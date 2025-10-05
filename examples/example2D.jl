@@ -42,7 +42,7 @@ num_params = make_num_params2B(;gem_params,threshold=10^-8)
 # ## 1. Numerical solution
 
 # We solve the two-body system by calling `GEM2B_solve`.
-energies = GEM2B.GEM2B_solve(phys_params,num_params)
+energies = GEM2B.GEM2B_solve(phys_params,num_params);
 
 
 # The Harmonic Oscillator has infinitely many eigenvalues. For the radially symmetric states (m = 0) their energies are given by

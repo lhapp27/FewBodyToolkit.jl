@@ -67,7 +67,7 @@ println("\nImaginary part:")
 comparison(imag.(reso_arr), imag.(reso_exact),4)
 
 
-# ## page References
+# ## Page References
 
 # ```@bibliography
 # Pages = ["ISGL_ps-.md"]

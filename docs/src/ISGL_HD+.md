@@ -4,7 +4,7 @@ EditURL = "../../examples/ISGL_HD+.jl"
 
 # Three-body Coulomb problem in 3D: HD+ (proton, deuteron, electron)
 
-In this example we solve the three-body Coulomb problem of a proton, deuteron and electron in 3D using the ISGL module. The code calculates the bound states and observables like the mean radii between two of the three particles. The results are compared with the high-precision state-of-the-art literature values of [bubin2005](@cite).
+In this example we solve the three-body Coulomb problem of a proton, deuteron and electron in 3D using the ISGL module. The code calculates the bound states and observables like the mean radii between two of the three particles. The results are compared with the high-precision literature values of Ref. [bubin2005](@cite).
 
 ## Setup
 
@@ -30,7 +30,7 @@ phys_params = make_phys_params3B3D(;mass_arr,vint_arr=[[vde],[vep],[vpd]]);
 nothing #hide
 ````
 
-numerical parameters:
+Numerical parameters:
 
 ````@example ISGL_HD+
 gp = (;nmax=25,Nmax=25,r1=0.1,rnmax=25.0,R1=0.1,RNmax=25.0)
@@ -143,7 +143,7 @@ end
 
 Due to the almost negligible mass of the electron, the results for ⟨R²⟩ in the first two rows are almost identical and also almost match to the first column of the mean radii ⟨r²⟩ between proton and deuteron. The third row shows the results for the electron with respect to the center-of-mass of the proton-deuteron pair and are clearly smaller, probably since it feels an attractive Coulomb force of twice the strength (the effective pair of proton and deuteron has charge +2).
 
-## page References
+## Page References
 
 ```@bibliography
 Pages = ["ISGL_HD+.md"]

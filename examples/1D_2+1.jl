@@ -83,7 +83,7 @@ epsilon = e3 /abs(e2s[1])
 ex_arr = exfun(massratio)[1:2:end]
 comparison(epsilon, ex_arr, min(length(epsilon),length(ex_arr)); s1="Gaussian", s2="Contact (Ref.)")
 
-# Again, we can also do the calculation with a contact potential:
+# We can also do the calculation with a contact potential:
 vint_arrC=[[],[vc],[vc]]
 pp3BC = make_phys_params3B1D(;mass_arr=mass_arr,svals=["x","b","b"],vint_arr = vint_arrC)
 nmax = nps.gem_params.nmax;

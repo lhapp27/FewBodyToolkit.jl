@@ -4,7 +4,7 @@ EditURL = "../../examples/ISGL_ps-.jl"
 
 # Three-body Coulomb problem in 3D: ps- (electron, electron, positron)
 
-In this example we solve the three-body Coulomb problem of two electrons and a positron in 3D using the ISGL module. The code calculates the bound states and observables like the mean radii between two of the three particles. The results are compared with the high-precision state-of-the-art literature values of [frolov1999](@cite).
+In this example we solve the three-body Coulomb problem of two electrons and a positron in 3D using the ISGL module. The code calculates the bound states and observables like the mean radii between two of the three particles. The results are compared with the high-precision literature values of Ref. [frolov1999](@cite).
 
 ## Setup
 
@@ -29,7 +29,7 @@ phys_params = make_phys_params3B3D(;mass_arr, svals, vint_arr=[[vep],[vep],[vee]
 nothing #hide
 ````
 
-numerical parameters:
+Numerical parameters:
 
 ````@example ISGL_ps-
 gp = (;nmax=10,Nmax=10,r1=0.1,rnmax=25.0,R1=0.1,RNmax=25.0)
@@ -79,7 +79,7 @@ comparison(num_arr, ex_arr, simax; s1="Numeric", s2="Literature")
 println("---------------------------------------------------")
 ````
 
-We find good agreement with the literature value
+We find good agreement with the literature value.
 
 #### Mean values for the radii, inverse radii, and squared radii for the r-coordinate
 
@@ -157,7 +157,7 @@ end
 
 Since particles 1 and 2 are identical electrons, the first two rows are identical. The third row shows the results for the positron with respect to the center-of-mass of the electron-electron pair and are clearly smaller, probably since it feels an attractive Coulomb force of twice the strength (the effective pair of the two electrons has charge -2).
 
-## page References
+## Page References
 
 ```@bibliography
 Pages = ["ISGL_ps-.md"]
