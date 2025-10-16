@@ -15,7 +15,7 @@ preferred-citation:
   - family-names: "Happ"
     given-names: "Lucas"
     orcid: "https://orcid.org/0000-0002-3893-279X"
-  doi: "10.48550/00000"
+  doi: "10.48550/arXiv.2510.04447"
   journal: "arXiv"
   month: 10
   title: "FewBodyToolkit.jl"
