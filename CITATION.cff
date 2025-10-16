@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Happ"
+  given-names: "Lucas"
+  orcid: "https://orcid.org/0000-0002-3893-279X"
+title: "FewBodyToolkit.jl"
+version: 0.3.8
+doi: 10.5281/zenodo.1234
+date-released: 2017-12-18
+url: "https://github.com/lhapp27/FewBodyToolkit.jl"
+preferred-citation:
+  type: misc
+  authors:
+  - family-names: "Happ"
+    given-names: "Lucas"
+    orcid: "https://orcid.org/0000-0002-3893-279X"
+  doi: "10.48550/00000"
+  journal: "arXiv"
+  month: 10
+  title: "FewBodyToolkit.jl"
+  issue: 04447
+  year: 2025
