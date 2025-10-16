@@ -16,6 +16,6 @@ preferred-citation:
   doi: "10.48550/arXiv.2510.04447"
   journal: "arXiv"
   month: 10
-  title: "FewBodyToolkit.jl"
+  title: "FewBodyToolkit.jl: a {Julia} package for solving quantum few-body problems"
   issue: 04447
   year: 2025
