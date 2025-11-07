@@ -49,3 +49,23 @@ For full details on the method, basis choices, and research-driven examples, see
 - [QMsolve](https://github.com/quantum-visualizations/qmsolve) - Solving and visualizing the Schrödinger equation in Python
 - [MOLSCAT](https://github.com/molscat/molscat) -  Atom-molecule scattering in Fortran
 - [JPublicThreeBodySolver](https://github.com/roudnev/JPublicThreeBodySolver) - Solver for Faddeev equations in Java
+
+
+## Citation
+
+If you use `FewBodyToolkit.jl` in your work, please cite the following:
+
+```tex
+@misc{happ2025fewbodytoolkit,
+  author  = {Happ, Lucas},
+  title   = {FewBodyToolkit.jl: a {Julia} package for solving quantum few-body problems},
+  year = {2025},
+  number = {arXiv:2510.04447},
+  eprint = {2510.04447},
+  primaryclass = {quant-ph},
+  publisher = {arXiv},
+  doi = {10.48550/arXiv.2510.04447},
+  url = {http://arxiv.org/abs/2510.04447},
+  archiveprefix = {arXiv}
+}
+```
