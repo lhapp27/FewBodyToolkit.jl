@@ -119,10 +119,13 @@ function GEM2B_solve!(prealloc_arrs,phys_params,num_params,wf_bool,cr_bool,csm_b
     MatrixV(V,lmax,nu_arr,vint_arr,gamma_dict,buf,csm_bool,theta_csm,cr_bool,dim)
     
     if debug_bool == 1
-        minsize = min(10, size(T, 1))
-        print_matrix("T", T, minsize)
-        print_matrix("V", V, minsize)
-        print_matrix("S", S, minsize)
+        stp = min(9, size(T, 1))  # Adjust size_to_print as needed
+        println("T:")
+        display(T[1:stp,1:stp])
+        println("V:")
+        display(V[1:stp,1:stp])
+        println("S:")
+        display(S[1:stp,1:stp])
     end
 
     # symmetric fill:
@@ -172,26 +175,6 @@ end
     nu_arr[1] = 1 /abs(r1)^2;
     nmax >1 && @. nu_arr[2:nmax] = 1/abs(r1)^2 * abs(r1/rnmax)^(2*((2:nmax)-1)/(nmax-1))
 end
-
-## for debugging:
-function print_matrix(name, M, minsize)
-    r, c = size(M)
-    rmax = min(minsize, r)
-    cmax = min(minsize, c)
-    println("Matrix ", name, " (", r, "x", c, "):")
-    for i in 1:rmax
-        for j in 1:cmax
-            if M[i, j] isa Complex
-                @printf("(%8.4f,%8.4f) ", real(M[i,j]), imag(M[i,j]))
-            else
-                @printf("%8.4f ", M[i,j])
-            end
-        end
-        println()
-    end
-    println()
-end
-
 
 
 

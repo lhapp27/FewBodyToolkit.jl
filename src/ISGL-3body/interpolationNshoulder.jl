@@ -117,7 +117,7 @@ end
 
     csmfac = 1.0; buf = bufr;
     if csm_bool == 1
-        csmfac = exp(im*theta_csm*pi/180)
+        csmfac = exp(-im*theta_csm*pi/180)
         buf = bufc
     end
     

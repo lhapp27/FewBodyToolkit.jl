@@ -47,7 +47,7 @@
         println("V:")
         display(V[1:stp,1:stp])
         println("S:")
-        print_matrices(S, size_to_print)
+        display(S[1:stp,1:stp])
     end
     
     T .+= V

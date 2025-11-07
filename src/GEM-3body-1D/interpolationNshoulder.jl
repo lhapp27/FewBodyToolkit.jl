@@ -95,7 +95,7 @@ end
     buf = bufr
     
     if csm_bool == 1
-        csmfac = exp(im*theta_csm*pi/180)
+        csmfac = exp(-im*theta_csm*pi/180)
         buf = bufc
     end
     
@@ -117,7 +117,7 @@ end
     for cc in cvals
         
         for ivc in central_indices[cc]
-            precompute_varr!(v_arr,alpha_arr,nnlist,gamma_dict,vint_arr[cc][ivc],bufr,csmfac) #possible exponents via nnlist
+            precompute_varr!(v_arr,alpha_arr,nnlist,gamma_dict,vint_arr[cc][ivc],buf,csmfac) #possible exponents via nnlist
             for nn in nnlist
                 w_interpol_arr[cc,ivc,nn] = cubic_spline_interpolation(log_alpha_range, v_arr[:,nn+1])
             end
