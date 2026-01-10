@@ -1,7 +1,7 @@
 name = "FewBodyToolkit"
 uuid = "28c40a4d-cd08-48a0-9e99-cc2df8099be4"
-authors = ["lhapp27 <lucas.happ@riken.jp>"]
 version = "0.3.9"
+authors = ["lhapp27 <lucas.happ@riken.jp>"]
 
 [deps]
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
@@ -19,13 +19,11 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 WignerSymbols = "9f57e263-0b3d-5e2e-b1be-24f2bb48858b"
 
-
-
 [compat]
 Interpolations = "0.16"
 Literate = "2.20"
 OffsetArrays = "1.17"
-Optim = "1.12"
+Optim = "1.12, 2"
 PartialWaveFunctions = "0.2"
 QuadGK = "2.11"
 Reexport = "1.2"
