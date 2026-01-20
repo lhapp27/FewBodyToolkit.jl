@@ -1,0 +1,2 @@
+[compat_ignore]
+Optim = ["2"]  # Ignore version 2.x updates until tested
