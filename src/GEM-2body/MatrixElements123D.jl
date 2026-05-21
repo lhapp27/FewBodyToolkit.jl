@@ -1,4 +1,4 @@
-# Common file for all dimensions dim=1,2,3
+﻿# Common file for all dimensions dim=1,2,3
 
 element_S(lmax,nu1,nu2,dim) = (2*(nu1*nu2)^(1/2)/(nu1+nu2))^(lmax+dim/2) # norm-overlap
 
@@ -63,8 +63,8 @@ end
 
 
 ## T: csm via global factor;
-function MatrixT(T, lmax, nu_arr, hbar, mur, csm_bool, theta_csm, cr_bool, dim)
-    fill_full = (csm_bool == 1 && cr_bool == 1) #for simultaneous csm and cr: need to fill full matrix
+function MatrixT(T, lmax, nu_arr, hbar, mur, complex_scaling::Bool, complex_scaling_angle, complex_ranged::Bool, dim)
+    fill_full = (complex_scaling == 1 && complex_ranged == 1) #for simultaneous csm and cr: need to fill full matrix
     
     for ncol in 1:lastindex(nu_arr)
         row_start = fill_full ? 1 : ncol # full fill if csm AND cr, otherwise only lower triangular
@@ -73,15 +73,15 @@ function MatrixT(T, lmax, nu_arr, hbar, mur, csm_bool, theta_csm, cr_bool, dim)
         end
     end
     
-    csm_bool == 1 && (T .*= exp(-2*im*theta_csm*pi/180))
+    complex_scaling == 1 && (T .*= exp(-2*im*complex_scaling_angle*pi/180))
 end
 
 ## V:
-function MatrixV(V, lmax, nu_arr, vint_arr, gamma_dict, buf, csm_bool, theta_csm, cr_bool, dim)
-    fill_full = (csm_bool == 1 && cr_bool == 1) #for simultaneous csm and cr: need to fill full matrix
-    if csm_bool == 1 # to apply the csm in the basis functions:
-        csmfacnu = exp(-2*im*theta_csm*pi/180)
-    elseif csm_bool == 0
+function MatrixV(V, lmax, nu_arr, interactions, gamma_dict, buf, complex_scaling::Bool, complex_scaling_angle, complex_ranged::Bool, dim)
+    fill_full = (complex_scaling == 1 && complex_ranged == 1) #for simultaneous csm and cr: need to fill full matrix
+    if complex_scaling == 1 # to apply the csm in the basis functions:
+        csmfacnu = exp(-2*im*complex_scaling_angle*pi/180)
+    elseif complex_scaling == 0
         csmfacnu = 1.0
     end
     
@@ -96,7 +96,7 @@ function MatrixV(V, lmax, nu_arr, vint_arr, gamma_dict, buf, csm_bool, theta_csm
     end
 
     # sum over all interactions
-    for vint in vint_arr
+    for vint in interactions
 
         for ncol in 1:lastindex(nu_arr)
             row_start = fill_full ? 1 : ncol # full fill if csm and cr, otherwise only lower triangular
@@ -115,7 +115,7 @@ end
 ####  for coupled-channels:
 
 ## D: Terms which include derivatives
-function MatrixWD(WD,lmax,nu_arr,WCC,DCC,gamma_dict,buf,csm_bool,theta_csm,diff_bool,dim)
+function MatrixWD(WD,lmax,nu_arr,WCC,DCC,gamma_dict,buf,complex_scaling::Bool,complex_scaling_angle,return_diff::Bool,dim)
     # DCC = [n,fun], where n denotes the derivative order and fun the functional form of the prefactor
     
     n = DCC[1]
@@ -131,12 +131,12 @@ function MatrixWD(WD,lmax,nu_arr,WCC,DCC,gamma_dict,buf,csm_bool,theta_csm,diff_
         error("Derivative order n=$n > 4 not implemented")
     end
     
-    ##maybe use n==0 instead of diff_bool?
+    ##maybe use n==0 instead of return_diff?
     
-    if diff_bool == 1
+    if return_diff
         Dnfun = Dfun_dict[n] # function that carries the effect of the n-th derivative
-        wdfun = (r,l,nu) -> Dnfun(r,l,nu)*DCC[2](r)  + WCC(r) # D times prefactor function + W
-    elseif diff_bool == 0
+        wdfun = (r,l,nu) -> Dnfun(r,l,nu)*DCC[2](r)  + WCC(r)  # D times prefactor function + W
+    elseif !return_diff
         wdfun = (r,l,nu) -> WCC(r)
     end
 
@@ -151,10 +151,10 @@ function MatrixWD(WD,lmax,nu_arr,WCC,DCC,gamma_dict,buf,csm_bool,theta_csm,diff_
     end
     
     ## not adopted yet to support simultaneous CSM and CR!
-    if csm_bool == 0
+    if complex_scaling == 0
         MatrixWD_cr(WD,lmax,nu_arr,wdfun,gamma_dict,buf,dim,domain,dimfac)
-    elseif csm_bool == 1
-        MatrixWD_csm(WD,lmax,nu_arr,wdfun,gamma_dict,buf,theta_csm,dim,domain,dimfac)
+    elseif complex_scaling == 1
+        MatrixWD_csm(WD,lmax,nu_arr,wdfun,gamma_dict,buf,complex_scaling_angle,dim,domain,dimfac)
     end
 end
 
@@ -171,8 +171,8 @@ function MatrixWD_cr(WD,lmax,nu_arr,wdfun,gamma_dict,buf,dim,domain,dimfac)
 end
 
 #csm
-function MatrixWD_csm(WD,lmax,nu_arr,wdfun,gamma_dict,buf,theta_csm,dim,domain,dimfac)
-    csmfac=exp(-2*im*theta_csm*pi/180)
+function MatrixWD_csm(WD,lmax,nu_arr,wdfun,gamma_dict,buf,complex_scaling_angle,dim,domain,dimfac)
+    csmfac=exp(-2*im*complex_scaling_angle*pi/180)
     #roots,weights = rootsweights(1.0)
     for ncol = 1:lastindex(nu_arr)
         for nrow = ncol:lastindex(nu_arr)

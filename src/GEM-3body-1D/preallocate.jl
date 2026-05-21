@@ -1,4 +1,4 @@
-# functions to preallocate all arrays for the GEM3B1D program
+﻿# functions to preallocate all arrays for the GEM3B1D program
 
 # contains:
 # - preallocate_data: for everything
@@ -40,10 +40,10 @@ struct ResultStruct{T}
 end
 
 
-function preallocate_data(phys_params,num_params,observ_params,size_params,csm_bool)
-    if csm_bool == 0
+function preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling::Bool)
+    if !complex_scaling
         TT = Float64 # type variable
-    elseif csm_bool == 1
+    elseif complex_scaling
         TT = ComplexF64
     end
     

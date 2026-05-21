@@ -1,4 +1,4 @@
-# # Three-body Coulomb problem in 3D: HD+ (proton, deuteron, electron)
+﻿# # Three-body Coulomb problem in 3D: HD+ (proton, deuteron, electron)
 
 # In this example we solve the three-body Coulomb problem of a proton, deuteron and electron in 3D using the ISGL module. The code calculates the bound states and observables like the mean radii between two of the three particles. The results are compared with the high-precision literature values of Ref. [bubin2005](@cite).
 
@@ -13,8 +13,8 @@ vep(r) = -1/r #electron-proton = V31 = V2
 vpd(r) = +1/r; #proton-deuteron = V12 = V3
 
 # Physical parameters
-mass_arr=[1836.15267343,3670.48296788,1.00] # array of masses of particles (m1,m2,m3), here: proton, deuteron, electron
-phys_params = make_phys_params3B3D(;mass_arr,vint_arr=[[vde],[vep],[vpd]]);
+masses=[1836.15267343,3670.48296788,1.00] # array of masses of particles (m1,m2,m3), here: proton, deuteron, electron
+phys_params = make_phys_params3B3D(;masses,interactions=[[vde],[vep],[vpd]]);
 
 # Numerical parameters:
 gp = (;nmax=25,Nmax=25,r1=0.1,rnmax=25.0,R1=0.1,RNmax=25.0)
@@ -30,8 +30,8 @@ observ_params = (stateindices,centobs_arr = [[rad,rad2],[rad,rad2],[rad,rad2]],R
 
 # ## Obtaining energies and observables
 
-# Using the optional keyword argument `observ_params` (together with `wf_bool=1`) we can obtain the results for the observables on-the-fly. The energies are stored in the `energies` array, the eigenvectors in `wfs`, and the central observables in `co_out`. The mean squared radii for the R-coordinate are stored in `R2_out`.
-energies,wfs,co_out,R2_out = ISGL.ISGL_solve(phys_params,num_params;observ_params,wf_bool=1);
+# Using the optional keyword argument `observ_params` (together with `return_wavefunctions=true`) we can obtain the results for the observables on-the-fly. The energies are stored in the `energies` array, the eigenvectors in `wfs`, and the central observables in `co_out`. The mean squared radii for the R-coordinate are stored in `R2_out`.
+energies,wfs,co_out,R2_out = ISGL.ISGL_solve(phys_params,num_params;observ_params,return_wavefunctions=true);
 
 # ## Comparison with literature values
 
@@ -61,15 +61,15 @@ rpe2_lit = [3.537,3.843,4.173,4.531,4.921,5.346][stateindices]
 r2_lit = [rde2_lit,rpe2_lit,rdp2_lit];
 
 # Comparison of the numerical results with the literature:
-println("\nHD+:  radii ⟨r⟩ with differences")
+println("\nHD+:  radii âŸ¨râŸ© with differences")
 strings = ["r_de", "r_pe", "r_dp"]
 for ii in [3,1,2]
     comparison(co_out[ii,1,stateindices], r_lit[ii], 3; s1=strings[ii], s2=string(strings[ii],"(lit)"))
 end
 println("---------------------------------------------------")
 
-println("\nHD+:  squared radii ⟨r²⟩ with differences")
-strings2 = ["r²_de", "r²_pe", "r²_dp"]
+println("\nHD+:  squared radii âŸ¨rÂ²âŸ© with differences")
+strings2 = ["rÂ²_de", "rÂ²_pe", "rÂ²_dp"]
 for ii in [3,1,2]
     comparison(co_out[ii,2,stateindices], r2_lit[ii], 3; s1=strings2[ii], s2=string(strings2[ii],"(lit)"))
 end
@@ -80,10 +80,10 @@ println("---------------------------------------------------")
 # #### Mean squared radii for the R-coordinate
 
 # For this observable the reference does not provide any values, so we just print the numerical results:
-println("\nHD+:  Mean squared radii ⟨R²⟩")
+println("\nHD+:  Mean squared radii âŸ¨RÂ²âŸ©")
 row_labels = ["Proton rel. to (D+,e-) pair:  ", "Deuteron rel. to (e-,p+) pair:", "Electron rel. to (p+,D+) pair:"]
 state_labels = ["State 1", "State 2", "State 3"]
-println(rpad(" ⟨R²⟩ ", 34), join(state_labels, "   "))
+println(rpad(" âŸ¨RÂ²âŸ© ", 34), join(state_labels, "   "))
 for i in 1:length(row_labels)
     print(rpad(row_labels[i], 30))
     for j in 1:length(state_labels)
@@ -92,7 +92,7 @@ for i in 1:length(row_labels)
     println()
 end
 
-# Due to the almost negligible mass of the electron, the results for ⟨R²⟩ in the first two rows are almost identical and also almost match to the first column of the mean radii ⟨r²⟩ between proton and deuteron. The third row shows the results for the electron with respect to the center-of-mass of the proton-deuteron pair and are clearly smaller, probably since it feels an attractive Coulomb force of twice the strength (the effective pair of proton and deuteron has charge +2).
+# Due to the almost negligible mass of the electron, the results for âŸ¨RÂ²âŸ© in the first two rows are almost identical and also almost match to the first column of the mean radii âŸ¨rÂ²âŸ© between proton and deuteron. The third row shows the results for the electron with respect to the center-of-mass of the proton-deuteron pair and are clearly smaller, probably since it feels an attractive Coulomb force of twice the strength (the effective pair of proton and deuteron has charge +2).
 
 # ## Page References
 

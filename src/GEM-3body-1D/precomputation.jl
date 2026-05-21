@@ -1,9 +1,9 @@
-# functions to precompute repetedly used arrays within the GEM3B1D program
+﻿# functions to precompute repetedly used arrays within the GEM3B1D program
 
 function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs) #diff13
     
     #Destructing Structs:    
-    (;mass_arr) = phys_params #diff13
+    (;masses) = phys_params #diff13
     (;lmax,Lmax,gem_params,kmax_interpol) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;lL_complete,l_complete,nl) = size_params # diff13
@@ -11,9 +11,9 @@ function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs) #diff1
     
     precompute_gamma!(gamma_dict,max(nmax,3*max(lmax,Lmax)+3)) # gamma_dict is called many times. maybe an array would be better than a dict
     
-    precompute_jmat!(jmat,mass_arr)
+    precompute_jmat!(jmat,masses)
     
-    precompute_murR!(murR_arr,mass_arr)
+    precompute_murR!(murR_arr,masses)
     
     precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax) # i think all of these functions could be "commonized"
 
@@ -54,9 +54,9 @@ end
 ### reduced masses for the different jacobi sets. Required for the kinetic energy operator.
 function precompute_murR!(murR_arr,m_arr)
     for b = 1:3# just calculate all combinations...
-        ma = m_arr[mod(b+1,3)+1]#circshift(m_arr,1)[b];#m_arr[mod(b+1,3)+1]; # Ergibt b-1 in Möglichkeiten 1,2,3; mappt 1,2,3 auf 3,1,2.
+        ma = m_arr[mod(b+1,3)+1]#circshift(m_arr,1)[b];#m_arr[mod(b+1,3)+1]; # Ergibt b-1 in MÃ¶glichkeiten 1,2,3; mappt 1,2,3 auf 3,1,2.
         mb = m_arr[b];
-        mc = m_arr[mod(b,3)+1]#circshift(m_arr,-1)[b];#m_arr[mod(b,3)+1]; # Ergibt b+1 in Möglichkeiten 1,2,3; mappt 1,2,3 auf 2,3,1
+        mc = m_arr[mod(b,3)+1]#circshift(m_arr,-1)[b];#m_arr[mod(b,3)+1]; # Ergibt b+1 in MÃ¶glichkeiten 1,2,3; mappt 1,2,3 auf 2,3,1
         murR_arr[1,b] = mc*ma/(mc+ma); # mur
         murR_arr[2,b] = mb*(ma+mc)/(ma+mb+mc); # muR
     end

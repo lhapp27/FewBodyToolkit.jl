@@ -1,4 +1,4 @@
-# Example script for using the complex-scaling method for resonance calculations in a two-body system. Comparison with [lazauskas2023](@cite), https://doi.org/10.1007/s00601-023-01808-x.
+﻿# Example script for using the complex-scaling method for resonance calculations in a two-body system. Comparison with [lazauskas2023](@cite), https://doi.org/10.1007/s00601-023-01808-x.
 
 using FewBodyToolkit, Plots
 
@@ -10,10 +10,10 @@ function csm2b(lambda,nmax)
     end
     
     mur = 1/(2*27.647)
-    pp = make_phys_params2B(;mur,vint_arr=[v],dim=3,lmin=1,lmax=1)
-    np = make_num_params2B(;gem_params=(nmax=nmax, r1=0.3, rnmax=30.8),theta_csm=40.0)
+    pp = make_phys_params2B(;mur,interactions=[v],dim=3,lmin=1,lmax=1)
+    np = make_num_params2B(;gem_params=(nmax=nmax, r1=0.3, rnmax=30.8),complex_scaling_angle=40.0)
     
-    e2 = GEM2B_solve(pp,np,csm_bool=1)
+    e2 = GEM2B_solve(pp,np,complex_scaling=true)
     
     return e2
 end
@@ -50,7 +50,7 @@ reso_arr = zeros(ComplexF64,lastindex(lambda_arr))
 for (il,lambda) in enumerate(reverse(lambda_arr))
     e2_arr[:,il] = csm2b(lambda,nmax)
 
-    reso = e2_arr[is_in_triangle(e2_arr[:,il], 0.0, 2.0, 2*40*0.80),il] # in principle anything within 2*theta_csm is a resonance, but to allow for numerical inaccuracy, we go with 80% of that.
+    reso = e2_arr[is_in_triangle(e2_arr[:,il], 0.0, 2.0, 2*40*0.80),il] # in principle anything within 2*complex_scaling_angle is a resonance, but to allow for numerical inaccuracy, we go with 80% of that.
     if lambda == 1.75 # in this case there is only a bound state, no resonance
         reso_arr[il] = e2_arr[1,il]
     else

@@ -1,18 +1,18 @@
-# function to check the inputs for the ISGL program of sanity:
+﻿# function to check the inputs for the ISGL program of sanity:
 
 function sanity_checks(phys_params)
-    (;mass_arr,svals,vint_arr,J_tot,parity) = phys_params
+    (;masses,species,interactions,J_tot,parity) = phys_params
     
-    if (lastindex(mass_arr) !=3) || lastindex(svals) !=3
-        println("mass_arr and/or svals have wrong size, must be 3")
+    if (lastindex(masses) !=3) || lastindex(species) !=3
+        println("masses and/or species have wrong size, must be 3")
         error_code = 1
         return error_code
     else
         error_code = 0
     end
     
-    fasb = findall(svals .== "b")
-    fasf = findall(svals .== "f")
+    fasb = findall(species .== :b)
+    fasf = findall(species .== :f)
     if (lastindex(fasb) in [0,2,3]) && (lastindex(fasf) in [0,2,3])
         error_code = 0
     elseif lastindex(fasb) == 1 || lastindex(fasf) == 1
@@ -22,8 +22,8 @@ function sanity_checks(phys_params)
     end
     
     # tests required: ok, even if fasb or fasf is empty?
-    if allequal(mass_arr[fasb]) == false || allequal(mass_arr[fasf]) == false
-        println("Problem with symmetrization: svals does not fit to m_arr")
+    if allequal(masses[fasb]) == false || allequal(masses[fasf]) == false
+        println("Problem with symmetrization: species does not fit to m_arr")
         error_code=3
         return error_code
     end

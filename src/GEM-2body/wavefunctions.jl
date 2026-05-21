@@ -1,7 +1,7 @@
-# functions to output the 2-body wavefunction (not the coefficient arrays), based on the coefficients and num_params input
+﻿# functions to output the 2-body wavefunction (not the coefficient arrays), based on the coefficients and num_params input
 
 """
-    wavefun_arr(r_arr, phys_params, num_params, wf_arr; cr_bool=0)
+    wavefun_arr(r_arr, phys_params, num_params, wf_arr; complex_ranged=0)
 
 Calculates the 2-body wavefunction at specified positions based on input parameters and coefficients.
 
@@ -12,37 +12,37 @@ Calculates the 2-body wavefunction at specified positions based on input paramet
 - `wf_arr::Vector`: Eigenvector from the diagonalization routine. Can be complex-valued.
 
 # Keyword Arguments
-- `cr_bool::Int=0`: Determines whether to use complex-ranged Gaussians (`1`) or not (`0`). Defaults to `0`.
+- `complex_ranged::Int=0`: Determines whether to use complex-ranged Gaussians (`1`) or not (`0`). Defaults to `0`.
 
 # Returns
 - `Vector{Float64}`: The wavefunction values at the specified positions r_arr.
 
 # Example
 ```julia
-wavefun_arr(0.0:0.1:10.0, phys_params, num_params, wf_arr; cr_bool=0)
+wavefun_arr(0.0:0.1:10.0, phys_params, num_params, wf_arr; complex_ranged=0)
 ```
 """
-function wavefun_arr(r_arr, phys_params, num_params, wf_arr; cr_bool=0)
+function wavefun_arr(r_arr, phys_params, num_params, wf_arr; complex_ranged::Bool=false)
     # r_arr: array of positions
     # num_params: input to determine gaussian widths
-    # cr_bool: 1 or 0 determining whether to use complex-ranged gaussians or not
+    # complex_ranged: true or false determining whether to use complex-ranged gaussians or not
     # wf_arr: eigenvector from diagonalizing routine
     
-    (;gem_params,omega_cr) = num_params
+    (;gem_params,complex_range_freq) = num_params
     (;nmax,r1,rnmax) = gem_params
     (;lmax,dim) = phys_params
     
     # gaussian ranges:
-    if cr_bool == 0
+    if !complex_ranged
         nu_arr = zeros(nmax);
-    elseif cr_bool == 1
+    elseif complex_ranged
         nu_arr = zeros(ComplexF64,2*nmax);
     end
     GEM2B.buildnu(nu_arr,r1,rnmax,nmax)
     
     # complex-ranged gaussians?
-    if cr_bool == 1
-        nu_arr .*= (1+omega_cr*im)
+    if complex_ranged
+        nu_arr .*= (1+complex_range_freq*im)
         nu_arr[nmax+1:2*nmax] .= conj.(nu_arr[1:nmax])
     end
     

@@ -1,8 +1,8 @@
-## Function for calculating the matrix elements and filling the matrices T,V,S within the GEM3B1D program
+﻿## Function for calculating the matrix elements and filling the matrices T,V,S within the GEM3B1D program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,hbar,debug_bool)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,debug::Bool)
     
-    (;gem_params,theta_csm) = num_params
+    (;gem_params,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,lL_arr,maxlmax,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr) = size_params
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
@@ -29,20 +29,20 @@
     end
     T .= Symmetric(temp_fill_mat,:L); # transpose fill:
     
-    if csm_bool == 1
-        T .*= exp(-2*im*theta_csm*pi/180)
+    if complex_scaling
+        T .*= exp(-2*im*complex_scaling_angle*pi/180)
     end
     
 
     # Interaction V
     for index in 1:flati
         rowi,coli=temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,csm_bool,theta_csm)
+        temp_fill_mat[rowi,coli] = vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,complex_scaling,complex_scaling_angle)
     end
     V .= Symmetric(temp_fill_mat,:L); # transpose fill:
     
     # Example usage for debugging
-    if debug_bool == 1
+    if debug
         stp = min(9, size(T, 1))  # Adjust size_to_print as needed
         println("T:")
         display(T[1:stp,1:stp])
@@ -96,7 +96,7 @@ function tab(jmat,murR_arr,temp_args_i,abI,factor_bf,gamma_dict,hbar)
 end
 
 # calculation of a single matrix element: interaction V(r_c)
-function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,csm_bool,theta_csm)
+function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,complex_scaling,complex_scaling_angle)
     (;avals_new,bvals_new,factor_ab,ranges,norm4,la,La,lb,Lb,cvals) = temp_args_i
     tempV = 0.0                                    
     for a in avals_new
@@ -106,7 +106,7 @@ function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma
                 
                 for ivg in gauss_indices[c] # we need to provide these indices to the function.
                     gaussopt = gaussopt_arr[c][ivg] # Gaussian parameters are stored in gaussopt_arr
-                    tempV += factor_ab*factor_symm*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,gaussopt,gamma_dict,csm_bool,theta_csm)
+                    tempV += factor_ab*factor_symm*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,gaussopt,gamma_dict,complex_scaling,complex_scaling_angle)
                 end
                 
                 for ivc in central_indices[c]
@@ -115,7 +115,7 @@ function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma
 
                 for ivc1D in contact1D_indices[c]
                     contactopt = contact1Dopt_arr[c][ivc1D] # Contact potential parameters are stored in contact1Dopt_arr
-                    tempV += factor_ab*factor_symm*element_VContact(c,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,contactopt,gamma_dict,csm_bool,theta_csm)
+                    tempV += factor_ab*factor_symm*element_VContact(c,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,contactopt,gamma_dict,complex_scaling,complex_scaling_angle)
                 end
                 
             end
@@ -231,7 +231,7 @@ end
 
 
 # calculation of a single matrix element: interaction VGauss(r_c)
-function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,csm_bool,theta_csm)
+function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,complex_scaling,complex_scaling_angle)
 
     mod(la+La+lb+Lb,2) == 1 && return 0.0 #Gaussian potential is symmetric, hence parity of <a| and |b> must be the same, otherwise return 0
     
@@ -241,7 +241,7 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,c
     #GEM review: alpha <-> gamma; beta <-> delta
     
     v0,mu_g = gaussopt
-    csm_bool == 1 && (mu_g *= exp(2*im*theta_csm*pi/180)) # apply CSM factor to the range of the Gaussian potential
+    complex_scaling && (mu_g *= exp(2*im*complex_scaling_angle*pi/180)) # apply CSM factor to the range of the Gaussian potential
     
     LL = la+La+lb+Lb;
         
@@ -279,14 +279,14 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,c
 end
 
 # calculation of a single matrix element: interaction VContact(r_c)
-function element_VContact(c,ranges,norm4,jac,jbc,la,La,lb,Lb,contactopt,gamma_dict,csm_bool,theta_csm)
+function element_VContact(c,ranges,norm4,jac,jbc,la,La,lb,Lb,contactopt,gamma_dict,complex_scaling,complex_scaling_angle)
     
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
     (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
     
     v0,z0 = contactopt
-    csm_bool == 1 && (z0 *= exp(2*im*theta_csm*pi/180)) # apply CSM factor to the position of the contact interaction
+    complex_scaling && (z0 *= exp(2*im*complex_scaling_angle*pi/180)) # apply CSM factor to the position of the contact interaction
     
     LL = la+La+lb+Lb;
         

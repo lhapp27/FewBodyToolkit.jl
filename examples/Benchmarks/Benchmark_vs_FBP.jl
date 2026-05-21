@@ -1,4 +1,4 @@
-# Benchmark test for FewBodyToolkit vs FewBodyPhysics
+﻿# Benchmark test for FewBodyToolkit vs FewBodyPhysics
 
 using FewBodyToolkit, FewBodyPhysics, LinearAlgebra, BenchmarkTools
 
@@ -21,7 +21,7 @@ function FBPrun(;output=true)
         b1 = default_b0(psys.scale)
         method = :psudorandom
         basis_fns = GaussianBase[]
-        E₀_list = Float64[]
+        Eâ‚€_list = Float64[]
         
         for i in 1:n_basis
             bij = generate_bij(method, i, length(w_raw), b1)
@@ -37,18 +37,18 @@ function FBPrun(;output=true)
             H = build_hamiltonian_matrix(basis, ops)
             S = build_overlap_matrix(basis)
             vals, vecs = solve_generalized_eigenproblem(H, S)
-            #global c₀ = vecs[:, 1]
-            E₀ = minimum(vals)
+            #global câ‚€ = vecs[:, 1]
+            Eâ‚€ = minimum(vals)
             
-            push!(E₀_list, E₀)
-            #println("Step $i: E₀ = $E₀")
+            push!(Eâ‚€_list, Eâ‚€)
+            #println("Step $i: Eâ‚€ = $Eâ‚€")
         end
         
         if output==true
-            E₀ = minimum(E₀_list)
-            Eᵗʰ = -0.2620050702328
-            ΔE = abs(E₀ - Eᵗʰ)
-            println("FewBodyPhysics: ΔE = $ΔE")
+            Eâ‚€ = minimum(Eâ‚€_list)
+            Eáµ—Ê° = -0.2620050702328
+            Î”E = abs(Eâ‚€ - Eáµ—Ê°)
+            println("FewBodyPhysics: Î”E = $Î”E")
         end
         
     end
@@ -63,9 +63,9 @@ function FBTKrun(;output=true)
     # physical parameters:
     vee(r) = 1/r
     vep(r) = -1/r
-    mass_arr = [1.0,1.0,1.0] # masses of particles: electron, electron, positron
-    vint_arr = [[vep],[vep],[vee]] # v23,v31,v12
-    phys_params = make_phys_params3B3D(;svals=["b","b","z"],vint_arr,spin_arr=[0,0,0],parity=+1,J_tot=0)
+    masses = [1.0,1.0,1.0] # masses of particles: electron, electron, positron
+    interactions = [[vep],[vep],[vee]] # v23,v31,v12
+    phys_params = make_phys_params3B3D(;species=[:b,:b,:z],interactions,spins=[0,0,0],parity=+1,J_tot=0)
     
     # numerical parameters:
     gp = (;nmax=10,Nmax=10,r1=0.2,rnmax=20.0,R1=0.2,RNmax=20.0) # Tuple for GEM-Parameters
@@ -79,8 +79,8 @@ function FBTKrun(;output=true)
         @show(energies_arr[1:4])
         E_ground = energies_arr[1]
         E_exact = -0.2620050702328
-        ΔE = abs(E_ground - E_exact)
-        println("FewBodyToolkit: ΔE = $ΔE")
+        Î”E = abs(E_ground - E_exact)
+        println("FewBodyToolkit: Î”E = $Î”E")
     end
 end
 

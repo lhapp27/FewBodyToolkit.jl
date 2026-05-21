@@ -1,6 +1,6 @@
-# # 3D Example: Two particles with Coulomb interaction
+﻿# # 3D Example: Two particles with Coulomb interaction
 #
-# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 3D. Here we use the Coulomb interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (``\hbar, \mu=1``)
+# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 3D. Here we use the Coulomb interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following SchrÃ¶dinger equation (``\hbar, \mu=1``)
 # \\[ -\frac{1}{2} \frac{1}{r}\frac{d^2}{dr^2}\left( r\psi \right) + V(r)\psi = E\psi \\]
 # with the Colomb potential
 # \\[ V(r) = -\frac{Z}{r}. \\]
@@ -13,8 +13,8 @@ using Printf, Interpolations, Plots, Antique, FewBodyToolkit
 
 # #### Physical parameters
 
-mass_arr = [1.0, Inf] # array of masses of particles [m1,m2]
-mur = 1 / (1/mass_arr[1] + 1/mass_arr[2])
+masses = [1.0, Inf] # array of masses of particles [m1,m2]
+mur = 1 / (1/masses[1] + 1/masses[2])
 Z = 1.0
 
 function v_coulomb(r)
@@ -22,7 +22,7 @@ function v_coulomb(r)
 end;
 
 # We define the physical parameters as a `NamedTuple` which carries the information about the Hamiltonian.
-phys_params = make_phys_params2B(;vint_arr=[v_coulomb])
+phys_params = make_phys_params2B(;interactions=[v_coulomb])
 # By leaving out the optional parameters, we use the defaults:
 # - `mur = 1.0`: reduced mass
 # - `dim = 3`: dimension of the problem
@@ -49,7 +49,7 @@ energies = GEM2B.GEM2B_solve(phys_params,num_params)
 simax = min(lastindex(energies),6); # max state index
 
 # The Coulomb potential has infinitely many bound states, whose energies can be found exactly. We can use the package [Antique.jl](https://github.com/ohno/Antique.jl) to provide these energies.
-CTB = Antique.CoulombTwoBody(m₁=mass_arr[1], m₂=mass_arr[2])
+CTB = Antique.CoulombTwoBody(mâ‚=masses[1], mâ‚‚=masses[2])
 energies_exact = [Antique.E(CTB,n=i) for i=1:40]
 
 println("1. Numerical solution of the 3D problem:")
@@ -85,8 +85,8 @@ comparison(energies_opt,energies_exact,simax; s1="Optimized")
 
 # Highly accurate results can indeed be obtained by using a larger basis. For a two-body system this comes only at a moderate computational cost. Here, we reproduce table 2 of Ref. [hiyama2003](@cite) with the following numerical parameters:
 println("\n3. Highly accurate solution using many basis functions:")
-np = make_num_params2B(;gem_params=(;nmax=80,r1=0.015,rnmax=2000.0),omega_cr=1.5,threshold=10^-11)
-@time energies_accurate = GEM2B.GEM2B_solve(phys_params,np;cr_bool=1) # ~3s on an average laptop
+np = make_num_params2B(;gem_params=(;nmax=80,r1=0.015,rnmax=2000.0),complex_range_freq=1.5,threshold=10^-11)
+@time energies_accurate = GEM2B.GEM2B_solve(phys_params,np;complex_ranged=true) # ~3s on an average laptop
 nlist=[1,2,3,4,5,10,14,18,22,26,30,32,34,36,38,40]; # states shown in the article
 comparison(energies_accurate,energies_exact,lastindex(nlist); s1="Numerical", s2="Exact",indexlist=nlist)
 
@@ -100,7 +100,7 @@ v_interpol = cubic_spline_interpolation(r_arr,v_arr,extrapolation_bc=Line())
 v_int(r) = v_interpol(r); # we have to transform the interaction to an object of type "function"
 
 # As input to the solver we need to define new physical parameters with the interpolated interaction. Moreover, we use the optimized numerical parameters from the previous step.
-phys_params_i = make_phys_params2B(;mur,vint_arr=[v_int],dim=3)
+phys_params_i = make_phys_params2B(;mur,interactions=[v_int],dim=3)
 
 println("\n4. Numerical solution using an interpolated interaction:")
 energies_interpol = GEM2B.GEM2B_solve(phys_params_i,num_params_opt)
@@ -110,7 +110,7 @@ comparison(energies_interpol, energies_opt, simax;s1="Interpolated", s2="Optimiz
 # ## 5. Coupled-channel problem
 
 # The package also supports coupled-channel problems via `GEM2B_solveCC`. In this case the interaction is not provided via phys_params
-phys_paramsCC = make_phys_params2B(;vint_arr=[r->0.0])
+phys_paramsCC = make_phys_params2B(;interactions=[r->0.0])
 
 # but via extra arguments WCC: `wfun` on the diagonal; `wfun2` for off-diagonal couplings, and DCC: derivative terms of order `dor`, and radial prefactors `dfun` (diagonal) and `dfun2` (off-diagonal).
 
@@ -121,7 +121,7 @@ dor = 1; #derivative-order
 DCC = reshape([ [dor, dfun], [dor, dfun2], [dor, dfun2], [dor, dfun] ], 2, 2)
 
 # As a test-case we use the coulomb interaction on the diagonal, and a weak repulsion on the off-diagonal. We don't consider any extra derivatives. Since the coupling is weak, we get approximately twofold degenerate eigenvalues, splitted around the original Coulomb results.
-energiesCC = GEM2B.GEM2B_solveCC(phys_paramsCC, num_params_opt, WCC, DCC; diff_bool=0)
+energiesCC = GEM2B.GEM2B_solveCC(phys_paramsCC, num_params_opt, WCC, DCC; return_diff=0)
 
 energies_exactCC = repeat(energies_exact, inner=(2,))
 
@@ -133,9 +133,9 @@ comparison(energiesCC, energies_exactCC, simax; s1="Coupled-Channel")
 
 # ## 6. Calculation of the wave function
 
-# Adding the optional argument `wf_bool=1` to `GEM2B_solve` also computes and returns a matrix of eigenvectors (in each column). These eigenvectors contain the weights of the basis functions.
+# Adding the optional argument `return_wavefunctions=true` to `GEM2B_solve` also computes and returns a matrix of eigenvectors (in each column). These eigenvectors contain the weights of the basis functions.
 
-energiesw,wfs = GEM2B.GEM2B_solve(phys_params,num_params_opt;wf_bool=1,cr_bool=0);
+energiesw,wfs = GEM2B.GEM2B_solve(phys_params,num_params_opt;return_wavefunctions=true,complex_ranged=false);
 
 # We can use the functions `GEM2B.wavefun_arr` and `GEM2B.wavefun_point` to compute the wave function at a set of points or at a specific point, respectively. The information on the basis functions is provided via the optimized numerical parameters `num_params_opt`, the vector of Gaussian widths. We compare the numerical wave function with the exact solutions provided by Antique.jl and find very good agreement.
 
@@ -151,7 +151,7 @@ density_exact = zeros(length(r_arr),4)
 markers = [:circ, :square, :utriangle, :star]
 for si = 1:4
     wf = wfs[:,si]
-    psi_arr = GEM2B.wavefun_arr(r_arr,phys_params,num_params_opt,wf;cr_bool=0)
+    psi_arr = GEM2B.wavefun_arr(r_arr,phys_params,num_params_opt,wf;complex_ranged=0)
     
     density[:,si] .= abs2.(psi_arr).*r_arr.^2
     density_exact[:,si] = abs2.(wfA.(r_arr,si)).*r_arr.^2

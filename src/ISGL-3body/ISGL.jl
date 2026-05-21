@@ -1,4 +1,4 @@
-## Function/Module for using the Infinitesimally shifted Gaussian lobe functions (ISGL) within the Gaussian expansion method (GEM) for solving three-body problems
+﻿## Function/Module for using the Infinitesimally shifted Gaussian lobe functions (ISGL) within the Gaussian expansion method (GEM) for solving three-body problems
 
 ## see bottom for a documentation ("concept of the program"); might be a bit outdated
 
@@ -34,23 +34,23 @@ const DEFAULT_OBS = (
 )
 
 """
-    ISGL_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+    ISGL_solve(phys_params, num_params; return_wavefunctions=0, complex_scaling=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
 
 Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
 
 # Arguments
 - `phys_params`: Physical parameters for the three-body system (e.g., masses, interaction potentials, etc.).
 - `num_params`: Numerical parameters for the GEM calculation (e.g., basis size, grid parameters, etc.).
-- `wf_bool`: (optional) If `1`, also returns wavefunction-related observables. Default is `0`.
-- `csm_bool`: (optional) If `1`, uses complex scaling method. Default is `0`.
+- `return_wavefunctions`: (optional) If `1`, also returns wavefunction-related observables. Default is `0`.
+- `complex_scaling`: (optional) If `1`, uses complex scaling method. Default is `0`.
 - `observ_params`: (optional) Parameters for observable calculations.
     + `stateindices`: Indices of states for which observables are calculated.
-    + `centobs_arr`: Array of central (only dependent on `` r ``; must be defined as functions) observables, for each Jacobi set (similar to `vint_arr` in `phys_params`).
+    + `centobs_arr`: Array of central (only dependent on `` r ``; must be defined as functions) observables, for each Jacobi set (similar to `interactions` in `phys_params`).
     + `R2_arr`: Array which indicates whether the observable `` \\langle R^2 \\rangle `` should be calculated (1) for any of the three Jacobi sets, or not (0).
 
 # Returns
-- If `wf_bool == 0`: Returns an array of computed energies.
-- If `wf_bool == 1`: Returns a tuple `(energies, wavefunctions, centobs_output, R2_output)`.
+- If `return_wavefunctions == 0`: Returns an array of computed energies.
+- If `return_wavefunctions == 1`: Returns a tuple `(energies, wavefunctions, centobs_output, R2_output)`.
     + `energies`: Vector of computed energies.
     + `wavefunctions`: Matrix of eigenvectors (column-wise) which contain the coefficients of the basis functions.
     + `centobs_output`: Mean values of central observables for the specified states. The first dimension corresponds to the Jacobi sets, the second to the observables, and the third to the states.
@@ -63,7 +63,22 @@ num_params = make_num_params3B3D()
 energies = ISGL_solve(phys_params, num_params) #solving with default parameters: three particles with the same mass and gaussian interaction
 ```
 """
-function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_params=DEFAULT_OBS, debug_bool = 0)
+function ISGL_solve(phys_params, num_params;
+    return_wavefunctions = false, complex_scaling = false, observ_params=DEFAULT_OBS, debug = false,
+    wf_bool=nothing, csm_bool=nothing, debug_bool=nothing)
+
+    if !isnothing(wf_bool)
+        @warn "wf_bool is deprecated, use return_wavefunctions instead"
+        return_wavefunctions = wf_bool
+    end
+    if !isnothing(csm_bool)
+        @warn "csm_bool is deprecated, use complex_scaling instead"
+        complex_scaling = csm_bool
+    end
+    if !isnothing(debug_bool)
+        @warn "debug_bool is deprecated, use debug instead"
+        debug = debug_bool
+    end
     
     ## 1. interpretation of inputs
     show_details_bool = 0
@@ -82,28 +97,28 @@ function ISGL_solve(phys_params, num_params; wf_bool = 0, csm_bool = 0, observ_p
     end
     
     ## 3. computations to determine sizes of arrays for allocation:   
-    size_params = size_estimate(phys_params,num_params,observ_params,csm_bool)
+    size_params = size_estimate(phys_params,num_params,observ_params,complex_scaling)
     
     ## 4. preallocation: #is it really necessary? and/or can it not simply be done within the precomputation? better like this for performance analysis    
-    precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,csm_bool)
+    precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling)
 
     ## 5. precomputation:
     precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs)    
     
     ## 6. preparation of interpolation & shoulder:
-    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,wf_bool,csm_bool)
+    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling)
     
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,phys_params.hbar,debug_bool)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,debug)
     
     ## 8. Solving the generalized eigenproblem:
-    solveHS(num_params,fill_arrs,result_arrs,wf_bool)
+    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)
     
     ## 9. Calculate observables: (limited to "central" observables at the moment)
-    if wf_bool == 0
+    if !return_wavefunctions
         return result_arrs.energies_arr
-    elseif wf_bool == 1
-        calc_observables(num_params,observ_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs,csm_bool)
+    elseif return_wavefunctions
+        calc_observables(num_params,observ_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs,complex_scaling)
         return result_arrs.energies_arr,result_arrs.wavefun_arr,result_arrs.centobs_output,result_arrs.R2_output
     end
 end
@@ -119,17 +134,17 @@ end ## end of module
 ### concept of the program:
 
 ## 1. interpretation of inputs
-#   - phys_params = mass_arr,svals,v0_arr,muG_arr,J_tot,parity
+#   - phys_params = masses,species,v0_arr,muG_arr,J_tot,parity
 #   - abcvals = avals,bvals,cvals
-#   - num_params = lmax,Lmax,gem_params,theta_csm,omega_cr,mu0,c
+#   - num_params = lmax,Lmax,gem_params,complex_scaling_angle,complex_range_freq,mu0,c
 #   - gem_params = nmax,Nmax,r1,rnmax,R1,RNmax
 #   - ...
 
 ## 2. sanity check of inputs
 
 ## 3. computations to determine sizes of arrays for allocation:
-#   - avals,bvals   : aus cvals,svals
-#   - lL_arr        : J,parity,svals,bvals,lmax,Lmax
+#   - avals,bvals   : aus cvals,species
+#   - lL_arr        : J,parity,species,bvals,lmax,Lmax
 #   - imax_arr      : lL_arr
 #   - kmax_dict     : lmax
 
@@ -167,7 +182,7 @@ end ## end of module
 ## 5. Precomputations before loops over basis functions: (needs)
 #   - gamma_dict    : nmax?
 #   - cleb_arr      : J_tot,nl
-#   - jmat          : mass_arr
+#   - jmat          : masses
 #   - ranges        : gem_params
 #   - norms         : lL_arr,ranges,gem_params
 #   - imax_arr      : lL_arr

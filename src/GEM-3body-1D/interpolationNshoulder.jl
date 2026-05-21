@@ -1,10 +1,10 @@
-# functions to precompute the w-arrays for the interaction via to be used in range-interpolation
+﻿# functions to precompute the w-arrays for the interaction via to be used in range-interpolation
 
-function interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,wf_bool,csm_bool)
+function interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions::Bool,complex_scaling::Bool)
     
     # Destruct Structs:
-    (;vint_arr) = phys_params
-    (;lmax,Lmax,gem_params,theta_csm,kmax_interpol) = num_params
+    (;interactions) = phys_params
+    (;lmax,Lmax,gem_params,complex_scaling_angle,kmax_interpol) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;stateindices,centobs_arr,R2_arr) = observ_params
     (;cvals,maxlmax,lL_complete,central_indices) = size_params # add nint?
@@ -15,7 +15,7 @@ function interpolNshoulder(phys_params,num_params,observ_params,size_params,prec
     precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)   
     
     # numerical integration and range-interpolation
-    precompute_w(v_arr,alpha_arr,w_interpol_arr,gamma_dict,maxlmax,cvals,vint_arr,centobs_arr,wf_bool,csm_bool,theta_csm,lmax,Lmax,central_indices,lL_complete) # ,w_obs_arr,v_obs_arr,w_obs_interpol_arr
+    precompute_w(v_arr,alpha_arr,w_interpol_arr,gamma_dict,maxlmax,cvals,interactions,centobs_arr,return_wavefunctions,complex_scaling,complex_scaling_angle,lmax,Lmax,central_indices,lL_complete) # ,w_obs_arr,v_obs_arr,w_obs_interpol_arr
     
 end
 
@@ -80,7 +80,7 @@ end
 
 
 ### w_interpol_arr: range-interpolation
-@views @inbounds function precompute_w(v_arr,alpha_arr,w_interpol_arr,gamma_dict,maxlmax,cvals,vint_arr,centobs_arr,wf_bool,csm_bool,theta_csm,lmax,Lmax,central_indices,lL_complete) #,w_obs_arr,v_obs_arr,w_obs_interpol_arr
+@views @inbounds function precompute_w(v_arr,alpha_arr,w_interpol_arr,gamma_dict,maxlmax,cvals,interactions,centobs_arr,return_wavefunctions::Bool,complex_scaling::Bool,complex_scaling_angle,lmax,Lmax,central_indices,lL_complete) #,w_obs_arr,v_obs_arr,w_obs_interpol_arr
     # returns the Array w_interpol_arr[c in cvals,ivc in central_indices[c],nn in nnlist]
     
     log_alpha_range=range(log(alpha_arr[1]),log(alpha_arr[end]),lastindex(alpha_arr)) # log(alpha) to interpolate over uniform range of effective ranges alpha
@@ -94,8 +94,8 @@ end
     csmfac = 1.0
     buf = bufr
     
-    if csm_bool == 1
-        csmfac = exp(-im*theta_csm*pi/180)
+    if complex_scaling
+        csmfac = exp(-im*complex_scaling_angle*pi/180)
         buf = bufc
     end
     
@@ -117,7 +117,7 @@ end
     for cc in cvals
         
         for ivc in central_indices[cc]
-            precompute_varr!(v_arr,alpha_arr,nnlist,gamma_dict,vint_arr[cc][ivc],buf,csmfac) #possible exponents via nnlist
+            precompute_varr!(v_arr,alpha_arr,nnlist,gamma_dict,interactions[cc][ivc],buf,csmfac) #possible exponents via nnlist
             for nn in nnlist
                 w_interpol_arr[cc,ivc,nn] = cubic_spline_interpolation(log_alpha_range, v_arr[:,nn+1])
             end

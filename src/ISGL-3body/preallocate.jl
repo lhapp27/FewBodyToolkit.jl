@@ -1,4 +1,4 @@
-# functions to preallocate all arrays for the ISGL program
+﻿# functions to preallocate all arrays for the ISGL program
 
 struct PrecomputeStruct
     gamma_dict::Dict{Float64, Float64}
@@ -89,10 +89,10 @@ struct ResultStruct{T}
 end
 
 
-function preallocate_data(phys_params,num_params,observ_params,size_params,csm_bool)
-    if csm_bool == 0
+function preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling::Bool)
+    if !complex_scaling
         TT = Float64
-    elseif csm_bool == 1
+    elseif complex_scaling
         TT = ComplexF64
     end
     

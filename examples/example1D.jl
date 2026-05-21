@@ -1,8 +1,8 @@
-# # 1D Example: Two particles with Pöschl–Teller interaction
+﻿# # 1D Example: Two particles with PÃ¶schlâ€“Teller interaction
 #
-# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 1D. Here we use the Pöschl–Teller interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (``\hbar, \mu=1``)
+# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 1D. Here we use the PÃ¶schlâ€“Teller interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following SchrÃ¶dinger equation (``\hbar, \mu=1``)
 # \\[ -\frac{1}{2} \frac{d^2}{dr^2}\psi + V(r)\psi = E\psi \\]
-# with the Pöschl–Teller potential
+# with the PÃ¶schlâ€“Teller potential
 # \\[ V(r) = -\frac{\lambda(\lambda+1)}{2} \frac{1}{\cosh^2(r)}. \\]
 
 # ## Setup
@@ -13,8 +13,8 @@ using Printf, Interpolations, Antique, FewBodyToolkit
 
 # #### Physical parameters
 
-mass_arr=[1.0,Inf] # this ensures a reduced mass of 1.0
-mur = 1/(1/mass_arr[1]+1/mass_arr[2]) # reduced mass
+masses=[1.0,Inf] # this ensures a reduced mass of 1.0
+mur = 1/(1/masses[1]+1/masses[2]) # reduced mass
 lambda=8.0
 
 function v_poschl(r)
@@ -22,7 +22,7 @@ function v_poschl(r)
 end;
 
 # We define the physical parameters as a `NamedTuple` which carries the information about the Hamiltonian.
-phys_params = make_phys_params2B(;mur,vint_arr=[v_poschl],dim=1)
+phys_params = make_phys_params2B(;mur,interactions=[v_poschl],dim=1)
 # By leaving out the optional parameters, we use the defaults:
 # - `lmin = lmax = 0`: minimum and maximum angular momentum (in 1D this corresponds to even states)
 # - `hbar = 1.0`: when working in dimensionless units
@@ -45,11 +45,11 @@ energies_arr = GEM2B_solve(phys_params,num_params)
 # Determine the number of bound states
 simax = findlast(energies_arr.<0)
 
-# The Pöschl–Teller potential has `lambda = 8` eigenvalues. In this example we focus on the even states, hence there are only 4 bound states. Their energies can be found exactly:
+# The PÃ¶schlâ€“Teller potential has `lambda = 8` eigenvalues. In this example we focus on the even states, hence there are only 4 bound states. Their energies can be found exactly:
 # \\[ E_n = -\frac{(\lambda-n)^2}{2\mu} \\]
 # where `` n = 1, 2, ... , \lambda-1 `` is the state index. The package [Antique.jl](https://github.com/ohno/Antique.jl) provides these exact energies in a convenient way.
 
-PT = Antique.PoschlTeller(λ=8)
+PT = Antique.PoschlTeller(Î»=8)
 ex_arr = [Antique.E(PT,n=i) for i=0:2:Int(floor(lambda-1))]
 
 println("1. Numerical solution of the 1D problem:")
@@ -90,7 +90,7 @@ v_interpol = cubic_spline_interpolation(r_arr,v_arr,extrapolation_bc=Line())
 v_int(r) = v_interpol(r); # we have to transform the interaction to an object of type "function"
 
 # As input to the solver we need to define new physical parameters with the interpolated interaction. Moreover, we use the optimized numerical parameters from the previous step.
-phys_params_interpol = make_phys_params2B(;mur,vint_arr=[v_int],dim=1)
+phys_params_interpol = make_phys_params2B(;mur,interactions=[v_int],dim=1)
 
 println("\n3. Numerical solution using an interpolated interaction:")
 energies_interpol = GEM2B_solve(phys_params_interpol,num_params_opt)
@@ -110,10 +110,10 @@ println("After scaling:")
 @printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", num_params_scaled.gem_params.r1, num_params_scaled.gem_params.rnmax, e2_v0[stateindex-1], e2_v0[stateindex], e2_v0[stateindex+1])
 
 # Here, we scale the potential such that the energy of the state with `stateindex = 3` is equal to `target_e2 = -18.0`. So far this was the energy of the state with index 2. For this special potential, this corresponds therefore to increasing the number of states and `lambda` by 2. Hence, the we expect the scaling factor to be approximately ``(\lambda+2)(\lambda+2+1)/(\lambda(\lambda+1))``
-println("vscale = $(round(vscale,digits=8)) should be approximately (λ+2)*(λ+2+1)/(λ*(λ+1)) = ", round((lambda+2)*(lambda+2+1)/(lambda*(lambda+1)),digits=8) )
+println("vscale = $(round(vscale,digits=8)) should be approximately (Î»+2)*(Î»+2+1)/(Î»*(Î»+1)) = ", round((lambda+2)*(lambda+2+1)/(lambda*(lambda+1)),digits=8) )
 
 
-# A much more efficient way to solve the inverse problem is to use the `inverse_bool` option in `GEM2B_solve`. This finds the critical values of `v0` as eigenvalues of a generalized eigenvalue problem for which the energy is close to `target_energy`. Note, however that this does not optimize the basis parameters on-the-fly. If the basis is not optimal, the results might not be very accurate. Moreover, a different threshold in num_params might be required.
-println("\n4b. Using the inverse_bool option in GEM2B_solve to find the critical values of v0:")
-@time v0crits = GEM2B.GEM2B_solve(phys_params,num_params_scaled,inverse_bool=1,target_energy=target_e2)
+# A much more efficient way to solve the inverse problem is to use the `inverse` option in `GEM2B_solve`. This finds the critical values of `v0` as eigenvalues of a generalized eigenvalue problem for which the energy is close to `target_energy`. Note, however that this does not optimize the basis parameters on-the-fly. If the basis is not optimal, the results might not be very accurate. Moreover, a different threshold in num_params might be required.
+println("\n4b. Using the inverse option in GEM2B_solve to find the critical values of v0:")
+@time v0crits = GEM2B.GEM2B_solve(phys_params,num_params_scaled,inverse=true,target_energy=target_e2)
 println("v0crits[3] = $(round(v0crits[3],digits=8)), should be close to ", round((lambda+2)*(lambda+2+1)/(lambda*(lambda+1)),digits=8) )

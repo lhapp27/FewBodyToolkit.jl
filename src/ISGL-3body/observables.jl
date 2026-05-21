@@ -1,9 +1,9 @@
-## Function for calculating the observables within the ISGL program (similar to fillTVS)
+﻿## Function for calculating the observables within the ISGL program (similar to fillTVS)
 
-@views @inbounds function calc_observables(num_params,observ_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs,csm_bool)
+@views @inbounds function calc_observables(num_params,observ_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs,complex_scaling::Bool)
 
-    if csm_bool == 1
-        error("Observables are not implemented for CSM: csm_bool = $csm_bool != 0")
+    if complex_scaling
+        error("Observables are not implemented for CSM: complex_scaling = $complex_scaling != false")
     end
     
     (;gem_params,mu0,c_shoulder) = num_params

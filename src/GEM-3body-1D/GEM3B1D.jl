@@ -1,4 +1,4 @@
-## Function/Module for using the Gaussian expansion method (GEM) for solving three-body problems in 1D(!)
+﻿## Function/Module for using the Gaussian expansion method (GEM) for solving three-body problems in 1D(!)
 ## the code might seem unnecessary complicated at places. this is due to reusing the structure from the 3D ISGL code.
 
 
@@ -22,20 +22,20 @@ export GEM3B1D_solve
 export make_phys_params3B1D,make_num_params3B1D
 
 """
-    GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+    GEM3B1D_solve(phys_params, num_params; return_wavefunctions=0, complex_scaling=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
 
 Solves the 1D three-body problem using the Gaussian Expansion Method (GEM).
 
 # Arguments
 - `phys_params`: Physical parameters for the three-body system (e.g., masses, interaction potentials, etc.).
 - `num_params`: Numerical parameters for the GEM calculation (e.g., basis size, grid parameters, etc.).
-- `wf_bool`: (optional) If `1`, also returns wavefunction-related observables. Default is `0`.
-- `csm_bool`: (optional) If `1`, uses complex scaling method. Default is `0`.
+- `return_wavefunctions`: (optional) If `1`, also returns wavefunction-related observables. Default is `0`.
+- `complex_scaling`: (optional) If `1`, uses complex scaling method. Default is `0`.
 - `observ_params`: (optional) Parameters for observable calculations. Currently not supported for 1D.
 
 # Returns
-- If `wf_bool == 0`: Returns an array of computed energies.
-- If `wf_bool == 1`: Returns a tuple `(energies, wavefunctions)`.
+- If `return_wavefunctions == 0`: Returns an array of computed energies.
+- If `return_wavefunctions == 1`: Returns a tuple `(energies, wavefunctions)`.
 
 # Example
 ```julia
@@ -44,7 +44,22 @@ num_params = make_num_params3B1D()
 energies = GEM3B3D_solve(phys_params, num_params) #solving with default parameters: three particles with the same mass and gaussian interaction
 ```
 """
-function GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), debug_bool=0)
+function GEM3B1D_solve(phys_params, num_params;
+    return_wavefunctions=false, complex_scaling=false, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), debug=false,
+    wf_bool=nothing, csm_bool=nothing, debug_bool=nothing)
+
+    if !isnothing(wf_bool)
+        @warn "wf_bool is deprecated, use return_wavefunctions instead"
+        return_wavefunctions = wf_bool
+    end
+    if !isnothing(csm_bool)
+        @warn "csm_bool is deprecated, use complex_scaling instead"
+        complex_scaling = csm_bool
+    end
+    if !isnothing(debug_bool)
+        @warn "debug_bool is deprecated, use debug instead"
+        debug = debug_bool
+    end
     
     ## 1. interpretation of inputs
     show_details_bool = 0
@@ -69,24 +84,24 @@ function GEM3B1D_solve(phys_params, num_params; wf_bool=0, csm_bool=0, observ_pa
     size_params = size_estimate(phys_params,num_params,observ_params)
     
     ## 4. preallocation:
-    precomp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,csm_bool)
+    precomp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling)
 
     ## 5. precomputation:
     precompute_3B1D(phys_params,num_params,size_params,precomp_arrs)
 
     ## 6. preparation of interpolation & shoulder:
-    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,wf_bool,csm_bool)
+    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling)
     
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,csm_bool,phys_params.hbar,debug_bool)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,debug)
     
     ## 8. Solving the generalized eigenproblem:
-    solveHS(num_params,fill_arrs,result_arrs,wf_bool)
+    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)
     
     ## 9. Calculate observables: (currently not supported for 1D)
-    if wf_bool == 0
+    if !return_wavefunctions
         return result_arrs.energies_arr
-    elseif wf_bool == 1
+    elseif return_wavefunctions
         #calc_observables(num_params,observ_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs)
         return result_arrs.energies_arr,result_arrs.wavefun_arr
     end

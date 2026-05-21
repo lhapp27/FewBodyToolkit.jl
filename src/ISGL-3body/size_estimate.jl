@@ -1,4 +1,4 @@
-# functions to calculate the parameters that determine the necessary sizes of arrays within the ISGL program
+﻿# functions to calculate the parameters that determine the necessary sizes of arrays within the ISGL program
 
 # contains:
 # - size_estimate that bundles everything:
@@ -50,27 +50,27 @@ struct SizeParams{T<:Number}
     maxobs::Int64
 end
 
-function size_estimate(phys_params,num_params,observ_params,csm_bool)
+function size_estimate(phys_params,num_params,observ_params,complex_scaling::Bool)
     
     # input interpretation:
-    (;mass_arr,svals,vint_arr,J_tot,parity,spin_arr) = phys_params
-    (;lmax,Lmax,gem_params,theta_csm,omega_cr,mu0,c_shoulder,kmax_interpol,lmin,Lmin) = num_params
+    (;masses,species,interactions,J_tot,parity,spins) = phys_params
+    (;lmax,Lmax,gem_params,complex_scaling_angle,complex_range_freq,mu0,c_shoulder,kmax_interpol,lmin,Lmin) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;stateindices,centobs_arr,R2_arr) = observ_params
     
     # size of Hamiltonian matrix due to symmetries and interactions
-    cvals = findall(isempty.(vint_arr) .==0 ) # consider only values for c where there are interactions (any type)
+    cvals = findall(isempty.(interactions) .==0 ) # consider only values for c where there are interactions (any type)
     
     # number of interactions per Jacobi-set c:
-    gauss_indices, gaussopt_arr, central_indices, so_indices, nint_arr, nintmax = index_interaction_types(vint_arr,csm_bool, theta_csm)
+    gauss_indices, gaussopt_arr, central_indices, so_indices, nint_arr, nintmax = index_interaction_types(interactions,complex_scaling, complex_scaling_angle)
 
     # box sizes, indices and factors for symmetrization
-    abvals_arr,groupindex_arr,nboxes,abI,factor_bf = abc_size(cvals,svals)
+    abvals_arr,groupindex_arr,nboxes,abI,factor_bf = abc_size(cvals,species)
     
     # coupling of angular momenta
-    s_arr,JsS_arr,s_complete,JsS_complete = sScoupl(spin_arr,cvals)
+    s_arr,JsS_arr,s_complete,JsS_complete = sScoupl(spins,cvals)
     JlL_arr,JlL_complete = lLsScoupl(J_tot,JsS_arr,s_arr,cvals)
-    lL_nested,lL_complete,l_complete = lLcoupl(J_tot,parity,cvals,svals,spin_arr,s_arr,JsS_arr,JlL_arr,lmin,Lmin,lmax,Lmax)
+    lL_nested,lL_complete,l_complete = lLcoupl(J_tot,parity,cvals,species,spins,s_arr,JsS_arr,JlL_arr,lmin,Lmin,lmax,Lmax)
 
     # box sizes = number of basis functions in each box; starts,ends = indices for boxes within big matrix; bvalsdiag = simplification for identical particles
     box_size_arr,nbasis_total = boxsize_fun(groupindex_arr,abvals_arr,lL_nested,nmax,Nmax)
@@ -106,17 +106,17 @@ end
 
 
 """
-    csmgaussopt(gaussopt, csm_bool, theta_csm)
+    csmgaussopt(gaussopt, complex_scaling, complex_scaling_angle)
 
-If `csm_bool == 1`, returns a new
+If `complex_scaling == 1`, returns a new
 `Vector{Vector{Tuple{Float64,ComplexF64}}}` where each
-`mu` has been scaled by `exp(2im * theta_csm * pi/180)`.
+`mu` has been scaled by `exp(2im * complex_scaling_angle * pi/180)`.
 Otherwise returns the original `gaussopt` unchanged.
 """
-function csmgaussopt(gaussopt::Vector{Vector{Tuple{Float64,Float64}}},csm_bool::Integer,theta_csm::Real)
-    if csm_bool == 1
-        csmfac = exp(2im * theta_csm * pi / 180)
-        # build a new array with ComplexF64 mu’s
+function csmgaussopt(gaussopt::Vector{Vector{Tuple{Float64,Float64}}},complex_scaling::Bool,complex_scaling_angle::Real)
+    if complex_scaling
+        csmfac = exp(2im * complex_scaling_angle * pi / 180)
+        # build a new array with ComplexF64 muâ€™s
         return [ 
             [ (v0, mu0 * csmfac) 
               for (v0, mu0) in cc ] 
@@ -128,7 +128,7 @@ function csmgaussopt(gaussopt::Vector{Vector{Tuple{Float64,Float64}}},csm_bool::
 end
 
 
-function index_interaction_types(vint_arr,csm_bool, theta_csm)
+function index_interaction_types(interactions,complex_scaling::Bool, complex_scaling_angle)
     gauss_indices = [Int[] for _ in 1:3]
     gaussopt_arr = [Tuple{Float64,Float64}[] for _ in 1:3]
     central_indices = [Int[] for _ in 1:3]
@@ -145,7 +145,7 @@ function index_interaction_types(vint_arr,csm_bool, theta_csm)
         gauss_indices[c] = Int[]
         central_indices[c] = Int[]
         so_indices[c] = Int[]
-        for (i, v) in enumerate(vint_arr[c])
+        for (i, v) in enumerate(interactions[c])
             pushindexpotentialtype!(v, central_indices[c], gauss_indices[c], so_indices[c], i)
 
             if i in gauss_indices[c] # if this is a Gaussian potential
@@ -155,29 +155,29 @@ function index_interaction_types(vint_arr,csm_bool, theta_csm)
             end
 
         end
-        nint_arr[c] = lastindex(vint_arr[c])
+        nint_arr[c] = lastindex(interactions[c])
     end
 
     nintmax = maximum(nint_arr)
 
-    gaussopt_arrC = csmgaussopt(gaussopt_arr, csm_bool, theta_csm) # adjust to complex values in case of csm_bool == 1
+    gaussopt_arrC = csmgaussopt(gaussopt_arr, complex_scaling, complex_scaling_angle) # adjust to complex values in case of complex_scaling == 1
 
     return gauss_indices, gaussopt_arrC, central_indices, so_indices, nint_arr, nintmax
 end
 
 
 #this function is maybe a bit confusing due to numerous names and definitions. thats why there are many examples and explanations.
-function abc_size(cvals,svals)
+function abc_size(cvals,species)
     
     ## Step 1: Simplify system based on symmetry of particles
     
-    uniq = unique(svals) # what types of particles do we have?
+    uniq = unique(species) # what types of particles do we have?
     ntypes = lastindex(uniq) # nr. of different particle types = nr of groups = nr of boxes we need (as of now)
     typepos_arr = Vector{Vector{Int}}(undef, ntypes )#Array{Array}(undef, ntypes) # array of (box-)position values for each particle type; determines sum-indices
     #grouplength_arr = Array{Int}(undef, ntypes) # array of number of possible positions within each group; actually irrelevant. typepos_arr contains all information
     
     # example:          3 ident         2+1             3 diff    
-    # svals             ["b","b","b"]   ["b","b","x"]   ["x3","x2","x3"]    # input!
+    # species             ["b","b","b"]   ["b","b","x"]   ["x3","x2","x3"]    # input!
     
     # uniq              ["b"]           ["b","x"]       ["x1","x2","x3"]
     # ntypes            1               2               3
@@ -185,7 +185,7 @@ function abc_size(cvals,svals)
     # grouplength_arr   [3]             [2, 1]          [1, 1, 1]
     
     for i = 1:ntypes
-        typepos_arr[i] = findall(svals .== uniq[i])
+        typepos_arr[i] = findall(species .== uniq[i])
         #grouplength_arr[i] = lastindex(typepos_arr[i])
     end
         
@@ -195,7 +195,7 @@ function abc_size(cvals,svals)
     
     # cvals = [1,2]   --> Faddeev component 3 is NOT relevant --> box-dimensionality and sum-size are reduced
     # example:          3 ident         2+1             3 diff    
-    # svals             ["b","b","b"]   ["b","b","x"]   ["x3","x2","x3"]    # input!
+    # species             ["b","b","b"]   ["b","b","x"]   ["x3","x2","x3"]    # input!
     # typepos_arr       [[1,2,3]]       [[1, 2], [3]]   [[1], [2], [3]]
     # abvals_arr        -makesnosense-  [[1, 2], []]    [[1], [2], []]
     # groupindex_arr    -makesnosense-  [1]             [1, 2]
@@ -216,16 +216,16 @@ function abc_size(cvals,svals)
     # in which box are the identical particles? -> boxI
     # which Faddeev component gets the symmetry factor +-(-1)^l_a/b? -> abI
     if lastindex(uniq) == 2 ## why do we need it only for 2+1 systems?! because for 3 identicals, it is ok to assume l_i = even/odd, for all i=1,2,3. for 2+1 systems, i.e. bbz, l_3 will be even/odd automatically, but l_1,2 not. therefore the additional factor is required
-        if in("b",uniq)
-            boxI = findfirst(uniq .== "b")
+        if in(:b,uniq)
+            boxI = findfirst(uniq .== :b)
             abI = abvals_arr[boxI][end]
             factor_bf = 1
-        elseif in("f",uniq)
-            boxI = findfirst(uniq .== "f")
+        elseif in(:f,uniq)
+            boxI = findfirst(uniq .== :f)
             abI = abvals_arr[boxI][end] # which component gets the symmetry factor +-(-1)^l_a/b ? end: always the second one of the two identicals
             factor_bf = -1
         else
-            error("Error in svals = $svals. If two particles are identical choose \"b\" for bosons or \"f\" for fermions.")
+            error("Error in species = $species. If two particles are identical choose :b for bosons or :f for fermions.")
         end
     else
         boxI = 0
@@ -245,8 +245,8 @@ end
 
 # function for spin-spin coupling
 # this function does not respect whether some values of sS are not allowed due to J=lL+sS coupling!
-function sScoupl(spin_arr,cvals)
-    z_arr = spin_arr # single-particle spins
+function sScoupl(spins,cvals)
+    z_arr = spins # single-particle spins
     
     s_arr = ([Vector{Float64}() for _ in 1:3]) # for each c (1:3) there is a vector of possible values for s_k = s_ij = z_i + z_j (two-particle spins)
     #S_arr = zeros(Float64,3) # values for S_k = z_k
@@ -320,15 +320,15 @@ function lLsScoupl(J_tot,JsS_arr,s_arr,cvals)
 end
 
 
-# function to determine list of (l,L)-tuples to consider, based on J_tot,parity,svals. This version considers also the spins!
-function lLcoupl(J,parity,cvals,svals,spin_arr,s_arr,JsS_arr,JlL_arr,lmin,Lmin,lmax,Lmax)
+# function to determine list of (l,L)-tuples to consider, based on J_tot,parity,species. This version considers also the spins!
+function lLcoupl(J,parity,cvals,species,spins,s_arr,JsS_arr,JlL_arr,lmin,Lmin,lmax,Lmax)
     lL_nested = [Vector{Vector{Vector{Vector{Tuple{Int64, Int64}}}}}() for _ in 1:3] # before: cvals, but makes problems when c is larger then the amount of cvals (same as for JlL_arr)
 
     for c in cvals # for all c-values
         lL_nested[c] = [Vector{Vector{Vector{Tuple{Int64, Int64}}}}() for _ in s_arr[c]]
         for (is, sc) in enumerate(s_arr[c])
             lL_nested[c][is] = [Vector{Vector{Tuple{Int64, Int64}}}() for _ in JsS_arr[c][is]]
-            seff = spin_arr[mod(c + 1, 3) + 1] + spin_arr[mod(c, 3) + 1] - sc# effective seff = s[c]+za+zb which indicates the parity of the spin wave function of particle a+b. only necessary for (anti-)symmetrization of identical particles; pi_s = (-1)^seff
+            seff = spins[mod(c + 1, 3) + 1] + spins[mod(c, 3) + 1] - sc# effective seff = s[c]+za+zb which indicates the parity of the spin wave function of particle a+b. only necessary for (anti-)symmetrization of identical particles; pi_s = (-1)^seff
             for (iss, JsS) in enumerate(JsS_arr[c][is])
                 lL_nested[c][is][iss] = [Vector{Tuple{Int64, Int64}}() for _ in JlL_arr[c][is][iss]]
                 # we could calculate JlJ values also within this loop. for now: separate function
@@ -339,9 +339,9 @@ function lLcoupl(J,parity,cvals,svals,spin_arr,s_arr,JsS_arr,JlL_arr,lmin,Lmin,l
                             if abs(l - L) <= JlL <= l + L # allowed J for l, L coupling
                                 if (-1)^(l + L) == parity # allowed combination of l, L from global parity
                                     #(anti-)symmetrization: pi_l = (-1)^l; pi_ls = (-1)^(l+seff) and must be +(-)1 for identical bosons (fermions)
-                                    if svals[mod(c + 1, 3) + 1] == svals[mod(c, 3) + 1] == "b"  # if Jacobi-Set c contains relative coordinate between two identical bosons -> even parity: 
+                                    if species[mod(c + 1, 3) + 1] == species[mod(c, 3) + 1] == :b  # if Jacobi-Set c contains relative coordinate between two identical bosons -> even parity: 
                                         mod(l+seff, 2) != 0 && continue #skip if l+seff is not even
-                                    elseif svals[mod(c + 1, 3) + 1] == svals[mod(c, 3) + 1] == "f" # if Jacobi-Set c contains relative coordinate between two identical fermions -> odd parity:
+                                    elseif species[mod(c + 1, 3) + 1] == species[mod(c, 3) + 1] == :f # if Jacobi-Set c contains relative coordinate between two identical fermions -> odd parity:
                                         mod(l+seff, 2) != 1 && continue #skip if l+seff is not odd
                                     end
                                     

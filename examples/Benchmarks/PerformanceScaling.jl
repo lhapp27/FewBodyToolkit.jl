@@ -1,4 +1,4 @@
-# Script for testing the scaling of performance (time and memory) with increasing number of basis functions.
+﻿# Script for testing the scaling of performance (time and memory) with increasing number of basis functions.
 # Moreover, the performance between numerical and analytical treatment of the potential is compared
 
 using FewBodyToolkit, BenchmarkTools, Dates, Printf
@@ -24,10 +24,10 @@ function perftest_analytical(pp,np)
 end
 
 vg(r) = -10.0*exp(-r^2)
-pp = make_phys_params3B3D(;mass_arr=[1.0,2.0,3.0],svals=["x","y","z"],vint_arr=[[vg],[vg],[vg]])
+pp = make_phys_params3B3D(;masses=[1.0,2.0,3.0],species=[:x,:y,:z],interactions=[[vg],[vg],[vg]])
 
 vga = GaussianPotential(-10.0,1.0)
-ppa = make_phys_params3B3D(;mass_arr=[1.0,2.0,3.0],svals=["x","y","z"],vint_arr=[[vga],[vga],[vga]])
+ppa = make_phys_params3B3D(;masses=[1.0,2.0,3.0],species=[:x,:y,:z],interactions=[[vga],[vga],[vga]])
 
 nns = 4:2:40
 results = zeros(length(nns), 6)

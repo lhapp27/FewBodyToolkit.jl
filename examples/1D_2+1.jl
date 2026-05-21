@@ -1,4 +1,4 @@
-# # 2+1 system in 1D
+﻿# # 2+1 system in 1D
 
 # This example reproduces the results in the article [happ2019](@cite). It studies a one-dimensional 2+1 system of two identical particles interacting with a third particle via a central potential. Here, we consider the interaction to be either a contact interaction or a Gaussian potential, which supports a weakly-bound ground state. The two identical particles do not interact.
 
@@ -24,15 +24,15 @@ end;
 
 # First we define the 2+1 system via the mass ratio. Here we choose 22.2 since it results in the most bound states. Feel free to change it to either 2.2 or 12.4.
 massratio = 22.2 # other values are 2.2 and 12.4
-mass_arr = [1.0, massratio, massratio]
-mur = 1/(1/mass_arr[1]+1/mass_arr[2]) # reduced mass
+masses = [1.0, massratio, massratio]
+mur = 1/(1/masses[1]+1/masses[2]) # reduced mass
 println("Mass ratio: ", massratio, ", reduced mass: ", round(mur,digits=4))
 
 # We need a potential whose ground state is weakly bound. Here, we use a Gaussian potential and set the target energy to -10^-3. Then, we find the required potential strength via the GEM2B code.
 v0 = -1.0; mu_g = 1.0;
 vg = GaussianPotential(v0,mu_g)
 
-phys_params2B = make_phys_params2B(;mur,vint_arr=[vg],dim=1)
+phys_params2B = make_phys_params2B(;mur,interactions=[vg],dim=1)
 num_params2B = make_num_params2B(;gem_params=(;nmax=16, r1=1.0, rnmax=120.0))
 
 stateindex = 1; target_e2 = -1e-3;
@@ -42,7 +42,7 @@ println("Found potential parameters: v0 = ", vscale*v0, ", mu_g = ", mu_g)
 
 # We define the rescaled potential and corresponding physical parameters
 vgscaled = GaussianPotential(v0*vscale,mu_g)
-pps = make_phys_params2B(;mur,vint_arr=[vgscaled],dim=1)
+pps = make_phys_params2B(;mur,interactions=[vgscaled],dim=1)
 
 # Check if the two-body system indeed has the desired binding energy:
 e2s = GEM2B.GEM2B_solve(pps,nps)
@@ -50,7 +50,7 @@ println("Two-body binding energy: ", e2s[1], " (target: $(target_e2) )")
 
 # We can also perform the calculation with a contact potential:
 vc = ContactPotential1D(-sqrt(-2*target_e2),0.0)
-ppc = make_phys_params2B(;mur,vint_arr=[vc],dim=1)
+ppc = make_phys_params2B(;mur,interactions=[vc],dim=1)
 npc = make_num_params2B(;gem_params=(;nmax=16, r1=1.0, rnmax=120.0))
 # For a contact interaction we don't need to find the potential strength, but parameters should be optimized
 r1cs,rnmaxcs,e2copt=GEM_Optim_2B(ppc,npc,stateindex)
@@ -62,9 +62,9 @@ r1cs,rnmaxcs,e2copt=GEM_Optim_2B(ppc,npc,stateindex)
 
 # #### Inputs
 
-# Having found the potential parameters, we can now set up the three-body problem with the scaled potential. For bosons we can use their symmetry with the argument `svals=["x","b","b"]`, where `x` is the different particle and `b` denotes two identical bosons.
-vint_arr=[[],[vgscaled],[vgscaled]] #[[v23],[v31],[v12]]
-phys_params3B = make_phys_params3B1D(;mass_arr=mass_arr,svals=["x","b","b"],vint_arr)
+# Having found the potential parameters, we can now set up the three-body problem with the scaled potential. For bosons we can use their symmetry with the argument `species=[:x,:b,:b]`, where `x` is the different particle and `b` denotes two identical bosons.
+interactions=[[],[vgscaled],[vgscaled]] #[[v23],[v31],[v12]]
+phys_params3B = make_phys_params3B1D(;masses=masses,species=[:x,:b,:b],interactions)
 
 # For the numerical parameters `nmax`, `r1`, and `rnmax` we use the optimized ones, found by the two-body inverse problem. The parameters for the other Jacobi coordinates are set manually.
 nmax = nps.gem_params.nmax;
@@ -85,7 +85,7 @@ comparison(epsilon, ex_arr, min(length(epsilon),length(ex_arr)); s1="Gaussian", 
 
 # We can also do the calculation with a contact potential:
 vint_arrC=[[],[vc],[vc]]
-pp3BC = make_phys_params3B1D(;mass_arr=mass_arr,svals=["x","b","b"],vint_arr = vint_arrC)
+pp3BC = make_phys_params3B1D(;masses=masses,species=[:x,:b,:b],interactions = vint_arrC)
 nmax = nps.gem_params.nmax;
 np3BC = make_num_params3B1D(;gem_params=(;nmax, r1=r1cs, rnmax=rnmaxcs, Nmax=16, R1=1.5, RNmax=250.0))
 println("\nThree-body problem with contact potential")
@@ -99,9 +99,9 @@ comparison(epsilonC, ex_arr, min(length(epsilonC),length(ex_arr)); s1="Contact (
 
 # #### Inputs
 
-# For fermions we can use the same potential. To account for their different statistics and parity, we use `svals=["x","f","f"]` and `parity=-1`. To allow for basis functions that obey these requirements, we need to set `lmax, Lmax=1`.
+# For fermions we can use the same potential. To account for their different statistics and parity, we use `species=[:x,:f,:f]` and `parity=-1`. To allow for basis functions that obey these requirements, we need to set `lmax, Lmax=1`.
 println("\n3. Results for the fermionic case, mass ratio = $massratio")
-phys_params3B_F = make_phys_params3B1D(;mass_arr=mass_arr,svals=["x","f","f"],vint_arr,parity=-1)
+phys_params3B_F = make_phys_params3B1D(;masses=masses,species=[:x,:f,:f],interactions,parity=-1)
 num_params3B_F = make_num_params3B1D(;gem_params=(;nmax, r1, rnmax, Nmax=16, R1=1.5, RNmax=250.0), lmin=0, Lmin=0, lmax=1, Lmax=1)
 e3_F = GEM3B1D.GEM3B1D_solve(phys_params3B_F,num_params3B_F);
 
@@ -112,7 +112,7 @@ ex_arr_F = exfun(massratio)[2:2:end]
 comparison(epsilon_F, ex_arr_F, min(length(epsilon_F),length(ex_arr_F)); s1="Gaussian", s2="Contact (Ref.)")
 
 # Again, we can also do the calculation with a contact potential:
-pp3BC = make_phys_params3B1D(;mass_arr=mass_arr,svals=["x","f","f"],vint_arr = vint_arrC, parity=-1)
+pp3BC = make_phys_params3B1D(;masses=masses,species=[:x,:f,:f],interactions = vint_arrC, parity=-1)
 np3BC = make_num_params3B1D(;gem_params=(;nmax, r1=r1cs, rnmax=rnmaxcs, Nmax=16, R1=1.5, RNmax=250.0),lmin=0,Lmin=0,lmax=1,Lmax=1)
 println("\nThree-body problem with contact potential")
 e3c_F = GEM3B1D.GEM3B1D_solve(pp3BC,np3BC);

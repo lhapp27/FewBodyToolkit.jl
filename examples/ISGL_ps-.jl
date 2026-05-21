@@ -1,4 +1,4 @@
-# # Three-body Coulomb problem in 3D: ps- (electron, electron, positron)
+﻿# # Three-body Coulomb problem in 3D: ps- (electron, electron, positron)
 
 # In this example we solve the three-body Coulomb problem of two electrons and a positron in 3D using the ISGL module. The code calculates the bound states and observables like the mean radii between two of the three particles. The results are compared with the high-precision literature values of Ref. [frolov1999](@cite).
 
@@ -12,9 +12,9 @@ vee(r) = +1/r #electron-electron: V12
 vep(r) = -1/r #positron-electron: V31, V23
 
 # Physical parameters
-mass_arr=[1.0,1.0,1.0] # array of masses of particles (m1,m2,m3), here: electron, electron, positron
-svals=["b","b","z"] # since the two electrons are in asymmetric spin states, we can treat them as bosons for the spatial part
-phys_params = make_phys_params3B3D(;mass_arr, svals, vint_arr=[[vep],[vep],[vee]]);
+masses=[1.0,1.0,1.0] # array of masses of particles (m1,m2,m3), here: electron, electron, positron
+species=[:b,:b,:z] # since the two electrons are in asymmetric spin states, we can treat them as bosons for the spatial part
+phys_params = make_phys_params3B3D(;masses, species, interactions=[[vep],[vep],[vee]]);
 
 # Numerical parameters:
 gp = (;nmax=10,Nmax=10,r1=0.1,rnmax=25.0,R1=0.1,RNmax=25.0)
@@ -31,8 +31,8 @@ observ_params = (stateindices,centobs_arr = [[rad,invrad,rad2],[rad,invrad,rad2]
 
 # ## Obtaining energies and observables
 
-# Using the optional keyword argument `observ_params` (together with `wf_bool=1`) we can obtain the results for the observables on-the-fly. The energies are stored in the `energies` array, the eigenvectors in `wfs`, and the central observables in `co_out`. The mean squared radii for the R-coordinate are stored in `R2_out`.
-energies,wfs,co_out,R2_out = ISGL.ISGL_solve(phys_params,num_params;observ_params,wf_bool=1);
+# Using the optional keyword argument `observ_params` (together with `return_wavefunctions=true`) we can obtain the results for the observables on-the-fly. The energies are stored in the `energies` array, the eigenvectors in `wfs`, and the central observables in `co_out`. The mean squared radii for the R-coordinate are stored in `R2_out`.
+energies,wfs,co_out,R2_out = ISGL.ISGL_solve(phys_params,num_params;observ_params,return_wavefunctions=true);
 
 # ## Comparison with literature values
 
@@ -66,22 +66,22 @@ r2_lit = [rpe2_lit,rpe2_lit,ree2_lit];
 
 
 # Comparison of the numerical results with the literature:
-println("\nps-:  radii ⟨r⟩ with differences")
+println("\nps-:  radii âŸ¨râŸ© with differences")
 strings = ["r_pe","r_pe","r_ee"]
 for ii in [1,2,3]
     comparison(co_out[ii,1,stateindices], r_lit[ii], simax; s1=strings[ii], s2=string(strings[ii],"(lit)"))
 end
 println("---------------------------------------------------")
 
-println("\nps-:  inverse radii ⟨1/r⟩ with differences")
+println("\nps-:  inverse radii âŸ¨1/râŸ© with differences")
 strings = ["1/r_pe","1/r_pe","1/r_ee"]
 for ii in [1,2,3]
     comparison(co_out[ii,2,stateindices], ir_lit[ii], simax; s1=strings[ii], s2=string(strings[ii],"(lit)"))
 end
 println("---------------------------------------------------")
 
-println("\nps-:  squared radii ⟨r²⟩ with differences")
-strings2 = ["r²_pe","r²_pe","r²_ee"]
+println("\nps-:  squared radii âŸ¨rÂ²âŸ© with differences")
+strings2 = ["rÂ²_pe","rÂ²_pe","rÂ²_ee"]
 for ii in [1,2,3]
     comparison(co_out[ii,3,stateindices], r2_lit[ii], simax; s1=strings2[ii], s2=string(strings2[ii],"(lit)"))
 end
@@ -93,10 +93,10 @@ println("---------------------------------------------------")
 # #### Mean squared radii for the R-coordinate
 
 # For this observable the reference does not provide any direct comparison value, so we just print the numerical results:
-println("\nps+:  Mean squared radii ⟨R²⟩")
+println("\nps+:  Mean squared radii âŸ¨RÂ²âŸ©")
 row_labels = ["Electron 1 rel. to (e-_2,p+) pair:  ", "Electron 2 rel. to (p+,e-_1) pair:  ", "Positron rel. to (e-_1,e-_2) pair:  "]
 state_labels = ["Ground state"]
-println(rpad(" ⟨R²⟩ ", 37), join(state_labels, "   "))
+println(rpad(" âŸ¨RÂ²âŸ© ", 37), join(state_labels, "   "))
 for i in 1:length(row_labels)
     print(rpad(row_labels[i], 30))
     for j in 1:length(state_labels)

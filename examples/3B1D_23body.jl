@@ -1,4 +1,4 @@
-# # Consistency check with two-body module GEM2B
+﻿# # Consistency check with two-body module GEM2B
 
 # In this example we show how to reproduce two-body results using the three-body code. This is a good test for new features of a three-body code and whenever there are no other known results to compare to.
 
@@ -14,13 +14,13 @@ using Printf, Plots, FewBodyToolkit
 # We use only a single interaction between particles 1 and 2. Particle 3 therefore does not interact and acts as a spectator.
 
 v2(r) = -40 * 1/(1+r^4)
-vint_arr=[[],[],[v2]] #[[v23],[v31],[v12]]
+interactions=[[],[],[v2]] #[[v23],[v31],[v12]]
 
-mass_arr = [1.0,20.0,20.0]# array of masses of particles (m1,m2,m3)
-mur = 1/(1/mass_arr[1]+1/mass_arr[2]) # reduced mass
+masses = [1.0,20.0,20.0]# array of masses of particles (m1,m2,m3)
+mur = 1/(1/masses[1]+1/masses[2]) # reduced mass
 
-phys_params2B = make_phys_params2B(;mur,vint_arr=vint_arr[3],dim=1)
-phys_params3B = make_phys_params3B1D(;mass_arr,vint_arr)
+phys_params2B = make_phys_params2B(;mur,interactions=interactions[3],dim=1)
+phys_params3B = make_phys_params3B1D(;masses,interactions)
 
 # #### Numerical parameters
 

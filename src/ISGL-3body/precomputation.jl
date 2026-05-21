@@ -1,10 +1,10 @@
-# functions to precompute repetedly used arrays within the ISGL program
+﻿# functions to precompute repetedly used arrays within the ISGL program
 
 # for spins we added transformation coefficients from spins in jacobi-set a,b to c (and a to b)
 
 function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs)    
     #Destructing Structs:   
-    (;mass_arr,J_tot,spin_arr) = phys_params
+    (;masses,J_tot,spins) = phys_params
     (;lmax,Lmax,gem_params) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;cvals,s_arr,abI,factor_bf,s_complete,JsS_arr,JsS_complete,JlL_arr,JlL_complete,lL_complete,l_complete,nl,imax_dict,mij_arr_dict,kmax_dict,imaxSO_dict,mijSO_arr_dict,so_indices) = size_params
@@ -27,17 +27,17 @@ function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_ar
     precompute_cleb(cleb_arr,JlL_complete,nl,l_complete)
     #@show(cleb_arr)
     
-    precompute_jmat(jmat,mass_arr)
+    precompute_jmat(jmat,masses)
     
-    precompute_murR(murR_arr,mass_arr)
+    precompute_murR(murR_arr,masses)
     
     precompute_ranges(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax)
     
     precompute_norms(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
-    precompute_spintrafo(spin_arr,s_arr,JsS_arr,spintrafo_dict)
-    precompute_facsymm(facsymm_dict,abI,factor_bf,spin_arr,l_complete,s_complete,s_arr)
+    precompute_spintrafo(spins,s_arr,JsS_arr,spintrafo_dict)
+    precompute_facsymm(facsymm_dict,abI,factor_bf,spins,l_complete,s_complete,s_arr)
     precompute_global6jfac(global6j_dict,J_tot,JsS_complete,JlL_complete)# also only for LS interaction, but necessary fur current fillTVS implementation
-    precompute_spinoverlap(spinoverlap_dict,J_tot,spin_arr,s_arr,JsS_arr,spintrafo_dict) # same as above
+    precompute_spinoverlap(spinoverlap_dict,J_tot,spins,s_arr,JsS_arr,spintrafo_dict) # same as above
     
     precompute_Clmk(Clmk_arr,l_complete,nl,kmax_dict,gamma_dict,temp_clmk)
     
@@ -179,7 +179,7 @@ end
 
 
 #spintrafo is for the U-functions
-function precompute_spintrafo(spin_arr,s_arr,JsS_arr,spintrafo_dict)
+function precompute_spintrafo(spins,s_arr,JsS_arr,spintrafo_dict)
     # returns an array for all possible spin transformation coefficients
     # are there some simplifications such that we dont need to calculate them all?
     for c = 1:3 # for simplicity all c-values, even if not used
@@ -188,7 +188,7 @@ function precompute_spintrafo(spin_arr,s_arr,JsS_arr,spintrafo_dict)
                 for (isp,scp) in enumerate(s_arr[cprime])
                     for JsSc in JsS_arr[c][is]
                         # here we implicitly assume that JsSc is the same as JsScprime. Otherwise the spin-overlap is zero. This is however treated explicitly only in fill_TVS's sab,tab,vab
-                        spintrafo_dict[c,cprime,JsSc,sc,scp] = spintrafo_fun(c,cprime,JsSc,sc,scp,spin_arr)
+                        spintrafo_dict[c,cprime,JsSc,sc,scp] = spintrafo_fun(c,cprime,JsSc,sc,scp,spins)
                     end
                 end
             end
@@ -196,9 +196,9 @@ function precompute_spintrafo(spin_arr,s_arr,JsS_arr,spintrafo_dict)
     end
 end
 
-function spintrafo_fun(c,cp,JsS,sc,scp,spin_arr)
+function spintrafo_fun(c,cp,JsS,sc,scp,spins)
     a,b = mod(c,3)+1,mod(c+1,3)+1 # a=c+1,b=c-1, for given c
-    za,zb,zc = spin_arr[[a,b,c]]
+    za,zb,zc = spins[[a,b,c]]
     
     # cyclic permutation of jacobi sets needs to be treated separately:
     if cp == c # special treatment if we stay in the same jacobi set
@@ -219,7 +219,7 @@ end
 
 # matrix element of the spin part for l-s interactions
 # this corresponds only to the double-bar matrix element of the spin part (Eq. 60 in my notes.) The "global" 6j-symbol carrying the JlL(a,b) and JsS(a,b) dependencies should be calculated within TVSfill. Therefore this function is independent of JlL!
-function precompute_spinoverlap(spinoverlap_dict,J_tot,spin_arr,s_arr,JsS_arr,spintrafo_dict)
+function precompute_spinoverlap(spinoverlap_dict,J_tot,spins,s_arr,JsS_arr,spintrafo_dict)
     J = J_tot
     for a in 1:3
         for b in 1:3
@@ -229,7 +229,7 @@ function precompute_spinoverlap(spinoverlap_dict,J_tot,spin_arr,s_arr,JsS_arr,sp
                         for (issa,JsSa) in enumerate(JsS_arr[a][isa])
                             for (issb,JsSb) in enumerate(JsS_arr[b][isb]) # is there a better way to use only JsSa values that are also allowed for b?
                                 
-                                zc = spin_arr[c]
+                                zc = spins[c]
                                 uabc = 0.0
                                 for sc in s_arr[c]
                                     uac = spintrafo_dict[a,c,JsSa,sa,sc]
@@ -267,16 +267,16 @@ function ex_sum(v, a)
 end
 
 # symmetry prefactor in case of identical particles
-function facsymm(a,b,abI,la,lb,factor_bf,spin_arr,sa,sb)
+function facsymm(a,b,abI,la,lb,factor_bf,spins,sa,sb)
     #abI == 0 && return 1
     factor_symm = 1
-    a == abI && (factor_symm *= factor_bf*(-1)^la*(-1)^(ex_sum(spin_arr, a)-sa))#;println("a = $a == abI = $abI"))
-    b == abI && (factor_symm *= factor_bf*(-1)^lb*(-1)^(ex_sum(spin_arr, b)-sb))#;println("b = $b == abI = $abI"))
+    a == abI && (factor_symm *= factor_bf*(-1)^la*(-1)^(ex_sum(spins, a)-sa))#;println("a = $a == abI = $abI"))
+    b == abI && (factor_symm *= factor_bf*(-1)^lb*(-1)^(ex_sum(spins, b)-sb))#;println("b = $b == abI = $abI"))
     #@show([a,b,abI,la,lb,factor_bf,sa,sb,factor_symm])
     return factor_symm
 end
 
-function precompute_facsymm(facsymm_dict,abI,factor_bf,spin_arr,l_complete,s_complete,s_arr)
+function precompute_facsymm(facsymm_dict,abI,factor_bf,spins,l_complete,s_complete,s_arr)
     # solution only via dict?!
     for a = 1:3
         for b = 1:3
@@ -284,7 +284,7 @@ function precompute_facsymm(facsymm_dict,abI,factor_bf,spin_arr,l_complete,s_com
                 for lb in l_complete
                     for sa in s_arr[a]
                         for sb in s_arr[b]
-                            facsymm_dict[a,b,la,lb,sa,sb] = facsymm(a,b,abI,la,lb,factor_bf,spin_arr,sa,sb)
+                            facsymm_dict[a,b,la,lb,sa,sb] = facsymm(a,b,abI,la,lb,factor_bf,spins,sa,sb)
                         end
                     end
                 end
