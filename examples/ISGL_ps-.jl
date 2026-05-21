@@ -66,22 +66,22 @@ r2_lit = [rpe2_lit,rpe2_lit,ree2_lit];
 
 
 # Comparison of the numerical results with the literature:
-println("\nps-:  radii âŸ¨râŸ© with differences")
+println("\nps-:  radii ⟨r⟩ with differences")
 strings = ["r_pe","r_pe","r_ee"]
 for ii in [1,2,3]
     comparison(co_out[ii,1,stateindices], r_lit[ii], simax; s1=strings[ii], s2=string(strings[ii],"(lit)"))
 end
 println("---------------------------------------------------")
 
-println("\nps-:  inverse radii âŸ¨1/râŸ© with differences")
+println("\nps-:  inverse radii ⟨1/r⟩ with differences")
 strings = ["1/r_pe","1/r_pe","1/r_ee"]
 for ii in [1,2,3]
     comparison(co_out[ii,2,stateindices], ir_lit[ii], simax; s1=strings[ii], s2=string(strings[ii],"(lit)"))
 end
 println("---------------------------------------------------")
 
-println("\nps-:  squared radii âŸ¨rÂ²âŸ© with differences")
-strings2 = ["rÂ²_pe","rÂ²_pe","rÂ²_ee"]
+println("\nps-:  squared radii ⟨r²⟩ with differences")
+strings2 = ["r²_pe","r²_pe","r²_ee"]
 for ii in [1,2,3]
     comparison(co_out[ii,3,stateindices], r2_lit[ii], simax; s1=strings2[ii], s2=string(strings2[ii],"(lit)"))
 end
@@ -93,10 +93,10 @@ println("---------------------------------------------------")
 # #### Mean squared radii for the R-coordinate
 
 # For this observable the reference does not provide any direct comparison value, so we just print the numerical results:
-println("\nps+:  Mean squared radii âŸ¨RÂ²âŸ©")
+println("\nps+:  Mean squared radii ⟨R²⟩")
 row_labels = ["Electron 1 rel. to (e-_2,p+) pair:  ", "Electron 2 rel. to (p+,e-_1) pair:  ", "Positron rel. to (e-_1,e-_2) pair:  "]
 state_labels = ["Ground state"]
-println(rpad(" âŸ¨RÂ²âŸ© ", 37), join(state_labels, "   "))
+println(rpad(" ⟨R²⟩ ", 37), join(state_labels, "   "))
 for i in 1:length(row_labels)
     print(rpad(row_labels[i], 30))
     for j in 1:length(state_labels)

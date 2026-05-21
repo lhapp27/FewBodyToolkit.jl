@@ -1,8 +1,8 @@
-﻿# # 1D Example: Two particles with PÃ¶schlâ€“Teller interaction
+﻿# # 1D Example: Two particles with Pöschl-Teller interaction
 #
-# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 1D. Here we use the PÃ¶schlâ€“Teller interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following SchrÃ¶dinger equation (``\hbar, \mu=1``)
+# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 1D. Here we use the Pöschl-Teller interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (``\hbar, \mu=1``)
 # \\[ -\frac{1}{2} \frac{d^2}{dr^2}\psi + V(r)\psi = E\psi \\]
-# with the PÃ¶schlâ€“Teller potential
+# with the Pöschl-Teller potential
 # \\[ V(r) = -\frac{\lambda(\lambda+1)}{2} \frac{1}{\cosh^2(r)}. \\]
 
 # ## Setup
@@ -45,7 +45,7 @@ energies_arr = GEM2B_solve(phys_params,num_params)
 # Determine the number of bound states
 simax = findlast(energies_arr.<0)
 
-# The PÃ¶schlâ€“Teller potential has `lambda = 8` eigenvalues. In this example we focus on the even states, hence there are only 4 bound states. Their energies can be found exactly:
+# The Pöschl-Teller potential has `lambda = 8` eigenvalues. In this example we focus on the even states, hence there are only 4 bound states. Their energies can be found exactly:
 # \\[ E_n = -\frac{(\lambda-n)^2}{2\mu} \\]
 # where `` n = 1, 2, ... , \lambda-1 `` is the state index. The package [Antique.jl](https://github.com/ohno/Antique.jl) provides these exact energies in a convenient way.
 
@@ -110,7 +110,7 @@ println("After scaling:")
 @printf("%-15.6f %-15.6f %-15.6f %-15.6f %-15.6f\n", num_params_scaled.gem_params.r1, num_params_scaled.gem_params.rnmax, e2_v0[stateindex-1], e2_v0[stateindex], e2_v0[stateindex+1])
 
 # Here, we scale the potential such that the energy of the state with `stateindex = 3` is equal to `target_e2 = -18.0`. So far this was the energy of the state with index 2. For this special potential, this corresponds therefore to increasing the number of states and `lambda` by 2. Hence, the we expect the scaling factor to be approximately ``(\lambda+2)(\lambda+2+1)/(\lambda(\lambda+1))``
-println("vscale = $(round(vscale,digits=8)) should be approximately (Î»+2)*(Î»+2+1)/(Î»*(Î»+1)) = ", round((lambda+2)*(lambda+2+1)/(lambda*(lambda+1)),digits=8) )
+println("vscale = $(round(vscale,digits=8)) should be approximately (λ+2)*(λ+2+1)/(λ*(λ+1)) = ", round((lambda+2)*(lambda+2+1)/(lambda*(lambda+1)),digits=8) )
 
 
 # A much more efficient way to solve the inverse problem is to use the `inverse` option in `GEM2B_solve`. This finds the critical values of `v0` as eigenvalues of a generalized eigenvalue problem for which the energy is close to `target_energy`. Note, however that this does not optimize the basis parameters on-the-fly. If the basis is not optimal, the results might not be very accurate. Moreover, a different threshold in num_params might be required.

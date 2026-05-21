@@ -1,6 +1,6 @@
 ﻿# # 3D Example: Two particles with Coulomb interaction
 #
-# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 3D. Here we use the Coulomb interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following SchrÃ¶dinger equation (``\hbar, \mu=1``)
+# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 3D. Here we use the Coulomb interaction, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (``\hbar, \mu=1``)
 # \\[ -\frac{1}{2} \frac{1}{r}\frac{d^2}{dr^2}\left( r\psi \right) + V(r)\psi = E\psi \\]
 # with the Colomb potential
 # \\[ V(r) = -\frac{Z}{r}. \\]
@@ -49,7 +49,7 @@ energies = GEM2B.GEM2B_solve(phys_params,num_params)
 simax = min(lastindex(energies),6); # max state index
 
 # The Coulomb potential has infinitely many bound states, whose energies can be found exactly. We can use the package [Antique.jl](https://github.com/ohno/Antique.jl) to provide these energies.
-CTB = Antique.CoulombTwoBody(mâ‚=masses[1], mâ‚‚=masses[2])
+CTB = Antique.CoulombTwoBody(m₁=masses[1], m₂=masses[2])
 energies_exact = [Antique.E(CTB,n=i) for i=1:40]
 
 println("1. Numerical solution of the 3D problem:")
@@ -121,7 +121,7 @@ dor = 1; #derivative-order
 DCC = reshape([ [dor, dfun], [dor, dfun2], [dor, dfun2], [dor, dfun] ], 2, 2)
 
 # As a test-case we use the coulomb interaction on the diagonal, and a weak repulsion on the off-diagonal. We don't consider any extra derivatives. Since the coupling is weak, we get approximately twofold degenerate eigenvalues, splitted around the original Coulomb results.
-energiesCC = GEM2B.GEM2B_solveCC(phys_paramsCC, num_params_opt, WCC, DCC; return_diff=0)
+energiesCC = GEM2B.GEM2B_solveCC(phys_paramsCC, num_params_opt, WCC, DCC; return_diff=false)
 
 energies_exactCC = repeat(energies_exact, inner=(2,))
 
@@ -151,7 +151,7 @@ density_exact = zeros(length(r_arr),4)
 markers = [:circ, :square, :utriangle, :star]
 for si = 1:4
     wf = wfs[:,si]
-    psi_arr = GEM2B.wavefun_arr(r_arr,phys_params,num_params_opt,wf;complex_ranged=0)
+    psi_arr = GEM2B.wavefun_arr(r_arr,phys_params,num_params_opt,wf;complex_ranged=false)
     
     density[:,si] .= abs2.(psi_arr).*r_arr.^2
     density_exact[:,si] = abs2.(wfA.(r_arr,si)).*r_arr.^2

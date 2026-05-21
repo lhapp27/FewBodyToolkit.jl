@@ -1,7 +1,7 @@
 ﻿# functions to output the 2-body wavefunction (not the coefficient arrays), based on the coefficients and num_params input
 
 """
-    wavefun_arr(r_arr, phys_params, num_params, wf_arr; complex_ranged=0)
+    wavefun_arr(r_arr, phys_params, num_params, wf_arr; complex_ranged=false)
 
 Calculates the 2-body wavefunction at specified positions based on input parameters and coefficients.
 
@@ -12,14 +12,14 @@ Calculates the 2-body wavefunction at specified positions based on input paramet
 - `wf_arr::Vector`: Eigenvector from the diagonalization routine. Can be complex-valued.
 
 # Keyword Arguments
-- `complex_ranged::Int=0`: Determines whether to use complex-ranged Gaussians (`1`) or not (`0`). Defaults to `0`.
+- `complex_ranged::Bool=false`: Determines whether to use complex-ranged Gaussians.
 
 # Returns
 - `Vector{Float64}`: The wavefunction values at the specified positions r_arr.
 
 # Example
 ```julia
-wavefun_arr(0.0:0.1:10.0, phys_params, num_params, wf_arr; complex_ranged=0)
+wavefun_arr(0.0:0.1:10.0, phys_params, num_params, wf_arr; complex_ranged=false)
 ```
 """
 function wavefun_arr(r_arr, phys_params, num_params, wf_arr; complex_ranged::Bool=false)

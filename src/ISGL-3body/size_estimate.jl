@@ -108,7 +108,7 @@ end
 """
     csmgaussopt(gaussopt, complex_scaling, complex_scaling_angle)
 
-If `complex_scaling == 1`, returns a new
+If `complex_scaling=true`, returns a new
 `Vector{Vector{Tuple{Float64,ComplexF64}}}` where each
 `mu` has been scaled by `exp(2im * complex_scaling_angle * pi/180)`.
 Otherwise returns the original `gaussopt` unchanged.
@@ -116,7 +116,7 @@ Otherwise returns the original `gaussopt` unchanged.
 function csmgaussopt(gaussopt::Vector{Vector{Tuple{Float64,Float64}}},complex_scaling::Bool,complex_scaling_angle::Real)
     if complex_scaling
         csmfac = exp(2im * complex_scaling_angle * pi / 180)
-        # build a new array with ComplexF64 muâ€™s
+        # build a new array with ComplexF64 mu's
         return [ 
             [ (v0, mu0 * csmfac) 
               for (v0, mu0) in cc ] 
@@ -160,7 +160,7 @@ function index_interaction_types(interactions,complex_scaling::Bool, complex_sca
 
     nintmax = maximum(nint_arr)
 
-    gaussopt_arrC = csmgaussopt(gaussopt_arr, complex_scaling, complex_scaling_angle) # adjust to complex values in case of complex_scaling == 1
+    gaussopt_arrC = csmgaussopt(gaussopt_arr, complex_scaling, complex_scaling_angle) # adjust to complex values when complex_scaling=true
 
     return gauss_indices, gaussopt_arrC, central_indices, so_indices, nint_arr, nintmax
 end

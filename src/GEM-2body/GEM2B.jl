@@ -21,7 +21,7 @@ export v0GEMOptim,GEM_Optim_2B
 export wavefun_arr,wavefun_point
 
 """
-    GEM2B_solve(phys_params, num_params; return_wavefunctions=0, complex_ranged=0, complex_scaling=0)
+    GEM2B_solve(phys_params, num_params; return_wavefunctions=false, complex_ranged=false, complex_scaling=false)
 
 Solves two-body quantum mechanical problems using the Gaussian Expansion Method (GEM).
 
@@ -39,21 +39,21 @@ Solves two-body quantum mechanical problems using the Gaussian Expansion Method 
     + `threshold::Float64`: Numerical threshold generalized eigenvalue solver.
 
 # Keywords
-- `return_wavefunctions=0`: Whether to return wavefunctions (0: energies only, 1: energies and wavefunctions)
-- `complex_ranged=0`: Whether to use complex rotation method (0: no, 1: yes)
-- `complex_scaling=0`: Whether to use complex scaling method (0: no, 1: yes)
+- `return_wavefunctions=false`: Whether to return wavefunctions (`false`: energies only, `true`: energies and wavefunctions)
+- `complex_ranged=false`: Whether to use complex-ranged basis functions.
+- `complex_scaling=false`: Whether to use the complex scaling method.
 
 # Returns
 - `energies`: Array of energy eigenvalues
-- `wavefunctions`: (Optional) Array of eigenvectors if return_wavefunctions=1
+- `wavefunctions`: (Optional) Array of eigenvectors if `return_wavefunctions=true`
 
 # Example
 ```julia
 phys_params = make_phys_params2B(hbar=1.0, mur=1.0, interactions=[GaussianPotential(-1.0, 0.5)], lmax=0, dim=3)
 num_params = make_num_params2B(gem_params=(nmax=5, r1=1.0, rnmax=10.0), complex_range_freq=0.5, complex_scaling_angle=0.0, threshold=1e-10)
-energies = GEM2B_solve(phys_params, num_params; return_wavefunctions=0, complex_ranged=0, complex_scaling=0)
+energies = GEM2B_solve(phys_params, num_params; return_wavefunctions=false, complex_ranged=false, complex_scaling=false)
 # or with wavefunctions:
-energies, wavefunctions = GEM2B_solve(phys_params, num_params; return_wavefunctions=1)
+energies, wavefunctions = GEM2B_solve(phys_params, num_params; return_wavefunctions=true)
 # Note: The function can handle 1D, 2D, or 3D problems based on the `dim` parameter in `phys_params`.
 ```
 """
@@ -131,7 +131,7 @@ function GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions:
     
     ## 2. Matrix elements
     # for numerical integration:
-    if complex_ranged == 1 || complex_scaling == 1
+    if complex_ranged || complex_scaling
         buf = alloc_segbuf(Float64,ComplexF64,Float64)
     else
         buf = alloc_segbuf(Float64,Float64,Float64)
@@ -244,7 +244,7 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC;
     
     # for convenience
     cmax = size(WCC,1) # number of channels
-    nmax = lastindex(nu_arr) # incorporates already factor 2 in case of complex_ranged=1
+    nmax = lastindex(nu_arr) # already includes the factor 2 when complex_ranged=true
     
     ## 1. Allocation of big matrices:
     WD = similar(V) # dummy matrix for WCC matrices
@@ -263,7 +263,7 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC;
     
     # gaussian ranges:
     GEM2B.buildnu(nu_arr,r1,rnmax,nmax)
-    if complex_ranged == 1
+    if complex_ranged
         nu_arr .*= (1+complex_range_freq*im)
         nu_arr[nmax+1:2*nmax] .= conj.(nu_arr[1:nmax])
     end
@@ -320,14 +320,14 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC;
     Sbig .= Symmetric(Sbig,:L)
     
     # not sure if correct. Can we always assume that WCC and DCC are symmetric or hermitian, and hence Hbig is so too?
-    if complex_scaling == 0
+    if !complex_scaling
         Hbig .= Hermitian(Hbig,:L)
-    elseif complex_scaling == 1
+    elseif complex_scaling
         Hbig .= Symmetric(Hbig,:L) # matrix will be complex-symmetric
     end
     
     ## 3. Eigensolver
-    if return_wavefunctions == 0
+    if !return_wavefunctions
         eigen2step(energiesbig,Hbig,Sbig;threshold=num_params.threshold) # only energies
         return energiesbig
     else

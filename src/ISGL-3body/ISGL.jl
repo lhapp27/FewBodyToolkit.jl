@@ -34,23 +34,23 @@ const DEFAULT_OBS = (
 )
 
 """
-    ISGL_solve(phys_params, num_params; return_wavefunctions=0, complex_scaling=0, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+    ISGL_solve(phys_params, num_params; return_wavefunctions=false, complex_scaling=false, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
 
 Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
 
 # Arguments
 - `phys_params`: Physical parameters for the three-body system (e.g., masses, interaction potentials, etc.).
 - `num_params`: Numerical parameters for the GEM calculation (e.g., basis size, grid parameters, etc.).
-- `return_wavefunctions`: (optional) If `1`, also returns wavefunction-related observables. Default is `0`.
-- `complex_scaling`: (optional) If `1`, uses complex scaling method. Default is `0`.
+- `return_wavefunctions`: (optional) If `true`, also returns wavefunction-related observables. Default is `false`.
+- `complex_scaling`: (optional) If `true`, uses complex scaling method. Default is `false`.
 - `observ_params`: (optional) Parameters for observable calculations.
     + `stateindices`: Indices of states for which observables are calculated.
     + `centobs_arr`: Array of central (only dependent on `` r ``; must be defined as functions) observables, for each Jacobi set (similar to `interactions` in `phys_params`).
     + `R2_arr`: Array which indicates whether the observable `` \\langle R^2 \\rangle `` should be calculated (1) for any of the three Jacobi sets, or not (0).
 
 # Returns
-- If `return_wavefunctions == 0`: Returns an array of computed energies.
-- If `return_wavefunctions == 1`: Returns a tuple `(energies, wavefunctions, centobs_output, R2_output)`.
+- If `return_wavefunctions=false`: Returns an array of computed energies.
+- If `return_wavefunctions=true`: Returns a tuple `(energies, wavefunctions, centobs_output, R2_output)`.
     + `energies`: Vector of computed energies.
     + `wavefunctions`: Matrix of eigenvectors (column-wise) which contain the coefficients of the basis functions.
     + `centobs_output`: Mean values of central observables for the specified states. The first dimension corresponds to the Jacobi sets, the second to the observables, and the third to the states.

@@ -77,14 +77,14 @@ This struct is designed to minimize memory allocations and improve performance b
 
 # Keyword arguments
 - `num_params`: A named tuple containing numerical parameters, including the maximum number of basis functions (`nmax`).
-- `complex_ranged`: Boolean indicating whether complex range basis functions are used (1 for true, 0 for false).
-- `complex_scaling`: Boolean indicating whether complex scaling is used (1 for true, 0 for false).
+- `complex_ranged`: Boolean indicating whether complex range basis functions are used.
+- `complex_scaling`: Boolean indicating whether complex scaling is used.
 
 # Example
 ```julia
-PreallocStruct2B(num_params, complex_ranged=0, complex_scaling=0) # for real basis functions and no complex scaling
-PreallocStruct2B(num_params, complex_ranged=1, complex_scaling=0) # for complex range basis functions and no complex scaling
-PreallocStruct2B(num_params, complex_ranged=0, complex_scaling=1) # for real basis functions with complex scaling
+PreallocStruct2B(num_params, complex_ranged=false, complex_scaling=false) # for real basis functions and no complex scaling
+PreallocStruct2B(num_params, complex_ranged=true, complex_scaling=false) # for complex range basis functions and no complex scaling
+PreallocStruct2B(num_params, complex_ranged=false, complex_scaling=true) # for real basis functions with complex scaling
 ```
 """
 struct PreallocStruct2B{TTV, TS, TE}

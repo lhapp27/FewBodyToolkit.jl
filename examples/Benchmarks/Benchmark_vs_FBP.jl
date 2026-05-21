@@ -21,7 +21,7 @@ function FBPrun(;output=true)
         b1 = default_b0(psys.scale)
         method = :psudorandom
         basis_fns = GaussianBase[]
-        Eâ‚€_list = Float64[]
+        E0_list = Float64[]
         
         for i in 1:n_basis
             bij = generate_bij(method, i, length(w_raw), b1)
@@ -37,18 +37,18 @@ function FBPrun(;output=true)
             H = build_hamiltonian_matrix(basis, ops)
             S = build_overlap_matrix(basis)
             vals, vecs = solve_generalized_eigenproblem(H, S)
-            #global câ‚€ = vecs[:, 1]
-            Eâ‚€ = minimum(vals)
+            #global c0 = vecs[:, 1]
+            E0 = minimum(vals)
             
-            push!(Eâ‚€_list, Eâ‚€)
-            #println("Step $i: Eâ‚€ = $Eâ‚€")
+            push!(E0_list, E0)
+            #println("Step $i: E0 = $E0")
         end
         
         if output==true
-            Eâ‚€ = minimum(Eâ‚€_list)
-            Eáµ—Ê° = -0.2620050702328
-            Î”E = abs(Eâ‚€ - Eáµ—Ê°)
-            println("FewBodyPhysics: Î”E = $Î”E")
+            E0 = minimum(E0_list)
+            E_th = -0.2620050702328
+            dE = abs(E0 - E_th)
+            println("FewBodyPhysics: dE = $dE")
         end
         
     end
@@ -79,8 +79,8 @@ function FBTKrun(;output=true)
         @show(energies_arr[1:4])
         E_ground = energies_arr[1]
         E_exact = -0.2620050702328
-        Î”E = abs(E_ground - E_exact)
-        println("FewBodyToolkit: Î”E = $Î”E")
+        dE = abs(E_ground - E_exact)
+        println("FewBodyToolkit: dE = $dE")
     end
 end
 

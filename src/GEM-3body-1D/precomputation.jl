@@ -54,9 +54,9 @@ end
 ### reduced masses for the different jacobi sets. Required for the kinetic energy operator.
 function precompute_murR!(murR_arr,m_arr)
     for b = 1:3# just calculate all combinations...
-        ma = m_arr[mod(b+1,3)+1]#circshift(m_arr,1)[b];#m_arr[mod(b+1,3)+1]; # Ergibt b-1 in MÃ¶glichkeiten 1,2,3; mappt 1,2,3 auf 3,1,2.
+        ma = m_arr[mod(b+1,3)+1]#circshift(m_arr,1)[b];#m_arr[mod(b+1,3)+1]; # Ergibt b-1 in Möglichkeiten 1,2,3; mappt 1,2,3 auf 3,1,2.
         mb = m_arr[b];
-        mc = m_arr[mod(b,3)+1]#circshift(m_arr,-1)[b];#m_arr[mod(b,3)+1]; # Ergibt b+1 in MÃ¶glichkeiten 1,2,3; mappt 1,2,3 auf 2,3,1
+        mc = m_arr[mod(b,3)+1]#circshift(m_arr,-1)[b];#m_arr[mod(b,3)+1]; # Ergibt b+1 in Möglichkeiten 1,2,3; mappt 1,2,3 auf 2,3,1
         murR_arr[1,b] = mc*ma/(mc+ma); # mur
         murR_arr[2,b] = mb*(ma+mc)/(ma+mb+mc); # muR
     end

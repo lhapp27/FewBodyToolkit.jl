@@ -1,6 +1,6 @@
 ﻿# # 2D Example: Two particles with Harmonic oscillator interaction
 #
-# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 2D. Here we use the harmonic oscillator, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following SchrÃ¶dinger equation (we set the magnetic quantum number ``m = 0``, and ``\hbar = 1``)
+# This example demonstrates how to use the `FewBodyToolkit.jl` package to compute bound states for two particles in 2D. Here we use the harmonic oscillator, since it has analytic solutions. In relative coordinates, this system is equivalent to a single particle in a potential. It is governed by the following Schrödinger equation (we set the magnetic quantum number ``m = 0``, and ``\hbar = 1``)
 # \\[ -\frac{1}{2 \mu} \left[\frac{d^2}{dr^2} + \frac{1}{r} \frac{d}{dr} \right] \psi + V(r)\psi = E\psi \\]
 # with the Harmonic oscillator potential
 # \\[ V(r) = -\frac{1}{2} \mu \omega^2 r^2. \\]
@@ -103,10 +103,10 @@ gem_paramsC = (;nmax=nmaxC,r1=r1C,rnmax=rnmaxC);
 num_paramsC = make_num_params2B(;gem_params=gem_paramsC)
 
 stateindex = 6
-params_opt = GEM2B.GEM_Optim_2B(phys_params, num_paramsC, stateindex; complex_ranged = 1)
+params_opt = GEM2B.GEM_Optim_2B(phys_params, num_paramsC, stateindex; complex_ranged = true)
 gem_params_optC = (;nmax = nmaxC, r1 = params_opt[1], rnmax = params_opt[2])
 num_params_optC = make_num_params2B(;gem_params=gem_params_optC)
-energies_optC= GEM2B.GEM2B_solve(phys_params,num_params_optC; complex_ranged = 1)
+energies_optC= GEM2B.GEM2B_solve(phys_params,num_params_optC; complex_ranged = true)
 
 println("\n4. Using complex-ranged basis functions:")
 comparison(energies_optC, energies_exact, 14; s1="Complex-ranged", s2="Exact")

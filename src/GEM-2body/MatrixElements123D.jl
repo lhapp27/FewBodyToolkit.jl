@@ -64,7 +64,7 @@ end
 
 ## T: csm via global factor;
 function MatrixT(T, lmax, nu_arr, hbar, mur, complex_scaling::Bool, complex_scaling_angle, complex_ranged::Bool, dim)
-    fill_full = (complex_scaling == 1 && complex_ranged == 1) #for simultaneous csm and cr: need to fill full matrix
+    fill_full = complex_scaling && complex_ranged #for simultaneous csm and cr: need to fill full matrix
     
     for ncol in 1:lastindex(nu_arr)
         row_start = fill_full ? 1 : ncol # full fill if csm AND cr, otherwise only lower triangular
@@ -73,15 +73,15 @@ function MatrixT(T, lmax, nu_arr, hbar, mur, complex_scaling::Bool, complex_scal
         end
     end
     
-    complex_scaling == 1 && (T .*= exp(-2*im*complex_scaling_angle*pi/180))
+    complex_scaling && (T .*= exp(-2*im*complex_scaling_angle*pi/180))
 end
 
 ## V:
 function MatrixV(V, lmax, nu_arr, interactions, gamma_dict, buf, complex_scaling::Bool, complex_scaling_angle, complex_ranged::Bool, dim)
-    fill_full = (complex_scaling == 1 && complex_ranged == 1) #for simultaneous csm and cr: need to fill full matrix
-    if complex_scaling == 1 # to apply the csm in the basis functions:
+    fill_full = complex_scaling && complex_ranged #for simultaneous csm and cr: need to fill full matrix
+    if complex_scaling # to apply the csm in the basis functions:
         csmfacnu = exp(-2*im*complex_scaling_angle*pi/180)
-    elseif complex_scaling == 0
+    elseif !complex_scaling
         csmfacnu = 1.0
     end
     
@@ -151,9 +151,9 @@ function MatrixWD(WD,lmax,nu_arr,WCC,DCC,gamma_dict,buf,complex_scaling::Bool,co
     end
     
     ## not adopted yet to support simultaneous CSM and CR!
-    if complex_scaling == 0
+    if !complex_scaling
         MatrixWD_cr(WD,lmax,nu_arr,wdfun,gamma_dict,buf,dim,domain,dimfac)
-    elseif complex_scaling == 1
+    elseif complex_scaling
         MatrixWD_csm(WD,lmax,nu_arr,wdfun,gamma_dict,buf,complex_scaling_angle,dim,domain,dimfac)
     end
 end
