@@ -50,3 +50,35 @@ e4_csm_basisfkt = ISGL_solve(pp4, np4_10csm, complex_scaling=true)
 e4_csm_analytical = ISGL_solve(pp4a, np4_10csm, complex_scaling=true)
 @test all(isapprox.(e4_csm_basisfkt[1:5], e4_csm_analytical[1:5]; atol=1e-3))
 
+# 5. return_wavefunctions=true with R^2 observables
+obs_params = (;stateindices=[1], centobs_arr=[Vector{PotentialFunction}() for _ in 1:3], R2_arr=[1,0,0])
+energies_obs, wfs_obs, centobs_out, R2_out = ISGL_solve(phys_params, num_params; return_wavefunctions=true, observ_params=obs_params)
+@test length(energies_obs) > 0
+@test all(isfinite.(energies_obs[1:3]))
+@test size(R2_out, 1) == 3   # 3 Jacobi sets
+@test size(R2_out, 2) == 1   # 1 state requested
+@test isfinite(R2_out[1,1])
+@test R2_out[1,1] > 0        # <R^2> should be positive for HO
+
+# 6. return_wavefunctions=true without observables (also exercises return path)
+energies_wf, wfs_wf, co_wf, r2_wf = ISGL_solve(phys_params, num_params; return_wavefunctions=true)
+@test size(wfs_wf, 1) == size(wfs_wf, 2)
+
+# 7. deprecated keyword aliases
+@test_logs (:warn, r"wf_bool is deprecated") ISGL_solve(phys_params, num_params; wf_bool=false)
+@test_logs (:warn, r"csm_bool is deprecated") ISGL_solve(phys_params, num_params; csm_bool=false)
+@test_logs (:warn, r"debug_bool is deprecated") ISGL_solve(phys_params, num_params; debug_bool=false)
+
+# 8. observables error for complex_scaling=true
+@test_throws ErrorException ISGL_solve(phys_params, num_params; return_wavefunctions=true, complex_scaling=true, observ_params=obs_params)
+
+# 9. sanity check failure paths (ISGL returns nothing instead of throwing)
+pp_badsize  = (masses=[m,m], species=[:x,:y,:z], interactions=[[],[],[]], J_tot=0, parity=1)
+@test isnothing(ISGL_solve(pp_badsize, num_params))   # wrong masses/species size
+
+pp_bad1ident = (masses=[m,m,m], species=[:b,:x,:y], interactions=[[],[],[]], J_tot=0, parity=1)
+@test isnothing(ISGL_solve(pp_bad1ident, num_params)) # 1 boson: invalid identical count
+
+pp_badmasses = (masses=[m,2m,m], species=[:b,:b,:y], interactions=[[],[],[]], J_tot=0, parity=1)
+@test isnothing(ISGL_solve(pp_badmasses, num_params))  # bosons with unequal masses
+

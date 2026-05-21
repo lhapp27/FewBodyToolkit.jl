@@ -43,3 +43,24 @@ np4_10csm = make_num_params3B1D(;lmax=0,Lmax=0,gem_params=gp, theta_csm = 10.0)
 e4_csm_basisfkt = GEM3B1D_solve(pp4, np4_10csm, complex_scaling=true)
 e4_csm_analytical = GEM3B1D_solve(pp4a, np4_10csm, complex_scaling=true)
 @test all(isapprox.(e4_csm_basisfkt[1:5], e4_csm_analytical[1:5]; atol=1e-3))
+
+# 4. return_wavefunctions=true
+energies_wf, wfs = GEM3B1D_solve(phys_params, num_params; return_wavefunctions=true)
+@test length(energies_wf) > 0
+@test all(isfinite.(energies_wf[1:4]))
+@test size(wfs, 1) == size(wfs, 2)
+
+# 5. deprecated keyword aliases
+@test_logs (:warn, r"wf_bool is deprecated") GEM3B1D_solve(phys_params, num_params; wf_bool=false)
+@test_logs (:warn, r"csm_bool is deprecated") GEM3B1D_solve(phys_params, num_params; csm_bool=false)
+@test_logs (:warn, r"debug_bool is deprecated") GEM3B1D_solve(phys_params, num_params; debug_bool=false)
+
+# 6. sanity check failure paths (sanity_checks3B throws ErrorException)
+pp_badsize1d  = (masses=[1.0,1.0], species=[:b,:b,:b], interactions=[[],[],[]], parity=1)
+@test_throws ErrorException GEM3B1D_solve(pp_badsize1d, num_params)  # wrong masses size
+
+pp_bad1ident1d = (masses=[1.0,1.0,1.0], species=[:b,:x,:y], interactions=[[],[],[]], parity=1)
+@test_throws ErrorException GEM3B1D_solve(pp_bad1ident1d, num_params) # 1 boson: invalid
+
+pp_badmasses1d = (masses=[1.0,2.0,1.0], species=[:b,:b,:y], interactions=[[],[],[]], parity=1)
+@test_throws ErrorException GEM3B1D_solve(pp_badmasses1d, num_params) # bosons with unequal masses
