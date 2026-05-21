@@ -99,20 +99,18 @@ struct PreallocStruct2B{TTV, TS, TE}
         nbasis = num_params.gem_params.nmax
 
         # Determine types: TTV = type of T and V matrix; TS = type of S matrix; TE = type of energies array
-        if complex_ranged == 0 && complex_scaling == 0
+        if !complex_ranged && !complex_scaling
             TTV = Float64;      TS = Float64;       TE = Float64
-        elseif !complex_ranged && !complex_scaling
-            TTV = ComplexF64;   TS = ComplexF64;    TE = Float64        
-        elseif complex_ranged == 0 && complex_scaling == 1
+        elseif complex_ranged && !complex_scaling
+            TTV = ComplexF64;   TS = ComplexF64;    TE = Float64
+        elseif !complex_ranged && complex_scaling
             TTV = ComplexF64;   TS = Float64;       TE = ComplexF64
-        elseif complex_ranged == 1 && complex_scaling == 1
+        elseif complex_ranged && complex_scaling
             TTV = ComplexF64;   TS = ComplexF64;    TE = ComplexF64
-        else
-            error("Error with (complex_ranged = $complex_ranged, complex_scaling = $complex_scaling). Only (0,0), (1,0), (0,1), (1,1) allowed.")
         end
 
-        # Double nbasis if complex_ranged == 1
-        if complex_ranged == 1
+        # Double nbasis if complex_ranged
+        if complex_ranged
             nbasis *= 2
         end
 

@@ -49,7 +49,7 @@ simax = findlast(energies_arr.<0)
 # \\[ E_n = -\frac{(\lambda-n)^2}{2\mu} \\]
 # where `` n = 1, 2, ... , \lambda-1 `` is the state index. The package [Antique.jl](https://github.com/ohno/Antique.jl) provides these exact energies in a convenient way.
 
-PT = Antique.PoschlTeller(Î»=8)
+PT = Antique.PoschlTeller(λ=8)
 ex_arr = [Antique.E(PT,n=i) for i=0:2:Int(floor(lambda-1))]
 
 println("1. Numerical solution of the 1D problem:")
