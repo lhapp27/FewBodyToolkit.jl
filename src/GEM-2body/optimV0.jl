@@ -1,7 +1,7 @@
 ﻿# for finding a the value of v0 to achieve the energy target_e2 for the state defined by stateindex (with intermediate optimization of parameters)
 
 """
-    v0GEMOptim(phys_params, num_params, stateindex, target_e2; complex_ranged=false, rtol=1e-4, atol=10*eps(), g_tol=1e-9, output=false)
+    v0GEMOptim(phys_params, num_params, stateindex, target_e2; complex_ranged=0, rtol=1e-4, atol=10*eps(), g_tol=1e-9, output=false)
 
 Finds a value `v0crit` to globally scale the potential in order to achieve the target energy `target_e2` for the state specified by `stateindex`. Additionally, performs intermediate optimization of Gaussian Expansion Method (GEM) parameters.
 
@@ -12,7 +12,7 @@ Finds a value `v0crit` to globally scale the potential in order to achieve the t
 - `target_e2::Float64`: Target energy value.
 
 # Keyword Arguments
-- `complex_ranged::Bool`: Use complex-ranged basis functions (default: `false`).
+- `complex_ranged::Int`: Use complex rotation (default: 0).
 - `rtol::Float64`: Relative tolerance for energy convergence (default: 1e-4).
 - `atol::Float64`: Absolute tolerance for energy convergence (default: 10*eps()).
 - `g_tol::Float64`: Tolerance for the optimizer (default: 1e-9).
@@ -62,7 +62,7 @@ function v0GEMOptim(phys_params, num_params, stateindex, target_e2; complex_rang
 end
 
 """
-    GEM_Optim_2B(phys_params, num_params, stateindex; complex_ranged=false, g_tol=1e-9)
+    GEM_Optim_2B(phys_params, num_params, stateindex; complex_ranged=0, g_tol=1e-9)
 
 Optimize the ranges used in the Gaussian Expansion Method (GEM) for a specific 2-body state.
 
@@ -72,7 +72,7 @@ Optimize the ranges used in the Gaussian Expansion Method (GEM) for a specific 2
 - `stateindex::Int`: An integer specifying the index of the state to optimize (e.g., `1` for the ground state).
 
 # Keyword Arguments
-- `complex_ranged::Bool=false`: Whether to use complex-ranged basis functions.
+- `complex_ranged::Int=0`: Indicates whether to use complex rotation.
 - `g_tol::Float64=1e-9`: A value specifying the tolerance for the optimizer.
 
 # Returns
@@ -83,7 +83,7 @@ Optimize the ranges used in the Gaussian Expansion Method (GEM) for a specific 2
 # Example
 ```julia
 r1opt,rnmaxopt,energy = GEM_Optim_2B(phys_params, num_params, 1) # optimize for the ground state
-r1opt,rnmaxopt,energy = GEM_Optim_2B(phys_params, num_params, 3; complex_ranged=true) # optimize for the third state (2nd excited) using complex-ranged basis functions
+r1opt,rnmaxopt,energy = GEM_Optim_2B(phys_params, num_params, 3; complex_ranged = 1) # optimize for the third state (2nd excited) using complex-ranged basis functions
 ```
 """
 function GEM_Optim_2B(phys_params, num_params, stateindex; complex_ranged::Bool=false, g_tol=10^-9)
@@ -94,7 +94,8 @@ function GEM_Optim_2B(phys_params, num_params, stateindex; complex_ranged::Bool=
     target(x) = GEM2B.GEM2B_solve(phys_params, (gem_params = (nmax, r1 = x[1], rnmax = x[2]), complex_range_freq, complex_scaling_angle, threshold); complex_ranged)[stateindex]
     
     init = [r1,rnmax] # arbitrary! Change in case the optimization fails
-    opt = optimize(target, init, method=NelderMead(), show_trace = false, store_trace=false, extended_trace=false, g_tol=g_tol);
+    opts = Optim.Options(show_trace = false, store_trace=false, extended_trace=false, g_tol=g_tol)
+    opt = optimize(target, init, NelderMead(), opts);
     return [abs.(Optim.minimizer(opt)') Optim.minimum(opt)] # 2 parameters, 1 energy value
 end
 
