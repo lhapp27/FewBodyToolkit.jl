@@ -51,7 +51,7 @@ All modules follow a similar usage pattern:
 # 2-body system in 3D, with reduced mass mur and potential as interaction
 using FewBodyToolkit
 potential(r) = -10/(1+r)
-phys_params = make_phys_params2B(;mur=2.0,vint_arr=[potential],dim=3)
+phys_params = make_phys_params2B(;mur=2.0,interactions=[potential],dim=3)
 ```
 
 2.Setting up numerical parameters: number and range of Gaussian basis functions, complex-rotation angle, etc. :
@@ -62,7 +62,7 @@ num_params = make_num_params2B(;gem_params=(nmax=10,r1=0.5,rnmax=30.0))
 
 3.Solving the system using the solver provided by the corresponding module.
 ```
-energies, vectors = GEM2B_solve(phys_params, num_params; wf_bool=1)
+energies, vectors = GEM2B_solve(phys_params, num_params; return_wavefunctions=true)
 ```
 
 4.Post-processing via Plots, optional calculation of wave-functions or mean value of observables.

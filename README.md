@@ -27,7 +27,7 @@ using FewBodyToolkit
 v12(r) = -10/(1+r^4)
 v23(r) = -8/(1+r^5)
 masses = [1.0,1.0,2.0]
-pp = make_phys_params3B3D(;mass_arr = masses, vint_arr=[[v23],[v23],[v12]])
+pp = make_phys_params3B3D(;masses, interactions=[[v23],[v23],[v12]])
 
 # Define numerical parameters
 np = make_num_params3B3D(;gem_params=(nmax=10,r1=0.2,rnmax=20.0,Nmax=10,R1=0.2,RNmax=20.0))
