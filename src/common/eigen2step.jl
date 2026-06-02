@@ -2,13 +2,27 @@
 # "Hermitian pencil method"
 # Assumptions here: S = real, symmetric matrix -> deleted for CR-basis functions
 
+function _eigen_S(S)
+    if typeof(S[1,1]) == Float64
+        return eigen(Symmetric(S))
+    elseif typeof(S[1,1]) == ComplexF64
+        return eigen(Hermitian(S))
+    else
+        error("Unsupported matrix element type in S: $(typeof(S[1,1]))")
+    end
+end
+
+function _assign_evals!(e_arr, evals, H)
+    if (typeof(H[1,1]) == Float64 && issymmetric(H)) || (typeof(H[1,1]) == ComplexF64 && ishermitian(H))
+        e_arr[1:lastindex(evals)] .= real.(evals)
+    else
+        e_arr[1:lastindex(evals)] .= evals
+    end
+end
+
 function eigen2step(e_arr,H, S; threshold::Float64 = 10^-13)
     
-    if typeof(S[1,1]) == Float64
-        dvec,y = eigen(Symmetric(S));
-    elseif typeof(S[1,1]) == ComplexF64
-        dvec,y = eigen(Hermitian(S));
-    end
+    dvec,y = _eigen_S(S)
     
     dvec_mask,y_mask = cutSmallEV(dvec,y,threshold=threshold)
     
@@ -17,22 +31,13 @@ function eigen2step(e_arr,H, S; threshold::Float64 = 10^-13)
     l = y_mask*dinv;
     
     e3 = eigvals!(l' * H * l);
-    if (typeof(H[1,1]) == Float64 && issymmetric(H)) || (typeof(H[1,1]) == ComplexF64 && ishermitian(H))
-        e_arr[1:lastindex(dvec_mask)] .= real.(e3)
-    else
-        e_arr[1:lastindex(dvec_mask)] .= e3
-    end
+    _assign_evals!(e_arr, e3, H)
 end
 
 
-# quite some code-redundancy. possible simplification via multiple dispatch?
 function eigen2step_valvec(e_arr,v_arr,H, S; threshold::Float64 = 10^-13)
     
-    if typeof(S[1,1]) == Float64
-        dvec,y = eigen(Symmetric(S));
-    elseif typeof(S[1,1]) == ComplexF64
-        dvec,y = eigen(Hermitian(S));
-    end
+    dvec,y = _eigen_S(S)
     
     dvec_mask,y_mask = cutSmallEV(dvec,y,threshold=threshold)
     
@@ -51,11 +56,7 @@ function eigen2step_valvec(e_arr,v_arr,H, S; threshold::Float64 = 10^-13)
     C .= C * (R \ I)   # since inv(R) = R \ I; now C_norm' * S * C_norm == I (up to numerical precision)
     
     
-    if (typeof(H[1,1]) == Float64 && issymmetric(H)) || (typeof(H[1,1]) == ComplexF64 && ishermitian(H))
-        e_arr[1:lastindex(dvec_mask)] .= real.(e3)
-    else
-        e_arr[1:lastindex(dvec_mask)] .= e3
-    end
+    _assign_evals!(e_arr, e3, H)
     v_arr[:,1:lastindex(dvec_mask)] .= C
     #@show(lastindex(dvec_mask))
 end
