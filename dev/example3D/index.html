@@ -8,17 +8,17 @@ function v_coulomb(r)
 end;</code></pre><p>We define the physical parameters as a <code>NamedTuple</code> which carries the information about the Hamiltonian.</p><pre><code class="language-julia hljs">phys_params = make_phys_params2B(;interactions=[v_coulomb])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(hbar = 1.0, mur = 1.0, interactions = [Main.v_coulomb], lmin = 0, lmax = 0, dim = 3)</code></pre><p>By leaving out the optional parameters, we use the defaults:</p><ul><li><code>mur = 1.0</code>: reduced mass</li><li><code>dim = 3</code>: dimension of the problem</li><li><code>lmin = lmax = 0</code>: minimum and maximum angular momentum</li><li><code>hbar = 1.0</code>: when working in dimensionless units</li></ul><h4 id="Numerical-parameters"><a class="docs-heading-anchor" href="#Numerical-parameters">Numerical parameters</a><a id="Numerical-parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Numerical-parameters" title="Permalink"></a></h4><pre><code class="language-julia hljs">nmax=10 # number of Gaussian basis functions
 r1=0.1;rnmax=30.0; # r1 and rnmax defining the widths of the basis functions
 gem_params = (;nmax,r1,rnmax);</code></pre><p>We define the numerical parameters as a <code>NamedTuple</code>:</p><pre><code class="language-julia hljs">num_params = make_num_params2B(;gem_params)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">(gem_params = (nmax = 10, r1 = 0.1, rnmax = 30.0), complex_scaling_angle = 0.0, complex_range_freq = 0.9, threshold = 1.0e-8)</code></pre><h2 id="1.-Numerical-solution"><a class="docs-heading-anchor" href="#1.-Numerical-solution">1. Numerical solution</a><a id="1.-Numerical-solution-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Numerical-solution" title="Permalink"></a></h2><p>We solve the two-body system by calling <code>GEM2B_solve</code>.</p><pre><code class="language-julia hljs">energies = GEM2B.GEM2B_solve(phys_params,num_params)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">10-element Vector{Float64}:
-  -0.4998757180240628
-  -0.12454305401429006
-  -0.05443710110158085
-  -0.02864355774575035
-   0.007342103389141706
-   0.6031764481212917
-   3.674495968760052
-  16.18142428223919
-  64.2068555797109
- 251.37534725527286</code></pre><p>Number of bound states to consider:</p><pre><code class="language-julia hljs">simax = min(lastindex(energies),6); # max state index</code></pre><p>The Coulomb potential has infinitely many bound states, whose energies can be found exactly. We can use the package <a href="https://github.com/ohno/Antique.jl">Antique.jl</a> to provide these energies.</p><pre><code class="language-julia hljs">CTB = Antique.CoulombTwoBody(m₁=masses[1], m₂=masses[2])
-energies_exact = [Antique.E(CTB,n=i) for i=1:40]
+  -0.49987571802405995
+  -0.12454305401429076
+  -0.05443710110157571
+  -0.028643557745758497
+   0.007342103389146635
+   0.6031764481212961
+   3.6744959687600565
+  16.181424282239124
+  64.20685557971092
+ 251.3753472552727</code></pre><p>Number of bound states to consider:</p><pre><code class="language-julia hljs">simax = min(lastindex(energies),6); # max state index</code></pre><p>The Coulomb potential has infinitely many bound states, whose energies can be found exactly. We can use the package <a href="https://github.com/ohno/Antique.jl">Antique.jl</a> to provide these energies.</p><pre><code class="language-julia hljs">CTB = Antique.CoulombTwoBody(m_1=masses[1], m_2=masses[2])
+energies_exact = [Antique.energy(CTB,n=i) for i=1:40]
 
 println(&quot;1. Numerical solution of the 3D problem:&quot;)
 comparison(energies,energies_exact,simax)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1. Numerical solution of the 3D problem:
@@ -59,7 +59,7 @@ np = make_num_params2B(;gem_params=(;nmax=80,r1=0.015,rnmax=2000.0),complex_rang
 nlist=[1,2,3,4,5,10,14,18,22,26,30,32,34,36,38,40]; # states shown in the article
 comparison(energies_accurate,energies_exact,lastindex(nlist); s1=&quot;Numerical&quot;, s2=&quot;Exact&quot;,indexlist=nlist)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
 3. Highly accurate solution using many basis functions:
-  2.228549 seconds (51.00 M allocations: 1.132 GiB, 5.92% gc time, 40.51% compilation time)
+  1.648758 seconds (51.00 M allocations: 1.132 GiB, 7.70% gc time, 42.64% compilation time)
 Index   Numerical       Exact           Difference
 1       -0.500000       -0.500000       -0.000000
 2       -0.125000       -0.125000       -0.000000
@@ -114,7 +114,7 @@ Index   Coupled-Channel Reference       Difference
 r_arr = 0.0:dr:50.0
 redind = vcat(1:2:30,31:5:50,51:10:lastindex(r_arr)) # We evaluate the analytical solutions at a coarser grid to avoid overloading the plot.
 
-wfA(r,n) = Antique.R(CTB, r; n, l=0) # Exact wave function for the n-th state
+wfA(r,n) = Antique.radial_function(CTB, r; n, l=0) # Exact wave function for the n-th state
 
 p = plot(xlabel=&quot;\$ r \$&quot;, ylabel=&quot;\$ r^2\\,|\\psi(r)|^2 \$&quot;, title=&quot;Two-body radial s-wave densities\n for a 3D Coulomb system&quot;, guidefont=18,legendfont=10)
 density = zeros(length(r_arr),4)
@@ -131,7 +131,7 @@ for si = 1:4
     plot!(r_arr, density[:,si], label=&quot;n=$(si), num&quot;, lw=2, color=si)
 end
 
-p</code></pre><img src="b5121382.svg" alt="Example block output"/><p>The normalization of the wave function can be checked by integrating the density:</p><pre><code class="language-julia hljs">norms = density[:,1:4]&#39;*fill(dr,lastindex(r_arr)) # A simple Riemann sum is sufficient here
+p</code></pre><img src="da2b37f4.svg" alt="Example block output"/><p>The normalization of the wave function can be checked by integrating the density:</p><pre><code class="language-julia hljs">norms = density[:,1:4]&#39;*fill(dr,lastindex(r_arr)) # A simple Riemann sum is sufficient here
 println(&quot;\n6. Norms of the wave functions:&quot;)
 comparison(norms, ones(4), 4; s1=&quot;Norm&quot;, s2=&quot;Exact&quot;)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
 6. Norms of the wave functions:
@@ -139,4 +139,4 @@ Index   Norm            Exact           Difference
 1       0.999999        1.000000        0.000001
 2       0.999999        1.000000        0.000001
 3       0.999997        1.000000        0.000003
-4       0.998430        1.000000        0.001570</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../example2D/">« 2D Example</a><a class="docs-footer-nextpage" href="../3B1D_23body/">1D: Consistency with 2-body »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 25 June 2026 12:21">Thursday 25 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+4       0.998430        1.000000        0.001570</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../example2D/">« 2D Example</a><a class="docs-footer-nextpage" href="../3B1D_23body/">1D: Consistency with 2-body »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 7 August 2026 08:54">Friday 7 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
