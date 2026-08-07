@@ -49,8 +49,8 @@ energies = GEM2B.GEM2B_solve(phys_params,num_params)
 simax = min(lastindex(energies),6); # max state index
 
 # The Coulomb potential has infinitely many bound states, whose energies can be found exactly. We can use the package [Antique.jl](https://github.com/ohno/Antique.jl) to provide these energies.
-CTB = Antique.CoulombTwoBody(m₁=masses[1], m₂=masses[2])
-energies_exact = [Antique.E(CTB,n=i) for i=1:40]
+CTB = Antique.CoulombTwoBody(m_1=masses[1], m_2=masses[2])
+energies_exact = [Antique.energy(CTB,n=i) for i=1:40]
 
 println("1. Numerical solution of the 3D problem:")
 comparison(energies,energies_exact,simax)
@@ -143,7 +143,7 @@ dr = 0.1
 r_arr = 0.0:dr:50.0
 redind = vcat(1:2:30,31:5:50,51:10:lastindex(r_arr)) # We evaluate the analytical solutions at a coarser grid to avoid overloading the plot.
 
-wfA(r,n) = Antique.R(CTB, r; n, l=0) # Exact wave function for the n-th state
+wfA(r,n) = Antique.radial_function(CTB, r; n, l=0) # Exact wave function for the n-th state
 
 p = plot(xlabel="\$ r \$", ylabel="\$ r^2\\,|\\psi(r)|^2 \$", title="Two-body radial s-wave densities\n for a 3D Coulomb system", guidefont=18,legendfont=10)
 density = zeros(length(r_arr),4)
