@@ -112,7 +112,7 @@ function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_arg
                 spinoverlap = spinoverlap_dict[a,b,c,JsSa,JsSb,sa,sb]
                 
                 for ivg in gauss_indices[c] #loop over the gaussian interactions for this c.
-                    (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
+                    (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated. # this should maybe be continue!
                     v0,mu_g = gaussopt_arr[c][ivg]
 
                     tempV += factor_ab*factor_symm*uab*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,Lsum,wn_interpol_arr,v0,mu_g,JlLa)
@@ -276,7 +276,6 @@ function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu
 end
 
 # matrix element for Spin-Orbit interaction; postponed to future version
-#=
 function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,JlLb,ivso)
     
     #prechecks: they should ideally never trigger, due to proper handling before.
@@ -298,6 +297,8 @@ function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,g
     ppr = SA[nua*alphaAC,NUa*gammaAC,nub*alphaBC,NUb*gammaBC]
     f = xic/zetac
     fso = (nub*betaBC*alphaBC + NUb*deltaBC*gammaBC)/zetac
+    #fso = (nub*alphaBC*gammaBC + NUb*betaBC*deltaBC)/zetac # no difference??
+
     
     q = ppr .- f*p
     kron34 = SA[0,0,1,1]
@@ -350,7 +351,7 @@ function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,g
         summe += sumi * hij_arr[iv,jv]
     end
     return prefac*summe
-end =#
+end
 
 
 

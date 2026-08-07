@@ -83,17 +83,17 @@ function precompute_varr!(v_arr,alpha_arr,Lsum,gamma_dict,vcent_fun::CentralPote
     end
 end
 
-#= # spin-orbit interaction; postponed to future version
-function precompute_varr!(v_arr,alpha_arr,Lsum,gamma_dict,vcent_fun::SpinOrbitPotential,buf,csmfac)
+# spin-orbit interaction; postponed to future version
+function precompute_varr!(v_arr,alpha_arr,Lsum,gamma_dict,vSO_fun::SpinOrbitPotential,buf,csmfac)
     for n = 0:Lsum # n=j
         nLS = n + 1 # for highlighting the difference due to LS
         for k=1:lastindex(alpha_arr)
             so_extrafac = 4*(1+n)/(2*n+3)/(2*n+2) # added missing factor 4!
             norm_interpol = 1/2 * gamma_dict[n+1.5]/alpha_arr[k]^(n+3/2)
-            v_arr[k,n+1] = vcent_integration(vcent_fun,alpha_arr[k]*csmfac^2,nLS,buf)/gamma_dict[n+1.0]/norm_interpol * csmfac^(2*n+3) * so_extrafac
+            v_arr[k,n+1] = vcent_integration(vSO_fun,alpha_arr[k]*csmfac^2,nLS,buf)/gamma_dict[n+1.0]/norm_interpol * csmfac^(2*n+3) * so_extrafac
         end
     end
-end =#
+end
 
 function vcent_integration(vcent_fun,alpha,n,buf) #where {V}
     val = quadgk(r -> integrand(r,alpha,n,vcent_fun),0,Inf;segbuf=buf)[1]
@@ -145,7 +145,7 @@ end
         for cc in cvals
             #performance: precompute_varr needs more time than the interpolation procedure for w_arr below. this is mostly due to the use of quadgk
             
-            for iv in nint_arr[cc]
+            for iv in 1:nint_arr[cc]
 
                 # numerical integration only necessary for central and spin-orbit interactions, (and more if added)
                 if !(iv in central_indices[cc] || iv in so_indices[cc])
