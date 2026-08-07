@@ -61,8 +61,8 @@ make_num_params3B1D() # for the default basis set
 make_num_params3B1D(gem_params=(nmax=10, r1=0.5, rnmax=20.0, Nmax=15, R1=1.0, RNmax=100.0), complex_scaling_angle=10.0) for a larger basis set and non-zero rotation angle for complex scaling method
 ```
 """
-function make_num_params3B1D(;lmin=0,Lmin=0, lmax=0, Lmax=0, gem_params=(nmax=5, r1=1.0, rnmax=10.0, Nmax=5, R1=1.0, RNmax=10.0), complex_scaling_angle=0.0, complex_range_freq=0.9, kmax_interpol=1000, threshold=10^-8, theta_csm=nothing, omega_cr=nothing)
+function make_num_params3B1D(;lmin=0,Lmin=0, lmax=0, Lmax=0, gem_params=(nmax=5, r1=1.0, rnmax=10.0, Nmax=5, R1=1.0, RNmax=10.0), complex_scaling_angle=0.0, complex_range_freq=0.9, kmax_interpol=1000, threshold=10^-8, theta_csm=nothing, omega_cr=nothing, complex_ranged_r=nothing, complex_ranged_R=nothing)
     complex_scaling_angle = isnothing(theta_csm) ? complex_scaling_angle : theta_csm
     complex_range_freq = isnothing(omega_cr) ? complex_range_freq : omega_cr
-    return (;lmin, Lmin, lmax, Lmax, gem_params, complex_scaling_angle, complex_range_freq, kmax_interpol, threshold)
+    return (;lmin, Lmin, lmax, Lmax, gem_params, complex_scaling_angle, complex_range_freq, kmax_interpol, threshold, complex_ranged_r, complex_ranged_R)
 end

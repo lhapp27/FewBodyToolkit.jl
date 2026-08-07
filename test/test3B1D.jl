@@ -44,18 +44,44 @@ e4_csm_basisfkt = GEM3B1D_solve(pp4, np4_10csm, complex_scaling=true)
 e4_csm_analytical = GEM3B1D_solve(pp4a, np4_10csm, complex_scaling=true)
 @test all(isapprox.(e4_csm_basisfkt[1:5], e4_csm_analytical[1:5]; atol=1e-3))
 
-# 4. return_wavefunctions=true
+# 4. Reconstruct two-body results with a spectator particle
+# Use the analytical Gaussian potential here; the generic interpolated potential path
+# does not support complex-ranged basis functions in this reduced-limit regression.
+phys_params2B = make_phys_params2B(;mur=1/(1/1.0 + 1/20.0), interactions=[v_gauss], dim=1)
+phys_params3B23 = make_phys_params3B1D(;masses=[1.0,20.0,20.0], interactions=[[],[],[v_gauss]])
+
+gp23 = (;nmax=8, Nmax=1, r1=1.0, rnmax=10.0, R1=10000.0, RNmax=10000.0)
+num_params2B = make_num_params2B(;gem_params=(;nmax=8, r1=1.0, rnmax=10.0))
+num_params3B23 = make_num_params3B1D(;gem_params=gp23, theta_csm=0.0, complex_ranged_r=true, complex_ranged_R=false)
+
+e2 = GEM2B.GEM2B_solve(phys_params2B, num_params2B)
+e2cr = GEM2B.GEM2B_solve(phys_params2B, num_params2B; complex_ranged=true)
+e2csmcr = GEM2B.GEM2B_solve(phys_params2B, num_params2B; complex_ranged=true, complex_scaling=true)
+e3 = GEM3B1D_solve(phys_params3B23, num_params3B23)
+e3cr = GEM3B1D_solve(phys_params3B23, num_params3B23; complex_ranged=true, complex_scaling=false)
+e3csmcr = GEM3B1D_solve(phys_params3B23, num_params3B23; complex_ranged=true, complex_scaling=true)
+
+simax23 = findlast(real.(e2) .< 0)
+@test simax23 !== nothing
+@test length(e3) >= simax23
+@test length(e3cr) >= simax23
+@test length(e3csmcr) >= simax23
+@test all(isapprox.(e3[1:simax23], e2[1:simax23]; atol=1e-3))
+@test all(isapprox.(e3cr[1:simax23], e2cr[1:simax23]; atol=2e-3))
+@test all(isapprox.(e3csmcr[1:simax23], e2csmcr[1:simax23]; atol=2e-3))
+
+# 5. return_wavefunctions=true
 energies_wf, wfs = GEM3B1D_solve(phys_params, num_params; return_wavefunctions=true)
 @test length(energies_wf) > 0
 @test all(isfinite.(energies_wf[1:4]))
 @test size(wfs, 1) == size(wfs, 2)
 
-# 5. deprecated keyword aliases
+# 6. deprecated keyword aliases
 @test_logs (:warn, r"wf_bool is deprecated") GEM3B1D_solve(phys_params, num_params; wf_bool=false)
 @test_logs (:warn, r"csm_bool is deprecated") GEM3B1D_solve(phys_params, num_params; csm_bool=false)
 @test_logs (:warn, r"debug_bool is deprecated") GEM3B1D_solve(phys_params, num_params; debug_bool=false)
 
-# 6. sanity check failure paths (sanity_checks3B throws ErrorException)
+# 7. sanity check failure paths (sanity_checks3B throws ErrorException)
 pp_badsize1d  = (masses=[1.0,1.0], species=[:b,:b,:b], interactions=[[],[],[]], parity=1)
 @test_throws ErrorException GEM3B1D_solve(pp_badsize1d, num_params)  # wrong masses size
 

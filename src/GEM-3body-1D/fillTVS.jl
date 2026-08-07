@@ -1,33 +1,46 @@
 ﻿## Function for calculating the matrix elements and filling the matrices T,V,S within the GEM3B1D program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,debug::Bool)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_ranged_r::Bool,complex_ranged_R::Bool,complex_scaling::Bool,hbar,debug::Bool)
     
     (;gem_params,complex_scaling_angle) = num_params
-    (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,lL_arr,maxlmax,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr) = size_params
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
     (;alpha_arr,v_arr,w_interpol_arr) = interpol_arrs
     (;wn_interpol_arr,T,V,S,temp_args_arr,temp_fill_mat) = fill_arrs
+    nmax_eff = lastindex(nu_arr)
+    Nmax_eff = lastindex(NU_arr)
+    complex_ranged = complex_ranged_r || complex_ranged_R
+    fill_full = complex_ranged && complex_scaling
     
 
     # create a 1D array of NamedTuples to hold the arguments for the matrix element calculation. This also carries the matrix structure via row- and column indices.
-    flati = flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax,Nmax,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals)
+    flati = flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax_eff,Nmax_eff,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals,fill_full)
     
     ## Calculation of matrix elements and filling via 1D loop:
     # Norm-Overlap S
     for index in 1:flati
-        rowi,coli=temp_args_arr[index]
+        (;rowi,coli) = temp_args_arr[index]
         temp_fill_mat[rowi,coli] = sab(jmat,temp_args_arr[index],abI,factor_bf,gamma_dict)
     end
-    S .= Symmetric(temp_fill_mat,:L); # transpose fill
+    if complex_ranged
+        S .= Hermitian(temp_fill_mat,:L)
+    else
+        S .= Symmetric(temp_fill_mat,:L)
+    end
     
 
     # Kinetic energy T
     for index in 1:flati
-        rowi,coli=temp_args_arr[index]
+        (;rowi,coli) = temp_args_arr[index]
         temp_fill_mat[rowi,coli] = tab(jmat,murR_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,hbar) # we can reuse the same temp_fill_mat
     end
-    T .= Symmetric(temp_fill_mat,:L); # transpose fill:
+    if fill_full
+        T .= temp_fill_mat
+    elseif complex_ranged
+        T .= Hermitian(temp_fill_mat,:L)
+    else
+        T .= Symmetric(temp_fill_mat,:L)
+    end
     
     if complex_scaling
         T .*= exp(-2*im*complex_scaling_angle*pi/180)
@@ -36,10 +49,16 @@
 
     # Interaction V
     for index in 1:flati
-        rowi,coli=temp_args_arr[index]
+        (;rowi,coli) = temp_args_arr[index]
         temp_fill_mat[rowi,coli] = vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,complex_scaling,complex_scaling_angle)
     end
-    V .= Symmetric(temp_fill_mat,:L); # transpose fill:
+    if fill_full
+        V .= temp_fill_mat
+    elseif complex_ranged
+        V .= Hermitian(temp_fill_mat,:L)
+    else
+        V .= Symmetric(temp_fill_mat,:L)
+    end
     
     # Example usage for debugging
     if debug
@@ -330,22 +349,22 @@ end
 
 
 # returns flati and fills temp_args_arr
-function flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax,Nmax,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals)
+function flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax,Nmax,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals,fill_full::Bool)
     # Keep loop-structure and write necessary functions arguments for matrix-element-calculation into 1-dim array temp_args_arr
     flati = 0
     # Iterate over boxes:
     for boxC in groupindex_arr
         for boxR in groupindex_arr
-            boxR < boxC && continue # fill only lower-triangular (boxes, not elements!) only works for real- or complex-symmetric, or hermitian matrices; needs some work for CSM and CR!
+            !fill_full && boxR < boxC && continue # fill only lower-triangular when a symmetry reconstruction is valid
             
             # if there are some identical particles: we can ignore the sum over a-values and simply multiply by a factor which is equal to the number of a-values. ONLY ON THE BOX-DIAGONAL! (boxC = boxR)
             if boxC == boxR
                 bvals_new = bvalsdiag[boxC] # for changing the role of a,b to be in line with lower triangular!
-                factor_ab = lastindex(abvals_arr[boxR]) # factor for amount of a-values normally
-                diag_bool = 1 # for skipping lower-triangular calculation within each box!
+                factor_ab = Float64(lastindex(abvals_arr[boxR])) # factor for amount of a-values normally
+                diag_bool = fill_full ? 0 : 1 # for skipping lower-triangular calculation within each box!
             else
                 bvals_new = abvals_arr[boxC]
-                factor_ab = 1
+                factor_ab = 1.0
                 diag_bool = 0
             end
             avals_new = abvals_arr[boxR] # a bit unneccessary, but for more consistent naming. effectively only used here in fillTVS
@@ -368,11 +387,11 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals
                             Lsum=0 #Int64((la+La+lb+Lb)/2) #unnecessary in 1D
                             
                             for na = 1:nmax
-                                nua = nu_arr[na]
-                                norma = norm_arr[la,na]
+                                nua = conj(nu_arr[na])
+                                norma = conj(norm_arr[la,na])
                                 for Na = 1:Nmax
-                                    NUa = NU_arr[Na]
-                                    NORMa = NORM_arr[La,Na]
+                                    NUa = conj(NU_arr[Na])
+                                    NORMa = conj(NORM_arr[La,Na])
                                     
                                     alpha += 1
                                     diag_bool == 1 && alpha < alphab && continue # skip upper-triangular only on diagonal boxes!
@@ -385,7 +404,7 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals
                                     coli = starts[boxC] + alphab - 1
                                     
                                     flati += 1
-                                    temp_args_arr[flati] = (;rowi,coli,ranges,norm4,la,La,lb,Lb,Lsum,avals_new,bvals_new,cvals,factor_ab,avals,bvals) # write all loop-index-depending function-arguments into a temporary 1D array
+                                    temp_args_arr[flati] = TempArgs1D(rowi,coli,ranges,norm4,la,La,lb,Lb,Lsum,avals_new,bvals_new,cvals,factor_ab,avals,bvals) # write all loop-index-depending function-arguments into a temporary 1D array
                                 end
                             end
                         end

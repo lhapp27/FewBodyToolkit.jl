@@ -1,10 +1,10 @@
 ﻿# functions to precompute repetedly used arrays within the GEM3B1D program
 
-function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs) #diff13
+function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs,complex_ranged_r::Bool,complex_ranged_R::Bool) #diff13
     
     #Destructing Structs:    
     (;masses) = phys_params #diff13
-    (;lmax,Lmax,gem_params,kmax_interpol) = num_params
+    (;lmax,Lmax,gem_params,kmax_interpol,complex_range_freq) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;lL_complete,l_complete,nl) = size_params # diff13
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
@@ -15,7 +15,7 @@ function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs) #diff1
     
     precompute_murR!(murR_arr,masses)
     
-    precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax) # i think all of these functions could be "commonized"
+    precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax,complex_ranged_r,complex_ranged_R,complex_range_freq) # i think all of these functions could be "commonized"
 
     precompute_norms1D!(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
     
@@ -64,15 +64,19 @@ end
 
 
 ### ranges ###
-function precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax)
+function precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax,complex_ranged_r::Bool,complex_ranged_R::Bool,complex_range_freq)
     # fills the array nu_arr[n=1:nmax] for each value of n. same for NU_arr[N=1:Nmax]
-    buildnu!(r1,rnmax,nmax,nu_arr)
-    buildnu!(R1,RNmax,Nmax,NU_arr)
+    buildnu!(r1,rnmax,nmax,nu_arr,complex_ranged_r,complex_range_freq)
+    buildnu!(R1,RNmax,Nmax,NU_arr,complex_ranged_R,complex_range_freq)
 end
 
-@views function buildnu!(r1,rnmax,nmax,nu_arr)
+@views function buildnu!(r1,rnmax,nmax,nu_arr,complex_ranged::Bool=false,complex_range_freq=0.0)
     nu_arr[1] = 1 /r1^2;
     nmax >1 && @. nu_arr[2:nmax] = 1/r1^2 * (r1/rnmax)^(2*((2:nmax)-1)/(nmax-1))
+    if complex_ranged
+        nu_arr[1:nmax] .*= (1 + complex_range_freq*im)
+        nu_arr[nmax+1:2*nmax] .= conj.(nu_arr[1:nmax])
+    end
     #return nu_arr # we dont need to return since we overwrite the array in-place
 end
 

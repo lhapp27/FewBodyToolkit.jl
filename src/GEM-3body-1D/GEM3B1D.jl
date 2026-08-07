@@ -45,12 +45,16 @@ energies = GEM3B3D_solve(phys_params, num_params) #solving with default paramete
 ```
 """
 function GEM3B1D_solve(phys_params, num_params;
-    return_wavefunctions=false, complex_scaling=false, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), debug=false,
-    wf_bool=nothing, csm_bool=nothing, debug_bool=nothing)
+    return_wavefunctions=false, complex_ranged=false, complex_scaling=false, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), debug=false,
+    wf_bool=nothing, cr_bool=nothing, csm_bool=nothing, debug_bool=nothing)
 
     if !isnothing(wf_bool)
         @warn "wf_bool is deprecated, use return_wavefunctions instead"
         return_wavefunctions = wf_bool
+    end
+    if !isnothing(cr_bool)
+        @warn "cr_bool is deprecated, use complex_ranged instead"
+        complex_ranged = cr_bool
     end
     if !isnothing(csm_bool)
         @warn "csm_bool is deprecated, use complex_scaling instead"
@@ -79,21 +83,31 @@ function GEM3B1D_solve(phys_params, num_params;
     if observ_params != (;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0])
         error("Observables are currently not supported for 1D calculations.")
     end
+
+    cr_r_opt = get(num_params, :complex_ranged_r, nothing)
+    cr_R_opt = get(num_params, :complex_ranged_R, nothing)
+    if complex_ranged
+        cr_r = isnothing(cr_r_opt) ? true : cr_r_opt
+        cr_R = isnothing(cr_R_opt) ? true : cr_R_opt
+    else
+        cr_r = false
+        cr_R = false
+    end
     
     ## 3. computations to determine sizes of arrays for allocation:   
-    size_params = size_estimate(phys_params,num_params,observ_params)
+    size_params = size_estimate(phys_params,num_params,observ_params,cr_r,cr_R)
     
     ## 4. preallocation:
-    precomp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling)
+    precomp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,cr_r,cr_R,complex_scaling)
 
     ## 5. precomputation:
-    precompute_3B1D(phys_params,num_params,size_params,precomp_arrs)
+    precompute_3B1D(phys_params,num_params,size_params,precomp_arrs,cr_r,cr_R)
 
     ## 6. preparation of interpolation & shoulder:
     interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling)
     
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,debug)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,cr_r,cr_R,complex_scaling,phys_params.hbar,debug)
     
     ## 8. Solving the generalized eigenproblem:
     solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)
