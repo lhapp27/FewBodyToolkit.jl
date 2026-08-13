@@ -121,13 +121,14 @@ function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_arg
                     (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
                     tempV += factor_ab*factor_symm*uab*element_V(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,ivc)
                 end
+                #= commented out; spin-orbit is moved to future development
                 for ivso in so_indices[c] # loop over the spin-orbit interactions for this c.
                     (abs(JlLa-JlLb) <= 1 <= JlLa+JlLb) == false && return tempV #immediately skip if it is violated.
                     (abs(JsSa-JsSb) <= 1 <= JsSa+JsSb) == false && return tempV #immediately skip if it is violated.
                     #only relevant for SO interactions
                     global6jfac = global6j_dict[JsSa,JsSb,JlLa,JlLb]
                     tempV += factor_ab*factor_symm*global6jfac*spinoverlap*element_VSO(c,ranges,norm4,jmat[a,c],jmat[b,c],mijSO_arr_dict,SSO_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,JlLb,ivso)
-                end
+                end =#
                 
             end
             
