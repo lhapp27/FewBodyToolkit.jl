@@ -18,8 +18,8 @@ end
 A concrete implementation of `PotentialFunction` that represents a central potential.
 It takes a function `f` that defines the potential as a function of the radial distance `r`.
 """
-struct CentralPotential <: PotentialFunction
-    f::Function
+struct CentralPotential{F} <: PotentialFunction
+    f::F
 end
 
 
