@@ -145,7 +145,7 @@ end
         for cc in cvals
             #performance: precompute_varr needs more time than the interpolation procedure for w_arr below. this is mostly due to the use of quadgk
             
-            for iv in nint_arr[cc]
+            for iv = 1:nint_arr[cc]
 
                 # numerical integration only necessary for central and spin-orbit interactions, (and more if added)
                 if !(iv in central_indices[cc] || iv in so_indices[cc])
