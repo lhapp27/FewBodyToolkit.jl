@@ -3,6 +3,7 @@
 using FewBodyToolkit
 using BenchmarkTools
 using Printf
+include("SolvePreview_ISGL.jl")
 
 const IS = FewBodyToolkit.ISGL
 const COMPLEX_SCALING = false
@@ -14,11 +15,14 @@ const OBS_PARAMS = (
 )
 
 function make_case(; nmax::Int, kmax_interpol::Int, lmax::Int = 0, Lmax::Int = 0)
-    vg(r) = -10.0 * exp(-r^2)
+    vg_2(r) = -6.0 * exp(-0.5*r^2)
+    vg_0(r) = -3.0 * exp(-0.5*r^2)
+    vg = GaussianPotential(-3.0, 0.5)
+    vgr(r) = vg(r)
     pp = FewBodyToolkit.make_phys_params3B3D(
         masses = [1.0, 2.0, 3.0],
         species = [:x, :y, :z],
-        interactions = [[vg], [vg], [vg]],
+        interactions = [[vg,vg], [vg], [vg]],
     )
 
     gp = (; nmax = nmax, Nmax = nmax, r1 = 0.1, rnmax = 100.0, R1 = 0.1, RNmax = 100.0)
@@ -40,7 +44,7 @@ function median_stats(trial)
     return (time_ms = m.time / 1.0e6, memory_mib = m.memory / 1024^2, allocs = m.allocs)
 end
 
-function print_table(title::String, rows)
+function print_table(title::String, rows; energies_preview = nothing)
     println("\n" * title)
     println(repeat("-", length(title)))
     @printf("%-22s %14s %14s %14s\n", "Stage", "Time [ms]", "Memory [MiB]", "Allocs")
@@ -54,6 +58,10 @@ function print_table(title::String, rows)
 
     println()
     @printf("Total isolated stage time: %.3f ms\n", total_ms)
+
+    if energies_preview !== nothing
+        println("solveHS energies[1:2]: " * string(energies_preview))
+    end
 end
 
 function benchmark_stages(pp, np; samples::Int = 8)
@@ -111,7 +119,17 @@ function benchmark_stages(pp, np; samples::Int = 8)
         push!(rows, (name = name, time_ms = s.time_ms, memory_mib = s.memory_mib, allocs = s.allocs))
     end
 
-    return rows
+    energies_preview = run_single_solve_preview(
+        pp,
+        np;
+        obs_params = obs,
+        complex_scaling = COMPLEX_SCALING,
+        return_wavefunctions = RETURN_WAVEFUNCTIONS,
+        debug = false,
+        npreview = 2,
+    )
+
+    return rows, energies_preview
 end
 
 function parse_nmaxs(arg::String)
@@ -139,14 +157,14 @@ function run_hotspot(; nmaxs::Vector{Int} = [10, 16], samples::Int = 2, kmax_int
     for lmax in lmaxs
         for nmax in nmaxs
             pp, np = make_case(nmax = nmax, kmax_interpol = kmax_interpol, lmax = lmax, Lmax = Lmax)
-            rows = benchmark_stages(pp, np; samples = samples)
-            print_table("nmax = $(nmax), lmax = $(lmax)", rows)
+            rows, energies_preview = benchmark_stages(pp, np; samples = samples)
+            print_table("nmax = $(nmax), lmax = $(lmax)", rows; energies_preview = energies_preview)
         end
     end
 end
 
-function main()
-    nmaxs = isempty(ARGS) ? [10, 16] : parse_nmaxs(ARGS[1])
+function run_stage_benchmarks()
+    nmaxs = isempty(ARGS) ? [10,16] : parse_nmaxs(ARGS[1])
     samples = length(ARGS) >= 2 ? parse(Int, ARGS[2]) : 2
     kmax_interpol = length(ARGS) >= 3 ? parse(Int, ARGS[3]) : 1000
     lmaxs = length(ARGS) >= 4 ? parse_int_list(ARGS[4]) : [0]
@@ -156,5 +174,5 @@ function main()
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main()
+    run_stage_benchmarks()
 end

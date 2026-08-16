@@ -82,3 +82,46 @@ pp_bad1ident = (masses=[m,m,m], species=[:b,:x,:y], interactions=[[],[],[]], J_t
 pp_badmasses = (masses=[m,2m,m], species=[:b,:b,:y], interactions=[[],[],[]], J_tot=0, parity=1)
 @test isnothing(ISGL_solve(pp_badmasses, num_params))  # bosons with unequal masses
 
+# 10. regression: mixed potential lists with wrapped functions should not fail,
+# and equivalent combinations should produce the same low-lying energies.
+vg_reg = GaussianPotential(-3.0, 0.5)
+vgr_reg(r) = vg_reg(r)
+vg0_reg(r) = -3.0 * exp(-0.5 * r^2)
+vg2_reg(r) = -6.0 * exp(-0.5 * r^2)
+
+gp_reg = (;nmax=6,Nmax=6,r1=0.1,rnmax=20.0,R1=0.1,RNmax=20.0)
+np_reg = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_reg,kmax_interpol=80,threshold=1e-10)
+
+function solve2(interactions)
+	pp = make_phys_params3B3D(;masses=[1.0,2.0,3.0], species=[:x,:y,:z], interactions=interactions)
+	return ISGL_solve(pp, np_reg)[1:2]
+end
+
+# Baselines
+e_single_ref = solve2([[vg_reg],[vg_reg],[vg_reg]])
+e_double_ref = solve2([[vg_reg,vg_reg],[vg_reg],[vg_reg]])
+e_double_fun_ref = solve2([[vg2_reg],[vg_reg],[vg_reg]])
+
+# Single-potential representations are equivalent
+@test all(isapprox.(solve2([[vgr_reg],[vgr_reg],[vgr_reg]]), e_single_ref; atol=1e-5))
+@test all(isapprox.(solve2([[vg0_reg],[vg0_reg],[vg0_reg]]), e_single_ref; atol=1e-5))
+
+# Multi-potential mixtures run and are equivalent to double-strength reference
+multi_cases = [
+	[[vgr_reg,vgr_reg],[vg_reg],[vg_reg]],
+	[[vg0_reg,vg0_reg],[vg_reg],[vg_reg]],
+	[[vg_reg,vgr_reg],[vg_reg],[vg_reg]],
+	[[vgr_reg,vg_reg],[vg_reg],[vg_reg]],
+	[[vg_reg,vg0_reg],[vg_reg],[vg_reg]],
+	[[vg0_reg,vg_reg],[vg_reg],[vg_reg]],
+	[[vgr_reg,vg0_reg],[vg_reg],[vg_reg]],
+	[[vg0_reg,vgr_reg],[vg_reg],[vg_reg]],
+]
+
+for ints in multi_cases
+	e = solve2(ints)
+	@test all(isfinite.(e))
+	@test all(isapprox.(e, e_double_ref; atol=1e-5))
+	@test all(isapprox.(e, e_double_fun_ref; atol=1e-5))
+end
+
