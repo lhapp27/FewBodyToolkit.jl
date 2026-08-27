@@ -54,6 +54,46 @@ function (gp::GaussianPotential)(r)
 end
 
 
+"""
+    PowerLawPotential(v0::Float64, p::Float64)
+A concrete implementation of `PotentialFunction` that represents a power-law potential:
+```math
+V(r) = v_0  r^{p}
+```
+where `r` is the radial distance.
+
+Matrix elements are treated analytically (no numerical integration and no
+range-interpolation), since the radial integral of Eq. (5.76) is closed-form for
+any power law. Prominent cases are the Coulomb interaction (`p=-1`) and the
+harmonic oscillator (`p=2`).
+
+# Arguments:
+- `v0::Float64`: The strength of the potential.
+- `p::Float64`: The exponent of the power law. Must satisfy `p > -3`, otherwise the radial integral diverges.
+"""
+struct PowerLawPotential <: PotentialFunction
+    v0::Float64
+    p::Float64
+
+    function PowerLawPotential(v0::Float64, p::Float64)
+        p <= -3.0 && error("PowerLawPotential: p = $p is too singular; the radial integral diverges (requires p > -3).")
+        new(v0, p)
+    end
+end
+
+# convenience: allow integer exponents, e.g. PowerLawPotential(-1.0,-1)
+PowerLawPotential(v0::Real, p::Real) = PowerLawPotential(Float64(v0), Float64(p))
+
+"""
+    function (pp::PowerLawPotential)(r)
+
+Evaluates the power-law potential at a given radial distance `r`.
+"""
+function (pp::PowerLawPotential)(r)
+    pp.v0 * r^pp.p
+end
+
+
 # postponed to future version
 #= """
     SpinOrbitPotential(f::Function)

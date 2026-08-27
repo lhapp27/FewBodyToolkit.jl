@@ -4,9 +4,9 @@
     
     (;gem_params,mu0,c_shoulder,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
-    (;abvals_arr,cvals,gauss_indices,central_indices,so_indices,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,lL_nested,maxlmax,mij_arr_dict,mijSO_arr_dict,gaussopt_arr) = size_params
+    (;abvals_arr,cvals,gauss_indices,central_indices,so_indices,pow_indices,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,lL_nested,maxlmax,mij_arr_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr) = size_params
     (;gamma_dict,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr) = precomp_arrs
-    (;alpha_arr,v_arr,A_mat,w_interpol_arr,Ainv_arr_kine) = interpol_arrs
+    (;alpha_arr,v_arr,A_mat,w_interpol_arr,Ainv_arr_kine,w_pow_arr) = interpol_arrs
     (;w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr,temp_fill_mat) = fill_arrs
     
     # reducing complicated many-loop structure to a single 1D loop:
@@ -35,7 +35,7 @@
     #v
     for index in 1:flati
         (;rowi,coli) = temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,complex_scaling) # do we need hbar^2 for SO?
+        temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_arr,temp_args_arr[index],abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,pow_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr,complex_scaling) # do we need hbar^2 for SO?
     end
     # transpose fill:
     V .= Symmetric(temp_fill_mat,:L);
@@ -96,7 +96,7 @@ function tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_
     return tempT
 end
 
-function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,complex_scaling)
+function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_arr,temp_args_i,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,pow_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr,complex_scaling)
     (;rowi,coli,avals_new,bvals_new,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,Lsum,JlLa,JlLb) = temp_args_i
     tempV = 0.0
     
@@ -116,6 +116,12 @@ function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,temp_arg
                     v0,mu_g = gaussopt_arr[c][ivg]
 
                     tempV += factor_ab*factor_symm*uab*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,Lsum,wn_interpol_arr,v0,mu_g,JlLa)
+                end
+                for ivp in pow_indices[c] #loop over the power-law interactions for this c.
+                    (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
+                    v0,p_pow = powopt_arr[c][ivp]
+
+                    tempV += factor_ab*factor_symm*uab*element_VPow(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,Lsum,w_pow_arr,v0,p_pow,JlLa,ivp)
                 end
                 for ivc in central_indices[c] #loop over the central interactions for this c.
                     (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
@@ -274,6 +280,57 @@ function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu
     end
     
     return prefac*summe
+end
+
+
+# calculation of a single matrix element: power-law interaction V(r) = v0*r^p (analytic)
+# Same structure as element_V, but the interpolated weights w_interpol_arr[c,iv,Lsum,n](log(etaprc))
+# are replaced by the exact w_n(etaprc) = etaprc^(-p/2) * w_pow_arr[c,iv,Lsum,n]. The common factor
+# etaprc^(-p/2) is independent of n and is therefore absorbed into prefac.
+function element_VPow(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,Lsum,w_pow_arr,v0,p_pow,JlL,iv)
+    
+    (;nua,nub,NUa,NUb) = ranges;
+    (alphaAC,gammaAC,betaAC,deltaAC) = jac
+    (alphaBC,gammaBC,betaBC,deltaBC) = jbc # careful with order (gamma before beta)
+    
+    etac  = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2
+    zetac = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2 
+    xic = nua*alphaAC*betaAC + NUa*gammaAC*deltaAC + nub*alphaBC*betaBC + NUb*gammaBC*deltaBC
+    etaprc = etac - xic^2/zetac
+    
+    # p, pprime, f, q:
+    p = SA[nua*betaAC,NUa*deltaAC,nub*betaBC,NUb*deltaBC]
+    ppr = SA[nua*alphaAC,NUa*gammaAC,nub*alphaBC,NUb*gammaBC]
+    f = xic/zetac
+    #fpr = xic/etac
+    q = ppr .- f*p
+    
+    #gij_arr:
+    for n = 0:Lsum
+        mun = mu0*c_shoulder^n
+        for i=1:3
+            for j=(i+1):4
+                gij_arr[i,j,n] = 2*p[i]*p[j]/zetac + 2*mun*q[i]*q[j]/etaprc
+            end
+        end
+    end
+    
+    prefac = norm4 * (pi^2/zetac/etaprc)^(3/2) * etaprc^(-p_pow/2)/(nua^la*NUa^La*nub^lb*NUb^Lb);
+    
+    # no interpolation necessary here: w_pow_arr is exact and alpha-independent
+    summe = 0.0
+    for ii = 1:lastindex(mij_arr_i) # the correct mij_arr is already selected in the flatento1Dloop function
+        (m12,m13,m14,m23,m24,m34) = mij_arr_i[ii]
+        
+        sum2 = 0.0
+        for n=0:Lsum
+            sum2 += w_pow_arr[c,iv,Lsum,n]*gij_arr[1,2,n]^m12*gij_arr[1,3,n]^m13*gij_arr[1,4,n]^m14*gij_arr[2,3,n]^m23*gij_arr[2,4,n]^m24*gij_arr[3,4,n]^m34
+        end
+        
+        summe += S_arr[la,La,lb,Lb,JlL,ii]*sum2
+    end
+    
+    return v0*prefac*summe
 end
 
 # matrix element for Spin-Orbit interaction; postponed to future version

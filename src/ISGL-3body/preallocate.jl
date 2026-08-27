@@ -34,6 +34,7 @@ struct InterpolationStruct{T}
     w_arr::Array{T, 4}
     w_interpol_arr::OffsetArray{Interpolations.Extrapolation{T, 1, ScaledInterpolation{T, 1, Interpolations.BSplineInterpolation{T, 1, OffsetVector{T, Vector{T}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4, Array{Interpolations.Extrapolation{T, 1, ScaledInterpolation{T, 1, Interpolations.BSplineInterpolation{T, 1, OffsetVector{T, Vector{T}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4}}
     Ainv_arr_kine::OffsetMatrix{Float64, Matrix{Float64}}
+    w_pow_arr::OffsetArray{T, 4, Array{T, 4}}
     v_obs_arr::Matrix{Float64}
     w_obs_arr::Array{Float64, 5}
     w_obs_interpol_arr::OffsetArray{Interpolations.Extrapolation{Float64, 1, ScaledInterpolation{Float64, 1, Interpolations.BSplineInterpolation{Float64, 1, OffsetVector{Float64, Vector{Float64}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4, Array{Interpolations.Extrapolation{Float64, 1, ScaledInterpolation{Float64, 1, Interpolations.BSplineInterpolation{Float64, 1, OffsetVector{Float64, Vector{Float64}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4}}
@@ -149,6 +150,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     w_interpol_arr=OffsetArray{interpoltypeC}(undef,3,nintmax,0:2*maxlmax,0:2*maxlmax) # penultimate dimensionality for different Lsum values!; nintmax for (maximum) number of interactions
     #aac=zeros(27);gac=zeros(27);abc=zeros(27);gbc=zeros(27)
     Ainv_arr_kine = OffsetArray{Float64}(undef,0:2*maxlmax,0:2*maxlmax)*0.0 # penultimate dimensionality for different Lsum values!
+    w_pow_arr = OffsetArray(zeros(TT,3,nintmax,2*maxlmax+1,2*maxlmax+1),1:3,1:nintmax,0:2*maxlmax,0:2*maxlmax) # analytic shoulder-weights for power-law interactions; same indexing as w_interpol_arr, but plain numbers (no interpolation needed)
     w_arr_kine = OffsetArray{Float64}(undef,0:2*maxlmax+1)*0.0
     wn_interpol_arr = OffsetArray{TT}(undef,0:2*maxlmax)*0.0 # for the interpolated wn_values that are actually used
     #for observables (in range-interpolation)
@@ -191,7 +193,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     # now constructing Structs for different steps in the program:
     precomp_arrs = PrecomputeStruct(gamma_dict,cleb_arr,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr)
     temp_arrs = TempStruct(temp_clmk,temp_dlmk,temp_S,temp_D1,temp_D2)
-    interpol_arrs = InterpolationStruct(alpha_arr,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_obs_arr,w_obs_arr,w_obs_interpol_arr)
+    interpol_arrs = InterpolationStruct(alpha_arr,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr)
     fill_arrs = FillStruct(fij_arr,Kij_arr,w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr,temp_fill_mat,wn_obs_interpol_arr)
     result_arrs = ResultStruct(energies_arr,wavefun_arr,centobs_output,R2_output)
     
