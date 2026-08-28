@@ -1,7 +1,7 @@
 ﻿# functions to precompute the w-arrays for the interaction via interpolation and the upon-the shoulder method
 
-function interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions::Bool,complex_scaling::Bool)
-    
+function interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged::Bool=false)
+
     # Destruct Structs:
     (;interactions) = phys_params
     (;lmax,Lmax,gem_params,complex_scaling_angle,complex_range_freq,mu0,c_shoulder,kmax_interpol,complex_scaling_angle) = num_params
@@ -12,8 +12,16 @@ function interpolNshoulder(phys_params,num_params,observ_params,size_params,prec
     (;alpha_arr,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr) = interpol_arrs
     
     # range interpolation:
-    precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
-    
+    # The interpolation mesh is only meaningful for real ranges: it is looked up at log(etaprc),
+    # which is complex once the ranges are. Complex ranges are therefore restricted to the
+    # analytically treated potentials (see sanity_checks), and the mesh is not used at all; a
+    # placeholder mesh is filled so that the (then empty) interpolation loops below stay well-defined.
+    if complex_ranged
+        buildnu(10.0,1.0,lastindex(alpha_arr),alpha_arr) # arguments swapped so that alpha_arr is increasing, as in precompute_alpha_arr
+    else
+        precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
+    end
+
     # wrap function types:
     # Auto-wrap plain functions as central, to ensure compatibility
     wrap_potential(f::Function) = CentralPotential(f)
@@ -50,7 +58,7 @@ function precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
                                 Aa = SA[nua 0.0 ; 0.0 NUa]
                                 Ab = SA[nub 0.0 ; 0.0 NUb]
                                 tempA = transpose(jmat[a,c])*Aa*jmat[a,c] + transpose(jmat[b,c])*Ab*jmat[b,c]
-                                temp = det(tempA)/tempA[2,2]
+                                temp = abs(det(tempA)/tempA[2,2]) # abs is a no-op for real ranges (etaprc>0); it keeps this scan well-defined should complex ranges ever be routed through the interpolation path
                                 i==1 && (tempmin = temp; tempmax=temp;)
                                 temp > tempmax && (tempmax = temp)
                                 temp < tempmin && (tempmin = temp)

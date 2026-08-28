@@ -2,10 +2,10 @@
 
 # for spins we added transformation coefficients from spins in jacobi-set a,b to c (and a to b)
 
-function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs)    
-    #Destructing Structs:   
+function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false)
+    #Destructing Structs:
     (;masses,J_tot,spins) = phys_params
-    (;lmax,Lmax,gem_params) = num_params
+    (;lmax,Lmax,gem_params,complex_range_freq) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;cvals,s_arr,abI,factor_bf,s_complete,JsS_arr,JsS_complete,JlL_arr,JlL_complete,lL_complete,l_complete,nl,imax_dict,mij_arr_dict,kmax_dict,imaxSO_dict,mijSO_arr_dict,so_indices) = size_params
     (;gamma_dict,cleb_arr,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr) = precomp_arrs
@@ -31,7 +31,7 @@ function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_ar
     
     precompute_murR(murR_arr,masses)
     
-    precompute_ranges(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax)
+    precompute_ranges(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax,complex_ranged_r,complex_ranged_R,complex_range_freq)
     
     precompute_norms(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
     precompute_spintrafo(spins,s_arr,JsS_arr,spintrafo_dict)
@@ -124,10 +124,23 @@ end
 
 
 ### ranges ###
-function precompute_ranges(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax)
-    # returns the array nu_arr[n=1:nmax] for each value of n. same for NU_arr[N=1:Nmax]
-    nu_arr .= buildnu(r1,rnmax,nmax,nu_arr)
-    NU_arr .= buildnu(R1,RNmax,Nmax,NU_arr)
+function precompute_ranges(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,complex_range_freq=0.0)
+    # fills nu_arr[n=1:nmax] with the geometric sequence of ranges. same for NU_arr[N=1:Nmax].
+    # For a complex-ranged coordinate the array is twice as long: the first half carries
+    # nu*(1+i*omega), the second half its complex conjugate.
+    fillranges!(nu_arr,r1,rnmax,nmax,complex_ranged_r,complex_range_freq)
+    fillranges!(NU_arr,R1,RNmax,Nmax,complex_ranged_R,complex_range_freq)
+end
+
+# note: nmax is always the *undoubled* number of ranges here, since the geometric sequence
+# (and in particular its exponent 2*(n-1)/(nmax-1)) must not be affected by the doubling.
+@views function fillranges!(nu_arr,r1,rnmax,nmax,complex_ranged::Bool,complex_range_freq)
+    buildnu(r1,rnmax,nmax,nu_arr) # fills nu_arr[1:nmax] in place; leaves any further entries untouched
+    if complex_ranged
+        nu_arr[1:nmax] .*= (1 + complex_range_freq*im)
+        nu_arr[nmax+1:2*nmax] .= conj.(nu_arr[1:nmax])
+    end
+    return nu_arr
 end
 
 @views function buildnu(r1,rnmax,nmax,nu_arr)
@@ -141,7 +154,11 @@ end
 function precompute_norms(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
     # returns the array norm_arr[l,n] for each combination of n,l. same for NORM_arr
     
-    norm(nu,l) = (2*(2*nu)^(l+3/2)/gamma_dict[l+3/2])^(1/2);
+    # Equivalent to (2*(2*nu)^(l+3/2)/Gamma(l+3/2))^(1/2) for real, positive nu, but written so that
+    # the fractional power is taken directly on 2*nu. For a complex range, arg(2*nu) = atan(omega) is
+    # small, so this is the continuous continuation of the real-range norm; the original nesting could
+    # push arg((2*nu)^(l+3/2)) past pi for larger l and then pick the wrong branch in the outer sqrt.
+    norm(nu,l) = sqrt(2/gamma_dict[l+3/2]) * (2*nu)^((2*l+3)/4);
     
     for n = 1:lastindex(nu_arr)
         for l in l_complete #lindex = 1:nl

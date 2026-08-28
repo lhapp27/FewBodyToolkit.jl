@@ -202,3 +202,102 @@ _,_,co_pow,_  = ISGL_solve(phys_params, num_params; return_wavefunctions=true, o
 _,_,co_cent,_ = ISGL_solve(phys_params, num_params; return_wavefunctions=true, observ_params=obs_cent)
 @test isfinite(co_pow[1,1,1])
 @test isapprox(co_pow[1,1,1], co_cent[1,1,1]; rtol=1e-6)
+
+
+# 12. Complex-ranged basis functions: nu -> nu*(1 + i*omega), selectable per Jacobi coordinate.
+# Supported only for the analytically treated potentials (GaussianPotential, PowerLawPotential),
+# since the interpolated path for a generic central potential needs a real etaprc.
+
+# 12a. option parsing
+@test FewBodyToolkit.ISGL.parse_complex_ranged(:none) == (false,false)
+@test FewBodyToolkit.ISGL.parse_complex_ranged(:r)    == (true,false)
+@test FewBodyToolkit.ISGL.parse_complex_ranged(:R)    == (false,true)
+@test FewBodyToolkit.ISGL.parse_complex_ranged(:both) == (true,true)
+@test FewBodyToolkit.ISGL.parse_complex_ranged(true)  == (true,true)   # Bool alias, as in GEM2B_solve
+@test FewBodyToolkit.ISGL.parse_complex_ranged(false) == (false,false)
+@test_throws ErrorException FewBodyToolkit.ISGL.parse_complex_ranged(:rR)
+
+# 12b. unsupported potentials and observables are rejected (sanity_checks returns nothing)
+pp_cr_gauss = make_phys_params3B3D(;masses=[m,m,m], species=[:x,:y,:z], interactions=[[vga],[vga],[vga]])
+pp_cr_cent  = make_phys_params3B3D(;masses=[m,m,m], species=[:x,:y,:z], interactions=[[vg],[vg],[vg]])
+gp_cr = (;nmax=6,Nmax=6,r1=0.5,rnmax=8.0,R1=0.5,RNmax=7.0)
+np_cr = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_cr,omega_cr=0.9)
+
+@test isnothing(ISGL_solve(pp_cr_cent,np_cr;complex_ranged=:both))   # plain function -> CentralPotential
+@test isnothing(ISGL_solve(pp_cr_cent,np_cr;complex_ranged=:r))
+obs_r2 = (;stateindices=[1], centobs_arr=[PotentialFunction[],PotentialFunction[],PotentialFunction[]], R2_arr=[1,0,0])
+@test isnothing(ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:r,return_wavefunctions=true,observ_params=obs_r2))
+# ... while the analytic potentials are accepted:
+@test !isnothing(ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:r))
+
+# 12c. basis-size doubling per coordinate
+n_none = length(ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:none))
+n_r    = length(ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:r))
+n_R    = length(ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:R))
+n_both = length(ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:both))
+@test n_r == 2*n_none
+@test n_R == 2*n_none
+@test n_both == 4*n_none
+
+# 12d. energies stay real for complex ranges alone (H and S are hermitian, not just symmetric)
+e_cr_r = ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:r)
+@test eltype(e_cr_r) <: Real
+@test all(isfinite.(e_cr_r[1:3]))
+
+# 12e. omega -> 0 regression. With omega=0 the conjugate half of the basis duplicates the original
+# half exactly, so S is rank-deficient by construction and the redundant directions are removed by
+# the threshold in cutSmallEV. The surviving spectrum must be the real-basis one. This is the
+# sharpest check of the conjugation of the bra ranges: getting it wrong changes these numbers.
+np_cr0 = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_cr,omega_cr=0.0)
+e_ref0 = ISGL_solve(pp_cr_gauss,np_cr0;complex_ranged=:none)
+for mode in (:r,:R,:both)
+    e0 = ISGL_solve(pp_cr_gauss,np_cr0;complex_ranged=mode)
+    @test all(isapprox.(e0[1:3], e_ref0[1:3]; atol=1e-6))
+end
+
+# 12f. finite omega: the complex-ranged basis is a different span of twice the size, not a superset
+# of the real one (the real Gaussian is not in it), so no variational inequality is claimed here.
+# For a converged case both must simply agree on the physical ground state.
+e_ref = ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:none)
+for mode in (:r,:R,:both)
+    ecr = ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=mode)
+    @test isapprox(ecr[1], e_ref[1]; atol=1e-3)   # same state, not a spurious one
+end
+
+# 12g. power-law interactions with complex ranges (Ps^- -like Coulomb system)
+np_coul_cr = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_coul,omega_cr=0.9)
+e_coul_real = ISGL_solve(pp_coul_pow, np_coul_cr; complex_ranged=:none)
+e_coul_cr   = ISGL_solve(pp_coul_pow, np_coul_cr; complex_ranged=:r)
+@test isapprox(e_coul_cr[1], e_coul_real[1]; atol=1e-3)
+@test e_coul_cr[1] < -0.25   # still bound below the Ps threshold
+
+# 12h. complex ranges together with complex scaling. Neither symmetry survives, so the full matrix
+# is filled; at theta=0 this must still reproduce the complex-ranged result.
+np_cr_00csm = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_cr,omega_cr=0.9,theta_csm=0.0)
+e_cr_csm0 = ISGL_solve(pp_cr_gauss,np_cr_00csm;complex_ranged=:r,complex_scaling=true)
+@test all(isapprox.(real.(e_cr_csm0[1:3]), e_cr_r[1:3]; atol=1e-6))
+@test all(abs.(imag.(e_cr_csm0[1:3])) .< 1e-8)
+
+# 12i. reduction to the two-body problem: switch off two of the three interactions and give the
+# spectator coordinate a single, very broad Gaussian, so that <T_R> -> 0. The r-part of the basis
+# then mirrors the GEM2B basis exactly, and complex_ranged=:r must reproduce GEM2B's complex-ranged
+# result. Equal masses are used so that the reduced mass of the interacting pair is unambiguous.
+# Complex ranges are applied to r only: with Nmax=1 the conjugate partner of a single very broad
+# range is nearly linearly dependent on it, which is exactly the situation per-coordinate control
+# is meant to avoid.
+gp_spec = (;nmax=8,Nmax=1,r1=1.0,rnmax=10.0,R1=1.0e4,RNmax=1.0e4)
+np_spec = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_spec,omega_cr=0.9)
+pp_spec = make_phys_params3B3D(;masses=[1.0,1.0,1.0], species=[:x,:y,:z], interactions=[[vga],[],[]])
+
+pp2B_spec = make_phys_params2B(;mur=0.5, interactions=[vga], dim=3)
+np2B_spec = make_num_params2B(;gem_params=(;nmax=8,r1=1.0,rnmax=10.0),omega_cr=0.9)
+
+e2_real = GEM2B_solve(pp2B_spec,np2B_spec)
+e2_cr   = GEM2B_solve(pp2B_spec,np2B_spec;complex_ranged=true)
+e3_real = ISGL_solve(pp_spec,np_spec;complex_ranged=:none)
+e3_cr   = ISGL_solve(pp_spec,np_spec;complex_ranged=:r)
+
+nb2 = count(<(0), real.(e2_real))   # compare the bound states only
+@test nb2 >= 1
+@test all(isapprox.(e3_real[1:nb2], e2_real[1:nb2]; atol=1e-3))
+@test all(isapprox.(e3_cr[1:nb2],   e2_cr[1:nb2];   atol=1e-3))

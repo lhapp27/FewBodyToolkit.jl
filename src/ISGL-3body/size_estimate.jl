@@ -52,8 +52,8 @@ struct SizeParams{T<:Number}
     maxobs::Int64
 end
 
-function size_estimate(phys_params,num_params,observ_params,complex_scaling::Bool)
-    
+function size_estimate(phys_params,num_params,observ_params,complex_scaling::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false)
+
     # input interpretation:
     (;masses,species,interactions,J_tot,parity,spins) = phys_params
     (;lmax,Lmax,gem_params,complex_scaling_angle,complex_range_freq,mu0,c_shoulder,kmax_interpol,lmin,Lmin) = num_params
@@ -75,7 +75,10 @@ function size_estimate(phys_params,num_params,observ_params,complex_scaling::Boo
     lL_nested,lL_complete,l_complete = lLcoupl(J_tot,parity,cvals,species,spins,s_arr,JsS_arr,JlL_arr,lmin,Lmin,lmax,Lmax)
 
     # box sizes = number of basis functions in each box; starts,ends = indices for boxes within big matrix; bvalsdiag = simplification for identical particles
-    box_size_arr,nbasis_total = boxsize_fun(groupindex_arr,abvals_arr,lL_nested,nmax,Nmax)
+    # a complex-ranged coordinate doubles its number of basis functions (nu and its conjugate)
+    nmax_eff = complex_ranged_r ? 2*nmax : nmax
+    Nmax_eff = complex_ranged_R ? 2*Nmax : Nmax
+    box_size_arr,nbasis_total = boxsize_fun(groupindex_arr,abvals_arr,lL_nested,nmax_eff,Nmax_eff)
     starts = [1; cumsum(box_size_arr[1:end-1]) .+ 1]
     ends = cumsum(box_size_arr)
     #bvalsdiag = [[abvals_arr[boxR][1]] for boxR in groupindex_arr]
