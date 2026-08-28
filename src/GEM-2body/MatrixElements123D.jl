@@ -29,6 +29,17 @@ function element_V(vint::GaussianPotential,lmax,nu1,nu2,gamma_dict,buf,dim,domai
     return v0*(2*(nu1*nu2)^(1/2)/(nu1+nu2+mu_g))^(lmax+dim/2)
 end
 
+# power-law interaction V(r) = v0*|r|^p; the radial integration is closed-form:
+#   V_{l,n,n'} = v0 * Gamma(L+p/2)/Gamma(L) * element_S(l,nu1,nu2,dim) * (nu1+nu2)^(-p/2),  L = lmax+dim/2
+# Complex scaling needs no extra factor: nu1,nu2 arrive already scaled from MatrixV, and
+# (nu1+nu2)^(-p/2) then reproduces exactly the rotated potential.
+function element_V(vint::PowerLawPotential,lmax,nu1,nu2,gamma_dict,buf,dim,domain,dimfac) #power-law interaction
+    v0 = vint.v0
+    p = vint.p
+    L = lmax + dim/2
+    return v0 * gamma(L+p/2)/gamma_dict[L] * element_S(lmax,nu1,nu2,dim) / (nu1+nu2)^(p/2)
+end
+
 function element_V(vint::ContactPotential1D,lmax,nu1,nu2,gamma_dict,buf,dim,domain,dimfac) #contact interaction
     v0 = vint.v0
     z0 = vint.z0

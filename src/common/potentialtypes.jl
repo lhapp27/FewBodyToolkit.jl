@@ -58,27 +58,32 @@ end
     PowerLawPotential(v0::Float64, p::Float64)
 A concrete implementation of `PotentialFunction` that represents a power-law potential:
 ```math
-V(r) = v_0  r^{p}
+V(r) = v_0  |r|^{p}
 ```
-where `r` is the radial distance.
 
-Matrix elements are treated analytically (no numerical integration and no
-range-interpolation), since the radial integral is closed-form for
-any power law. Prominent cases are the Coulomb interaction (`p=-1`) and the
-harmonic oscillator (`p=2`).
+Note the **absolute value**: the potential is defined via `|r|`, i.e. it is an even
+function. This matters only in 1D, where the coordinate can be negative; there,
+`PowerLawPotential(v0,p)` describes `v0*|x|^p`. Odd potentials are not supported.
+In 2D and 3D, `r >= 0` anyway and `|r| = r`.
+
+Matrix elements are evaluated analytically (closed-form radial integration), so
+neither numerical integration nor range-interpolation is needed. Prominent cases
+are the Coulomb interaction (`p=-1`) and the harmonic oscillator (`p=2`).
+
+The matrix elements are finite only if `p` is not too negative. The bound depends
+on the dimension and on the angular momentum, and is therefore **not** checked
+here but in the individual modules:
+- `GEM2B`: requires `p > -2*lmax - dim`, e.g. `p > -1` for `lmax=0` in 1D,
+  so a pure `1/|x|` is already divergent in 1D.
+- `ISGL`: requires `p > -3`.
 
 # Arguments:
 - `v0::Float64`: The strength of the potential.
-- `p::Float64`: The exponent of the power law. Must satisfy `p > -3`, otherwise the radial integral diverges.
+- `p::Float64`: The exponent of the power law.
 """
 struct PowerLawPotential <: PotentialFunction
     v0::Float64
     p::Float64
-
-    function PowerLawPotential(v0::Float64, p::Float64)
-        p <= -3.0 && error("PowerLawPotential: p = $p is too singular; the radial integral diverges (requires p > -3).")
-        new(v0, p)
-    end
 end
 
 # convenience: allow integer exponents, e.g. PowerLawPotential(-1.0,-1)
@@ -87,11 +92,13 @@ PowerLawPotential(v0::Real, p::Real) = PowerLawPotential(Float64(v0), Float64(p)
 """
     function (pp::PowerLawPotential)(r)
 
-Evaluates the power-law potential at a given radial distance `r`.
+Evaluates the power-law potential at a given radial distance `r`. Uses `abs(r)`,
+see the note on 1D in [`PowerLawPotential`](@ref).
 """
 function (pp::PowerLawPotential)(r)
-    pp.v0 * r^pp.p
+    pp.v0 * abs(r)^pp.p
 end
+
 
 
 # postponed to future version

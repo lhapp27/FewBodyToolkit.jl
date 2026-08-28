@@ -116,6 +116,14 @@ function GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions:
     
     ## 1. Preliminaries:
     
+    # power-law interactions: the radial integral int |r|^(2*lmax+p) exp(-..) |r|^(dim-1) dr
+    # converges only for p > -2*lmax-dim (e.g. p > -1 for lmax=0 in 1D).
+    for vint in interactions
+        if vint isa PowerLawPotential && vint.p <= -2*lmax-dim
+            error("PowerLawPotential: p = $(vint.p) is too singular for lmax=$lmax in dim=$dim; requires p > $(-2*lmax-dim)")
+        end
+    end
+    
     # gamma function: Dict due to half-integer arguments. Change to array possible by multiplication of argument by 2
     gamma_dict = Dict{Float64, Float64}()
     for i = 0.5:0.5:max(nmax,2*lmax+1)+0.5

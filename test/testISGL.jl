@@ -131,8 +131,12 @@ end
 # harmonic oscillator (p=2) also the exact spectrum.
 
 # 11a. constructor: p <= -3 must be rejected (radial integral diverges)
-@test_throws ErrorException PowerLawPotential(1.0, -3.0)
-@test_throws ErrorException PowerLawPotential(1.0, -4.0)
+# 11a. validity of p is checked in sanity_checks (ISGL requires p > -3), not in the
+# constructor, since the bound depends on dimension/angular momentum. ISGL_solve
+# returns nothing instead of throwing (as for the other sanity-check failures).
+@test PowerLawPotential(1.0, -3.0).p == -3.0   # construction itself is allowed
+@test isnothing(ISGL_solve(make_phys_params3B3D(;masses=[m,m,m],species=[:x,:y,:z],interactions=[[PowerLawPotential(1.0,-3.0)],[],[]]),num_params))
+@test isnothing(ISGL_solve(make_phys_params3B3D(;masses=[m,m,m],species=[:x,:y,:z],interactions=[[],[PowerLawPotential(1.0,-4.0)],[]]),num_params))
 @test PowerLawPotential(-1.0, -1).p == -1.0   # integer exponents are accepted
 
 # 11b. harmonic oscillator (p=2) against the exact spectrum

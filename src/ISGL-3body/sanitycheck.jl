@@ -21,6 +21,18 @@ function sanity_checks(phys_params)
         return error_code
     end
     
+    # power-law interactions: the radial integral int r^(2n+2) V(r) exp(-alpha r^2) dr
+    # with n=0 converges only for p > -3.
+    for c in 1:lastindex(interactions)
+        for vint in interactions[c]
+            if vint isa PowerLawPotential && vint.p <= -3.0
+                println("PowerLawPotential: p = $(vint.p) is too singular for ISGL; requires p > -3")
+                error_code = 4
+                return error_code
+            end
+        end
+    end
+    
     # tests required: ok, even if fasb or fasf is empty?
     if allequal(masses[fasb]) == false || allequal(masses[fasf]) == false
         println("Problem with symmetrization: species does not fit to m_arr")
