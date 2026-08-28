@@ -63,7 +63,7 @@ V(r) = v_0  r^{p}
 where `r` is the radial distance.
 
 Matrix elements are treated analytically (no numerical integration and no
-range-interpolation), since the radial integral of Eq. (5.76) is closed-form for
+range-interpolation), since the radial integral is closed-form for
 any power law. Prominent cases are the Coulomb interaction (`p=-1`) and the
 harmonic oscillator (`p=2`).
 
