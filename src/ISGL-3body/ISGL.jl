@@ -34,7 +34,7 @@ const DEFAULT_OBS = (
 )
 
 """
-    ISGL_solve(phys_params, num_params; return_wavefunctions=false, complex_scaling=false, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+    ISGL_solve(phys_params, num_params; return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
 
 Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
 
@@ -43,6 +43,15 @@ Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
 - `num_params`: Numerical parameters for the GEM calculation (e.g., basis size, grid parameters, etc.).
 - `return_wavefunctions`: (optional) If `true`, also returns wavefunction-related observables. Default is `false`.
 - `complex_scaling`: (optional) If `true`, uses complex scaling method. Default is `false`.
+- `complex_ranged`: (optional) Selects complex-ranged basis functions `nu -> nu*(1 + i*omega)` per Jacobi
+  coordinate, with `omega = complex_range_freq` from `num_params`. One of `:none` (default), `:r`
+  (only the internal coordinate `` r ``), `:R` (only `` R ``), or `:both`. A `Bool` is also accepted,
+  with `true` meaning `:both`, for consistency with `GEM2B_solve`.
+  Each complex-ranged coordinate doubles its number of basis functions, since the ranges enter as
+  conjugate pairs; choosing `:both` therefore multiplies the total basis size by four.
+  Only analytically treated potentials (`GaussianPotential`, `PowerLawPotential`) are supported with
+  complex ranges, as the interpolated path for a generic central potential requires real ranges.
+  Observables are likewise unsupported with complex ranges.
 - `observ_params`: (optional) Parameters for observable calculations.
     + `stateindices`: Indices of states for which observables are calculated.
     + `centobs_arr`: Array of central (only dependent on `` r ``; must be defined as functions) observables, for each Jacobi set (similar to `interactions` in `phys_params`).
@@ -64,8 +73,11 @@ energies = ISGL_solve(phys_params, num_params) #solving with default parameters:
 ```
 """
 function ISGL_solve(phys_params, num_params;
-    return_wavefunctions = false, complex_scaling = false, observ_params=DEFAULT_OBS, debug = false,
+    return_wavefunctions = false, complex_scaling = false, complex_ranged = :none, observ_params=DEFAULT_OBS, debug = false,
     wf_bool=nothing, csm_bool=nothing, debug_bool=nothing)
+
+    complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
+    cr_any = complex_ranged_r || complex_ranged_R
 
     if !isnothing(wf_bool)
         @warn "wf_bool is deprecated, use return_wavefunctions instead"
@@ -90,26 +102,26 @@ function ISGL_solve(phys_params, num_params;
     end
     
     ## 2. sanity checks:
-    error_code = sanity_checks(phys_params);
+    error_code = sanity_checks(phys_params,cr_any,observ_params);
     if error_code != 0
         println("Erroneous inputs. Program stopped")
         return
     end
-    
-    ## 3. computations to determine sizes of arrays for allocation:   
-    size_params = size_estimate(phys_params,num_params,observ_params,complex_scaling)
-    
-    ## 4. preallocation: #is it really necessary? and/or can it not simply be done within the precomputation? better like this for performance analysis    
-    precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling)
+
+    ## 3. computations to determine sizes of arrays for allocation:
+    size_params = size_estimate(phys_params,num_params,observ_params,complex_scaling,complex_ranged_r,complex_ranged_R)
+
+    ## 4. preallocation: #is it really necessary? and/or can it not simply be done within the precomputation? better like this for performance analysis
+    precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling,complex_ranged_r,complex_ranged_R)
 
     ## 5. precomputation:
-    precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs)    
-    
+    precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs,complex_ranged_r,complex_ranged_R)
+
     ## 6. preparation of interpolation & shoulder:
-    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling)
-    
+    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling,cr_any)
+
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,debug)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,debug,complex_ranged_r,complex_ranged_R)
     
     ## 8. Solving the generalized eigenproblem:
     solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)

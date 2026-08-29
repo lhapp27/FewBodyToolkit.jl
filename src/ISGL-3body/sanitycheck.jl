@@ -1,8 +1,8 @@
 ﻿# function to check the inputs for the ISGL program of sanity:
 
-function sanity_checks(phys_params)
+function sanity_checks(phys_params,complex_ranged::Bool=false,observ_params=nothing)
     (;masses,species,interactions,J_tot,parity) = phys_params
-    
+
     if (lastindex(masses) !=3) || lastindex(species) !=3
         println("masses and/or species have wrong size, must be 3")
         error_code = 1
@@ -21,6 +21,46 @@ function sanity_checks(phys_params)
         return error_code
     end
     
+    # power-law interactions: the radial integral int r^(2n+2) V(r) exp(-alpha r^2) dr
+    # with n=0 converges only for p > -3.
+    for c in 1:lastindex(interactions)
+        for vint in interactions[c]
+            if vint isa PowerLawPotential && vint.p <= -3.0
+                println("PowerLawPotential: p = $(vint.p) is too singular for ISGL; requires p > -3")
+                error_code = 4
+                return error_code
+            end
+        end
+    end
+    
+    # complex-ranged basis functions:
+    # The generic path for a central potential obtains its radial integral numerically on a real
+    # mesh of effective ranges and then interpolates at log(etaprc). Complex ranges make etaprc
+    # complex, which that lookup cannot represent. Only the analytically treated potential types
+    # (GaussianPotential, PowerLawPotential) are therefore supported with complex ranges; they need
+    # neither numerical integration nor interpolation.
+    if complex_ranged
+        for c in 1:lastindex(interactions)
+            for vint in interactions[c]
+                if !(vint isa GaussianPotential || vint isa PowerLawPotential)
+                    println("Complex-ranged basis functions are only supported for analytically treated potentials (GaussianPotential, PowerLawPotential). Got $(typeof(vint)) in Jacobi set c=$c.")
+                    error_code = 5
+                    return error_code
+                end
+            end
+        end
+
+        # observables go through the same interpolation machinery and are equally unsupported
+        if !isnothing(observ_params)
+            (;centobs_arr,R2_arr) = observ_params
+            if any(.!isempty.(centobs_arr)) || any(R2_arr .!= 0)
+                println("Observables (centobs_arr, R2_arr) are not supported together with complex-ranged basis functions.")
+                error_code = 6
+                return error_code
+            end
+        end
+    end
+
     # tests required: ok, even if fasb or fasf is empty?
     if allequal(masses[fasb]) == false || allequal(masses[fasf]) == false
         println("Problem with symmetrization: species does not fit to m_arr")

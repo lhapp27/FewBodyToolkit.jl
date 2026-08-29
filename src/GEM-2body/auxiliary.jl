@@ -25,6 +25,10 @@ make_phys_params2B(mur=0.5, interactions=[r -> -1/r], lmax=2)       # 3D Coulomb
 ```
 """
 function make_phys_params2B(;hbar = 1.0, mur=1.0, interactions=[GaussianPotential(-1.0, 1.0)], lmin=0, lmax=0, dim=3)
+    # Abstract eltype on purpose: a concrete Vector{typeof(v)} makes the whole solver
+    # pipeline re-specialize for every new potential function. element_V provides the
+    # function barrier that keeps the quadrature itself fully specialized.
+    interactions = Vector{Any}(interactions)
     return (;hbar, mur, interactions, lmin, lmax, dim)
 end
 

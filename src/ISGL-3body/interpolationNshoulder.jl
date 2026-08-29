@@ -1,19 +1,27 @@
 ﻿# functions to precompute the w-arrays for the interaction via interpolation and the upon-the shoulder method
 
-function interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions::Bool,complex_scaling::Bool)
-    
+function interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged::Bool=false)
+
     # Destruct Structs:
     (;interactions) = phys_params
     (;lmax,Lmax,gem_params,complex_scaling_angle,complex_range_freq,mu0,c_shoulder,kmax_interpol,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;stateindices,centobs_arr,R2_arr) = observ_params
-    (;cvals,central_indices,so_indices,maxlmax,nint_arr) = size_params
+    (;cvals,central_indices,so_indices,pow_indices,powopt_arr,maxlmax,nint_arr) = size_params
     (;gamma_dict,jmat,nu_arr,NU_arr) = precomp_arrs
-    (;alpha_arr,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_obs_arr,w_obs_arr,w_obs_interpol_arr) = interpol_arrs
+    (;alpha_arr,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr) = interpol_arrs
     
     # range interpolation:
-    precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
-    
+    # The interpolation mesh is only meaningful for real ranges: it is looked up at log(etaprc),
+    # which is complex once the ranges are. Complex ranges are therefore restricted to the
+    # analytically treated potentials (see sanity_checks), and the mesh is not used at all; a
+    # placeholder mesh is filled so that the (then empty) interpolation loops below stay well-defined.
+    if complex_ranged
+        buildnu(10.0,1.0,lastindex(alpha_arr),alpha_arr) # arguments swapped so that alpha_arr is increasing, as in precompute_alpha_arr
+    else
+        precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
+    end
+
     # wrap function types:
     # Auto-wrap plain functions as central, to ensure compatibility
     wrap_potential(f::Function) = CentralPotential(f)
@@ -24,7 +32,7 @@ function interpolNshoulder(phys_params,num_params,observ_params,size_params,prec
     
     
     # upon-the-shoulder
-    precompute_w(w_arr,v_arr,alpha_arr,A_mat,w_interpol_arr,Ainv_arr_kine,gamma_dict,maxlmax,mu0,c_shoulder,cvals,vint_arr_wrapped,centobs_arr_wrapped,w_obs_arr,v_obs_arr,w_obs_interpol_arr,return_wavefunctions,complex_scaling,complex_scaling_angle,central_indices,so_indices,nint_arr)
+    precompute_w(w_arr,v_arr,alpha_arr,A_mat,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,gamma_dict,maxlmax,mu0,c_shoulder,cvals,vint_arr_wrapped,centobs_arr_wrapped,w_obs_arr,v_obs_arr,w_obs_interpol_arr,return_wavefunctions,complex_scaling,complex_scaling_angle,central_indices,so_indices,pow_indices,powopt_arr,nint_arr)
     
 end
 
@@ -50,7 +58,7 @@ function precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
                                 Aa = SA[nua 0.0 ; 0.0 NUa]
                                 Ab = SA[nub 0.0 ; 0.0 NUb]
                                 tempA = transpose(jmat[a,c])*Aa*jmat[a,c] + transpose(jmat[b,c])*Ab*jmat[b,c]
-                                temp = det(tempA)/tempA[2,2]
+                                temp = abs(det(tempA)/tempA[2,2]) # abs is a no-op for real ranges (etaprc>0); it keeps this scan well-defined should complex ranges ever be routed through the interpolation path
                                 i==1 && (tempmin = temp; tempmax=temp;)
                                 temp > tempmax && (tempmax = temp)
                                 temp < tempmin && (tempmin = temp)
@@ -95,6 +103,20 @@ function precompute_varr!(v_arr,alpha_arr,Lsum,gamma_dict,vcent_fun::SpinOrbitPo
     end
 end =#
 
+# power-law interaction: the integral is analytic, so no numerical integration is needed.
+# The main interaction path does not use this (see the pow_indices block in precompute_w), but
+# observables (centobs_arr) go through precompute_varr! as well, so a method is provided here.
+function precompute_varr!(v_arr,alpha_arr,Lsum,gamma_dict,vcent_fun::PowerLawPotential,buf,csmfac)
+    (;v0,p) = vcent_fun
+    for n = 0:Lsum
+        for k=1:lastindex(alpha_arr)
+            norm_interpol = 1/2 * gamma_dict[n+1.5]/alpha_arr[k]^(n+3/2)
+            vcent_analytic = v0*csmfac^(-p) * 1/2*gamma(n+(3+p)/2)/alpha_arr[k]^(n+(3+p)/2)
+            v_arr[k,n+1] = vcent_analytic/gamma_dict[n+1.0]/norm_interpol
+        end
+    end
+end
+
 function vcent_integration(vcent_fun,alpha,n,buf) #where {V}
     val = quadgk(r -> integrand(r,alpha,n,vcent_fun),0,Inf;segbuf=buf)[1]
 end
@@ -104,7 +126,7 @@ end
 
 
 ### w_arr: upon-the-shoulder method
-@views @inbounds function precompute_w(w_arr,v_arr,alpha_arr,A_mat,w_interpol_arr,Ainv_arr_kine,gamma_dict,maxlmax,mu0,c_shoulder,cvals,interactions,centobs_arr,w_obs_arr,v_obs_arr,w_obs_interpol_arr,return_wavefunctions::Bool,complex_scaling::Bool,complex_scaling_angle,central_indices,so_indices,nint_arr)
+@views @inbounds function precompute_w(w_arr,v_arr,alpha_arr,A_mat,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,gamma_dict,maxlmax,mu0,c_shoulder,cvals,interactions,centobs_arr,w_obs_arr,v_obs_arr,w_obs_interpol_arr,return_wavefunctions::Bool,complex_scaling::Bool,complex_scaling_angle,central_indices,so_indices,pow_indices,powopt_arr,nint_arr)
     # returns the Array w_arr[c in cvals,alpha=1:alphamax,Lsum = 1:2*maxlmax,n=1:Lsum+1]
     # note the +1 in the last argument: w_arr, v_arr are NOT offset-arrays due to problems with linear algebra package. 
     
@@ -139,6 +161,28 @@ end
         else
             for n=0:Lsum
                 Ainv_arr_kine[Lsum,n] = Ainv[n+1,0+1] + Ainv[n+1,1+1]
+            end
+        end
+        
+        # necessary for power-law interactions:
+        # For V(r)=v0*r^p the radial integral of the range-interpolation method is closed-form,
+        # Vtilde_n(alpha) = Gamma(n+(3+p)/2)/Gamma(n+3/2) * alpha^(-p/2), i.e. the alpha-dependence is a
+        # single power alpha^(-p/2), the same for every n. It therefore factors out of the shoulder solve
+        # and is applied later in element_VPow (via etaprc^(-p/2)); no interpolation over alpha is needed.
+        # v0 is applied in element_VPow as well (as for the Gaussian), so only p enters here.
+        for cc in cvals
+            for iv in pow_indices[cc]
+                p_pow = powopt_arr[cc][iv][2]
+                for j = 0:Lsum
+                    v_pow[j+1] = csmfac^(-p_pow) * gamma(j+(3+p_pow)/2)/gamma_dict[j+1.5]/gamma_dict[j+1.0]
+                end
+                for n = 0:Lsum # w = Ainv*v_pow, using the Ainv already formed above (as for Ainv_arr_kine)
+                    temp_pow = zero(eltype(v_pow))
+                    for j = 0:Lsum
+                        temp_pow += Ainv[n+1,j+1]*v_pow[j+1]
+                    end
+                    w_pow_arr[cc,iv,Lsum,n] = temp_pow
+                end
             end
         end
         

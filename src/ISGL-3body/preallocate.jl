@@ -1,6 +1,9 @@
 ﻿# functions to preallocate all arrays for the ISGL program
 
-struct PrecomputeStruct
+# TR is the element type of the Gaussian ranges, and of everything derived from the ranges alone
+# (norms, gij/kij, the overlap matrix S). It is Float64 for the usual real ranges and ComplexF64
+# as soon as complex-ranged basis functions are used in at least one Jacobi coordinate.
+struct PrecomputeStruct{TR}
     gamma_dict::Dict{Float64, Float64}
     cleb_arr::OffsetArray{Float64, 5, Array{Float64, 5}}
     spintrafo_dict::Dict{Tuple{Int64,Int64,Float64,Float64,Float64},Float64}
@@ -9,10 +12,10 @@ struct PrecomputeStruct
     facsymm_dict::Dict{Tuple{Int64,Int64,Int64,Int64,Float64,Float64},Float64}
     jmat::Matrix{SMatrix{2, 2, Float64, 4}}
     murR_arr::MMatrix{2, 3, Float64, 6}
-    nu_arr::Vector{Float64}
-    NU_arr::Vector{Float64}
-    norm_arr::OffsetMatrix{Float64, Matrix{Float64}}#OffsetMatrix{Float64, Matrix{Float64}}
-    NORM_arr::OffsetMatrix{Float64, Matrix{Float64}}#OffsetMatrix{Float64, Matrix{Float64}}
+    nu_arr::Vector{TR}
+    NU_arr::Vector{TR}
+    norm_arr::OffsetMatrix{TR, Matrix{TR}}
+    NORM_arr::OffsetMatrix{TR, Matrix{TR}}
     Clmk_arr::OffsetArray{Float64, 3, Array{Float64, 3}} # 3,4,5 defines the dimensions of the array, not the size.
     Dlmk_arr::OffsetArray{ComplexF64, 4, Array{ComplexF64, 4}}
     S_arr::OffsetArray{Float64, 6, Array{Float64, 6}}
@@ -34,18 +37,20 @@ struct InterpolationStruct{T}
     w_arr::Array{T, 4}
     w_interpol_arr::OffsetArray{Interpolations.Extrapolation{T, 1, ScaledInterpolation{T, 1, Interpolations.BSplineInterpolation{T, 1, OffsetVector{T, Vector{T}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4, Array{Interpolations.Extrapolation{T, 1, ScaledInterpolation{T, 1, Interpolations.BSplineInterpolation{T, 1, OffsetVector{T, Vector{T}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4}}
     Ainv_arr_kine::OffsetMatrix{Float64, Matrix{Float64}}
+    v_pow::Vector{T}
+    w_pow_arr::OffsetArray{T, 4, Array{T, 4}}
     v_obs_arr::Matrix{Float64}
     w_obs_arr::Array{Float64, 5}
     w_obs_interpol_arr::OffsetArray{Interpolations.Extrapolation{Float64, 1, ScaledInterpolation{Float64, 1, Interpolations.BSplineInterpolation{Float64, 1, OffsetVector{Float64, Vector{Float64}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4, Array{Interpolations.Extrapolation{Float64, 1, ScaledInterpolation{Float64, 1, Interpolations.BSplineInterpolation{Float64, 1, OffsetVector{Float64, Vector{Float64}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4}}
 end
 
 # new struct for temporary arguments
-struct TempArgs
+struct TempArgs{TR}
   rowi::Int
   coli::Int
   ranges::NamedTuple{(:nua, :nub, :NUa, :NUb),
-                     Tuple{Float64,Float64,Float64,Float64}}
-  norm4::Float64
+                     NTuple{4,TR}}
+  norm4::TR
   mij_arr::Array{SArray{Tuple{6},Int,1,6},1}
   sa::Float64
   JsSa::Float64
@@ -65,41 +70,62 @@ struct TempArgs
   bvals::Vector{Int}
 end
 
+# Outer constructor: takes TR from the ranges and lets the inner constructor convert the remaining
+# fields (in particular the integer factor_ab). The auto-generated constructor of a *parametric*
+# struct matches the declared field types exactly and would not perform that conversion.
+function TempArgs(rowi,coli,ranges::NamedTuple{(:nua, :nub, :NUa, :NUb),NTuple{4,TR}},norm4,mij_arr,sa,JsSa,sb,JsSb,JlLa,JlLb,la,La,lb,Lb,Lsum,avals_new,bvals_new,factor_ab,avals,bvals) where {TR}
+    TempArgs{TR}(rowi,coli,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,JlLa,JlLb,la,La,lb,Lb,Lsum,avals_new,bvals_new,factor_ab,avals,bvals)
+end
 
-struct FillStruct{T}
+
+# T  : element type of H, V and everything that can pick up a complex-scaling phase
+#      (complex as soon as complex_scaling OR complex ranges are active)
+# TR : element type of the ranges and of the quantities derived from them alone
+#      (complex only for complex ranges; the ISGL complex-scaling rotates the potential, not the ranges)
+struct FillStruct{T,TR}
     fij_arr::Matrix{Float64}
     Kij_arr::Matrix{Float64}
-    w_arr_kine::OffsetVector{Float64, Vector{Float64}}
+    w_arr_kine::OffsetVector{TR, Vector{TR}}
     wn_interpol_arr::OffsetVector{T, Vector{T}}
-    kij_arr::OffsetArray{Float64, 3, Array{Float64, 3}}#OffsetArray{Float64}
-    gij_arr::OffsetArray{Float64, 3, Array{Float64, 3}}#OffsetArray{Float64}
+    kij_arr::OffsetArray{TR, 3, Array{TR, 3}}
+    gij_arr::OffsetArray{TR, 3, Array{TR, 3}}
     T::Matrix{T}
     V::Matrix{T}
-    S::Matrix{Float64}
-    temp_args_arr::Vector{TempArgs}
+    S::Matrix{TR}
+    temp_args_arr::Vector{TempArgs{TR}}
     temp_fill_mat::Matrix{T}
     wn_obs_interpol_arr::OffsetVector{Float64, Vector{Float64}}
 end
 
-struct ResultStruct{T}
-    energies_arr::Vector{T}
-    wavefun_arr::Matrix{T}
+# TE: element type of the energies. Complex ranges alone leave H and S hermitian, so the
+# eigenvalues stay real; only complex scaling makes them genuinely complex.
+struct ResultStruct{TE,TW}
+    energies_arr::Vector{TE}
+    wavefun_arr::Matrix{TW}
     centobs_output::Array{Float64}
     R2_output::Matrix{Float64}
 end
 
 
-function preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling::Bool)
-    if !complex_scaling
-        TT = Float64
-    elseif complex_scaling
-        TT = ComplexF64
-    end
-    
+function preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false)
+    complex_ranged = complex_ranged_r || complex_ranged_R
+
+    # TT: H, V, and everything that can carry the complex-scaling phase
+    # TR: ranges, norms, overlap S, gij/kij (the ISGL complex-scaling rotates the potential, not the ranges)
+    # TE: energies. With complex ranges alone, H and S stay hermitian -> real eigenvalues.
+    TT = (complex_scaling || complex_ranged) ? ComplexF64 : Float64
+    TR = complex_ranged ? ComplexF64 : Float64
+    TE = complex_scaling ? ComplexF64 : Float64
+
     #Destructing Structs:
     (;J_tot) = phys_params
     (;gem_params,kmax_interpol) = num_params
     (;nmax,Nmax) = gem_params
+
+    # complex-ranged basis functions come in conjugate pairs, so the corresponding coordinate
+    # carries twice as many ranges. The two coordinates are independent.
+    nmax_eff = complex_ranged_r ? 2*nmax : nmax
+    Nmax_eff = complex_ranged_R ? 2*Nmax : Nmax
     (;nintmax,nbasis_total,nlL,nl,maxlmax,maximax,maxkmax,maxobs,JlL_complete) = size_params
     (;stateindices,centobs_arr,R2_arr) = observ_params
     
@@ -124,13 +150,13 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     murR_arr = MMatrix{2,3,Float64,6}(zeros(2,3)); # reduced masses
     
     # Allocate ranges
-    nu_arr = Vector{Float64}(undef, nmax)
-    NU_arr = Vector{Float64}(undef, Nmax)        
+    nu_arr = Vector{TR}(undef, nmax_eff)
+    NU_arr = Vector{TR}(undef, Nmax_eff)
     #ranges = (nu_arr, NU_arr)
-    
+
     # Allocate norms
-    norm_arr = OffsetMatrix{Float64}(undef, 0:maxlmax, nmax)*0.0 # one norm_arr for all l,n combinations. changed to OffsetArray for all values of l=0:maxlmax
-    NORM_arr = OffsetMatrix{Float64}(undef, 0:maxlmax, Nmax)*0.0 # one norm_arr for all L,N combinations
+    norm_arr = OffsetMatrix{TR}(undef, 0:maxlmax, nmax_eff)*zero(TR) # one norm_arr for all l,n combinations. changed to OffsetArray for all values of l=0:maxlmax
+    NORM_arr = OffsetMatrix{TR}(undef, 0:maxlmax, Nmax_eff)*zero(TR) # one norm_arr for all L,N combinations
     
     # ISGL arrays:
     Clmk_arr = OffsetArray{Float64}(undef, 0:maxlmax, -maxlmax:maxlmax, maxkmax)*0.0
@@ -149,7 +175,9 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     w_interpol_arr=OffsetArray{interpoltypeC}(undef,3,nintmax,0:2*maxlmax,0:2*maxlmax) # penultimate dimensionality for different Lsum values!; nintmax for (maximum) number of interactions
     #aac=zeros(27);gac=zeros(27);abc=zeros(27);gbc=zeros(27)
     Ainv_arr_kine = OffsetArray{Float64}(undef,0:2*maxlmax,0:2*maxlmax)*0.0 # penultimate dimensionality for different Lsum values!
-    w_arr_kine = OffsetArray{Float64}(undef,0:2*maxlmax+1)*0.0
+    v_pow = zeros(TT,2*maxlmax+1) # scratch for the power-law shoulder solve (alpha-independent); NOT an OffsetArray, as for v_arr
+    w_pow_arr = OffsetArray(zeros(TT,3,nintmax,2*maxlmax+1,2*maxlmax+1),1:3,1:nintmax,0:2*maxlmax,0:2*maxlmax) # analytic shoulder-weights for power-law interactions; same indexing as w_interpol_arr, but plain numbers (no interpolation needed)
+    w_arr_kine = OffsetArray{TR}(undef,0:2*maxlmax+1)*zero(TR)
     wn_interpol_arr = OffsetArray{TT}(undef,0:2*maxlmax)*0.0 # for the interpolated wn_values that are actually used
     #for observables (in range-interpolation)
     v_obs_arr = zeros(kmax_interpol,2*maxlmax+1)
@@ -160,15 +188,15 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     # arrays for shoulder method (used in matrix-element calculations)
     fij_arr = zeros(3,4)
     Kij_arr = zeros(3,4)
-    kij_arr = OffsetArray{Float64}(undef,3,4,0:2*maxlmax)*0.0
-    gij_arr = OffsetArray{Float64}(undef,3,4,0:2*maxlmax)*0.0
-    S = zeros(nbasis_total,nbasis_total) #Matrix{Float64}(undef, nbasis_total, nbasis_total)
+    kij_arr = OffsetArray{TR}(undef,3,4,0:2*maxlmax)*zero(TR)
+    gij_arr = OffsetArray{TR}(undef,3,4,0:2*maxlmax)*zero(TR)
+    S = zeros(TR,nbasis_total,nbasis_total) # hermitian (not just symmetric) for complex ranges
     T = zeros(TT,nbasis_total,nbasis_total) #Matrix{Float64}(undef, nbasis_total, nbasis_total)
     V = zeros(TT,nbasis_total,nbasis_total);#Matrix{Float64}(undef, nlL * nmax * Nmax, nlL * nmax * Nmax)
     
     
     # for results:
-    energies_arr = zeros(TT,nbasis_total);# Vector{TT}(undef, nbasis_total) # changed to zeros to avoid bad behavior due to undef values not occupied thresholding (eigen2step)
+    energies_arr = zeros(TE,nbasis_total);# changed to zeros to avoid bad behavior due to undef values not occupied thresholding (eigen2step)
     wavefun_arr = Matrix{TT}(undef, nbasis_total, nbasis_total)
     centobs_output = Array{Float64}(undef, 3, maxobs, lastindex(stateindices))
     R2_output = zeros(3, lastindex(stateindices))
@@ -181,17 +209,18 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     temp_D2=zeros(3)#MVector{3, ComplexF64}(zeros(3))
     
     # temporary arrays for filling: function arguments and matrix
-    ntot = Int64((nbasis_total^2+nbasis_total)/2) # only for lower triangular!
-    # Define the type of the tuple for the function arguments
-    tuple_type = NamedTuple{(:rowi, :coli, :ranges, :norm4, :mij_arr, :sa, :JsSa, :sb, :JsSb, :JlLa, :JlLb, :la, :La, :lb, :Lb, :Lsum, :avals_new, :bvals_new, :factor_ab, :avals, :bvals),Tuple{Int64,Int64,NamedTuple{(:nua, :nub, :NUa, :NUb),Tuple{Float64,Float64,Float64,Float64}},Float64,Array{SArray{Tuple{6},Int64,1,6},1},Float64,Float64,Float64,Float64,Int64,Int64,Int64,Int64,Int64,Int64,Int64,Array{Int64,1},Vector{Int64},Int64,Vector{Int64},Vector{Int64}}}
-    temp_args_arr = Vector{TempArgs}(undef, ntot)
+    # Combined complex ranges and complex scaling leave H neither symmetric nor hermitian,
+    # so the full matrix has to be filled instead of only the lower triangle.
+    fill_full = complex_ranged && complex_scaling
+    ntot = fill_full ? Int64(nbasis_total^2) : Int64((nbasis_total^2+nbasis_total)/2)
+    temp_args_arr = Vector{TempArgs{TR}}(undef, ntot)
     temp_fill_mat = zeros(TT,nbasis_total, nbasis_total)
         
     
     # now constructing Structs for different steps in the program:
     precomp_arrs = PrecomputeStruct(gamma_dict,cleb_arr,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr)
     temp_arrs = TempStruct(temp_clmk,temp_dlmk,temp_S,temp_D1,temp_D2)
-    interpol_arrs = InterpolationStruct(alpha_arr,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_obs_arr,w_obs_arr,w_obs_interpol_arr)
+    interpol_arrs = InterpolationStruct(alpha_arr,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr)
     fill_arrs = FillStruct(fij_arr,Kij_arr,w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr,temp_fill_mat,wn_obs_interpol_arr)
     result_arrs = ResultStruct(energies_arr,wavefun_arr,centobs_output,R2_output)
     

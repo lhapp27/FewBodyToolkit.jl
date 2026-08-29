@@ -33,6 +33,8 @@ function normalize_species(species)
 end
 
 function make_phys_params3B3D(;hbar = 1.0, masses=[1.0, 1.0, 1.0], species=[:x,:y,:z], interactions=[[GaussianPotential(-1.0, 1.0)],[GaussianPotential(-1.0, 1.0)],[GaussianPotential(-1.0, 1.0)]], J_tot=0, parity=1, spins=[0,0,0])
+    # Abstract eltype on purpose: see make_phys_params2B.
+    interactions = Vector{Any}[Vector{Any}(vv) for vv in interactions]
     species = normalize_species(species)
     return (;hbar, masses, species, interactions, J_tot, parity, spins)
 end
@@ -49,7 +51,7 @@ Create and return a named tuple containing the numerical parameters for a three-
 - `Lmax::Int = 0`: Maximum power `r^L` used in the basis functions of the `` R `` Jacobi coordinate.
 - `gem_params::NamedTuple = (nmax=5, r1=1.0, rnmax=10.0, Nmax=5, R1=1.0, RNmax=10.0)`: Parameters for the Gaussian Expansion Method (number of basis functions, smallest and largest range parameters for both Jacobi coordinates).
 - `complex_scaling_angle::Float64 = 0.0`: Complex scaling angle (in degrees) for the Complex Scaling Method.
-- `complex_range_freq::Float64 = 0.9`: Parameter controlling the frequency for complex-ranged basis functions. Currently unsupported.
+- `complex_range_freq::Float64 = 0.9`: Parameter `` \\omega `` controlling the frequency for complex-ranged basis functions, `` \\nu \\to \\nu(1 + i\\omega) ``. Only used when `ISGL_solve` is called with `complex_ranged` set to something other than `:none`. The same `` \\omega `` is used for both Jacobi coordinates.
 - `mu0::Float64 = 0.08`: Parameter (prefactor) for the ISGL method.
 - `c_shoulder::Float64 = 1.6`: Parameter (base) for the ISGL method.
 - `kmax_interpol::Int = 1000`: Number of numerical integration with effective Gaussian ranges used for interpolation.
@@ -68,4 +70,24 @@ function make_num_params3B3D(;lmin=0, Lmin=0, lmax=0, Lmax=0, gem_params=(nmax=1
     complex_scaling_angle = isnothing(theta_csm) ? complex_scaling_angle : theta_csm
     complex_range_freq = isnothing(omega_cr) ? complex_range_freq : omega_cr
     return (;lmax, Lmax, gem_params, complex_scaling_angle, complex_range_freq, mu0, c_shoulder, kmax_interpol, threshold, lmin, Lmin)
+end
+
+
+"""
+    parse_complex_ranged(complex_ranged) -> (complex_ranged_r, complex_ranged_R)
+
+Translates the user-facing `complex_ranged` option into two booleans, one per Jacobi coordinate.
+
+Accepted values are the symbols `:none`, `:r`, `:R`, `:both`, and a `Bool` (`true` meaning `:both`,
+`false` meaning `:none`) for consistency with `GEM2B_solve`, whose basis has only one coordinate.
+
+Kept here rather than in `common/` for now; it should move once `GEM3B1D` gains the same option.
+"""
+function parse_complex_ranged(complex_ranged)
+    complex_ranged isa Bool && return (complex_ranged, complex_ranged)
+    complex_ranged === :none && return (false, false)
+    complex_ranged === :r    && return (true,  false)
+    complex_ranged === :R    && return (false, true)
+    complex_ranged === :both && return (true,  true)
+    error("complex_ranged must be one of :none, :r, :R, :both (or a Bool); got $(repr(complex_ranged))")
 end

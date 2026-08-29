@@ -14,6 +14,8 @@ struct SizeParams{T<:Number}
     cvals::Vector{Int64}
     gauss_indices::Vector{Vector{Int}}
     gaussopt_arr::Vector{Vector{Tuple{Float64,T}}}
+    pow_indices::Vector{Vector{Int}}
+    powopt_arr::Vector{Vector{Tuple{Float64,Float64}}}
     central_indices::Vector{Vector{Int}}
     so_indices::Vector{Vector{Int}}
     nint_arr::Vector{Int64}
@@ -50,8 +52,8 @@ struct SizeParams{T<:Number}
     maxobs::Int64
 end
 
-function size_estimate(phys_params,num_params,observ_params,complex_scaling::Bool)
-    
+function size_estimate(phys_params,num_params,observ_params,complex_scaling::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false)
+
     # input interpretation:
     (;masses,species,interactions,J_tot,parity,spins) = phys_params
     (;lmax,Lmax,gem_params,complex_scaling_angle,complex_range_freq,mu0,c_shoulder,kmax_interpol,lmin,Lmin) = num_params
@@ -62,7 +64,7 @@ function size_estimate(phys_params,num_params,observ_params,complex_scaling::Boo
     cvals = findall(isempty.(interactions) .==0 ) # consider only values for c where there are interactions (any type)
     
     # number of interactions per Jacobi-set c:
-    gauss_indices, gaussopt_arr, central_indices, so_indices, nint_arr, nintmax = index_interaction_types(interactions,complex_scaling, complex_scaling_angle)
+    gauss_indices, gaussopt_arr, pow_indices, powopt_arr, central_indices, so_indices, nint_arr, nintmax = index_interaction_types(interactions,complex_scaling, complex_scaling_angle)
 
     # box sizes, indices and factors for symmetrization
     abvals_arr,groupindex_arr,nboxes,abI,factor_bf = abc_size(cvals,species)
@@ -73,7 +75,10 @@ function size_estimate(phys_params,num_params,observ_params,complex_scaling::Boo
     lL_nested,lL_complete,l_complete = lLcoupl(J_tot,parity,cvals,species,spins,s_arr,JsS_arr,JlL_arr,lmin,Lmin,lmax,Lmax)
 
     # box sizes = number of basis functions in each box; starts,ends = indices for boxes within big matrix; bvalsdiag = simplification for identical particles
-    box_size_arr,nbasis_total = boxsize_fun(groupindex_arr,abvals_arr,lL_nested,nmax,Nmax)
+    # a complex-ranged coordinate doubles its number of basis functions (nu and its conjugate)
+    nmax_eff = complex_ranged_r ? 2*nmax : nmax
+    Nmax_eff = complex_ranged_R ? 2*Nmax : Nmax
+    box_size_arr,nbasis_total = boxsize_fun(groupindex_arr,abvals_arr,lL_nested,nmax_eff,Nmax_eff)
     starts = [1; cumsum(box_size_arr[1:end-1]) .+ 1]
     ends = cumsum(box_size_arr)
     #bvalsdiag = [[abvals_arr[boxR][1]] for boxR in groupindex_arr]
@@ -99,7 +104,7 @@ function size_estimate(phys_params,num_params,observ_params,complex_scaling::Boo
     maxobs = maximum(lastindex.(centobs_arr)) # max number of observables
 
     # Constructing Struct (collective data structure size_params with all the size parameters)
-    size_params = SizeParams(abvals_arr,cvals,gauss_indices,gaussopt_arr,central_indices,so_indices,nint_arr,nintmax,groupindex_arr,nboxes,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,JlL_complete,lL_nested,lL_complete,l_complete,nlL,nl,maxlmax,imax_dict,imaxSO_dict,maximax,mij_arr_dict,mijSO_arr_dict,kmax_dict,maxkmax,maxobs)
+    size_params = SizeParams(abvals_arr,cvals,gauss_indices,gaussopt_arr,pow_indices,powopt_arr,central_indices,so_indices,nint_arr,nintmax,groupindex_arr,nboxes,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,JlL_complete,lL_nested,lL_complete,l_complete,nlL,nl,maxlmax,imax_dict,imaxSO_dict,maximax,mij_arr_dict,mijSO_arr_dict,kmax_dict,maxkmax,maxobs)
     
     return size_params
 end
@@ -131,27 +136,37 @@ end
 function index_interaction_types(interactions,complex_scaling::Bool, complex_scaling_angle)
     gauss_indices = [Int[] for _ in 1:3]
     gaussopt_arr = [Tuple{Float64,Float64}[] for _ in 1:3]
+    pow_indices = [Int[] for _ in 1:3]
+    powopt_arr = [Tuple{Float64,Float64}[] for _ in 1:3]
     central_indices = [Int[] for _ in 1:3]
     so_indices = [Int[] for _ in 1:3]
     nint_arr = zeros(Int64,3)
 
-    pushindexpotentialtype!(v::Function, central_indices, gauss_indices, so_indices, i) = push!(central_indices, i) # treat function as a central potential
-    pushindexpotentialtype!(v::CentralPotential, central_indices, gauss_indices, so_indices, i) = push!(central_indices, i)
-    #pushindexpotentialtype!(v::SpinOrbitPotential, central_indices, gauss_indices, so_indices, i) = push!(so_indices, i) # postponed to future version
-    pushindexpotentialtype!(v::GaussianPotential, central_indices, gauss_indices, so_indices, i) = push!(gauss_indices, i)
+    pushindexpotentialtype!(v::Function, central_indices, gauss_indices, pow_indices, so_indices, i) = push!(central_indices, i) # treat function as a central potential
+    pushindexpotentialtype!(v::CentralPotential, central_indices, gauss_indices, pow_indices, so_indices, i) = push!(central_indices, i)
+    #pushindexpotentialtype!(v::SpinOrbitPotential, central_indices, gauss_indices, pow_indices, so_indices, i) = push!(so_indices, i) # postponed to future version
+    pushindexpotentialtype!(v::GaussianPotential, central_indices, gauss_indices, pow_indices, so_indices, i) = push!(gauss_indices, i)
+    pushindexpotentialtype!(v::PowerLawPotential, central_indices, gauss_indices, pow_indices, so_indices, i) = push!(pow_indices, i)
     
 
     for c in 1:3
         gauss_indices[c] = Int[]
+        pow_indices[c] = Int[]
         central_indices[c] = Int[]
         so_indices[c] = Int[]
         for (i, v) in enumerate(interactions[c])
-            pushindexpotentialtype!(v, central_indices[c], gauss_indices[c], so_indices[c], i)
+            pushindexpotentialtype!(v, central_indices[c], gauss_indices[c], pow_indices[c], so_indices[c], i)
 
             if i in gauss_indices[c] # if this is a Gaussian potential
                 push!(gaussopt_arr[c], (v.v0, v.mu_g)) # store the parameters of the Gaussian potential
             else
                 push!(gaussopt_arr[c], (NaN, NaN)) # if not a Gaussian potential, store NaN. This is necessary to keep the order of indices.
+            end
+
+            if i in pow_indices[c] # if this is a power-law potential
+                push!(powopt_arr[c], (v.v0, v.p)) # store the parameters of the power-law potential
+            else
+                push!(powopt_arr[c], (NaN, NaN)) # if not a power-law potential, store NaN. This is necessary to keep the order of indices.
             end
 
         end
@@ -161,8 +176,10 @@ function index_interaction_types(interactions,complex_scaling::Bool, complex_sca
     nintmax = maximum(nint_arr)
 
     gaussopt_arrC = csmgaussopt(gaussopt_arr, complex_scaling, complex_scaling_angle) # adjust to complex values when complex_scaling=true
+    # note: powopt_arr needs no such adjustment; the complex-scaling factor for a power law is a single
+    # global csmfac^(-p) which is applied in precompute_w (see interpolationNshoulder.jl).
 
-    return gauss_indices, gaussopt_arrC, central_indices, so_indices, nint_arr, nintmax
+    return gauss_indices, gaussopt_arrC, pow_indices, powopt_arr, central_indices, so_indices, nint_arr, nintmax
 end
 
 

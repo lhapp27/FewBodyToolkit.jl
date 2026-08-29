@@ -84,3 +84,44 @@ np_optim = make_num_params2B(;gem_params=(;nmax=8, r1=0.5, rnmax=20.0))
 result_optim = GEM_Optim_2B(phys_params, np_optim, 1)
 @test length(result_optim) == 3          # [r1_opt, rnmax_opt, energy]
 @test isapprox(result_optim[3], -0.5; atol=1e-2)  # hydrogen ground state E = -0.5
+
+# 12. PowerLawPotential (3D): analytic treatment of V(r) = v0*|r|^p
+# 12a. Coulomb (p=-1) against the exact results and against the numerical path
+v_coulomb_pow = PowerLawPotential(-Z,-1.0)
+pp_pow = make_phys_params2B(;interactions=[v_coulomb_pow])
+e_pow = GEM2B.GEM2B_solve(pp_pow,num_params)
+@test all(isapprox.(e_pow[1:4], exact_results; atol=1e-3))
+@test all(isapprox.(e_pow[1:4], GEM2B.GEM2B_solve(phys_params,num_params)[1:4]; rtol=1e-8))
+
+# 12b. harmonic oscillator (p=2) against the exact 3D spectrum E=(2n+l+3/2)*omega
+omega_ho = 0.7
+v_ho_pow  = PowerLawPotential(0.5*1.0*omega_ho^2, 2.0)
+v_ho_cent(r) = 0.5*1.0*omega_ho^2*r^2
+gp_ho = (;nmax=24,r1=0.2,rnmax=12.0)
+np_ho = make_num_params2B(;gem_params=gp_ho)
+for l in [0,1,2]
+    pp_ho_pow  = make_phys_params2B(;interactions=[v_ho_pow], lmax=l, lmin=l)
+    pp_ho_cent = make_phys_params2B(;interactions=[v_ho_cent], lmax=l, lmin=l)
+    e_ho_pow  = GEM2B.GEM2B_solve(pp_ho_pow, np_ho)
+    e_ho_cent = GEM2B.GEM2B_solve(pp_ho_cent,np_ho)
+    exact_ho = [(2*n+l+1.5)*omega_ho for n=0:3]
+    @test all(isapprox.(e_ho_pow[1:4], exact_ho; atol=1e-2))
+    @test all(isapprox.(e_ho_pow[1:4], e_ho_cent[1:4]; rtol=1e-8))
+end
+
+# 12c. non-integer exponent
+v_pl_pow = PowerLawPotential(0.9,1.5)
+v_pl_cent(r) = 0.9*abs(r)^1.5
+@test all(isapprox.(GEM2B.GEM2B_solve(make_phys_params2B(;interactions=[v_pl_pow]),num_params)[1:4],
+                    GEM2B.GEM2B_solve(make_phys_params2B(;interactions=[v_pl_cent]),num_params)[1:4]; rtol=1e-8))
+
+# 12d. complex scaling at finite angle: analytic vs numerical
+np_csm = make_num_params2B(;gem_params,theta_csm=8.0)
+@test all(isapprox.(GEM2B.GEM2B_solve(pp_pow,np_csm;complex_scaling=true)[1:4],
+                    GEM2B.GEM2B_solve(phys_params,np_csm;complex_scaling=true)[1:4]; atol=1e-6))
+
+# 12e. validity check: in 3D with lmax=0 the bound is p > -3
+@test_throws ErrorException GEM2B.GEM2B_solve(make_phys_params2B(;interactions=[PowerLawPotential(1.0,-3.0)]),num_params)
+@test_throws ErrorException GEM2B.GEM2B_solve(make_phys_params2B(;interactions=[PowerLawPotential(1.0,-4.0)]),num_params)
+# but for lmax=1 the bound is p > -5, so p=-4 is fine there
+@test all(isfinite.(GEM2B.GEM2B_solve(make_phys_params2B(;interactions=[PowerLawPotential(1.0,-4.0)],lmax=1,lmin=1),num_params)[1:2]))

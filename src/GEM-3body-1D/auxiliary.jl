@@ -31,6 +31,8 @@ function normalize_species(species)
 end
 
 function make_phys_params3B1D(;hbar = 1.0, masses=[1.0,1.0,1.0], species=[:x,:y,:z], interactions=[[GaussianPotential(-1.0, 1.0)],[GaussianPotential(-1.0, 1.0)],[GaussianPotential(-1.0, 1.0)]], parity=+1)
+    # Abstract eltype on purpose: see make_phys_params2B.
+    interactions = Vector{Any}[Vector{Any}(vv) for vv in interactions]
     species = normalize_species(species)
     return (;hbar, masses, species, interactions, parity)
 end
