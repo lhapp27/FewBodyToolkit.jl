@@ -45,7 +45,7 @@ function v0GEMOptim(phys_params, num_params, stateindex, target_e2; complex_rang
         function vint_updt(r)
             return v0crit*vint(r)
         end
-        phys_params = (;hbar,mur,interactions=[vint_updt],lmax,lmin,dim)
+        phys_params = (;hbar,mur,interactions=Any[vint_updt],lmax,lmin,dim)
 
         params[1:3] = GEM_Optim_2B(phys_params, num_params, stateindex; complex_ranged=complex_ranged, g_tol=g_tol)
         num_params = (;gem_params = (nmax, r1 = params[1], rnmax = params[2]), complex_range_freq, complex_scaling_angle, threshold)
@@ -109,7 +109,7 @@ function find_v0crit(phys_params, num_params, stateindex, target_e2; complex_ran
             return v0*vint(r)
         end
         
-        return real(GEM2B.GEM2B_solve((hbar,mur,interactions=[vint_local],lmax,min,dim), num_params; complex_ranged)[stateindex]) - target_e2;
+        return real(GEM2B.GEM2B_solve((hbar,mur,interactions=Any[vint_local],lmax,lmin,dim), num_params; complex_ranged)[stateindex]) - target_e2;
     end
     
     v0crit = find_zeros(fun1,(0, 200))[1];
