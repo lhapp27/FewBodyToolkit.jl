@@ -70,6 +70,13 @@ struct TempArgs{TR}
   bvals::Vector{Int}
 end
 
+# Outer constructor: takes TR from the ranges and lets the inner constructor convert the remaining
+# fields (in particular the integer factor_ab). The auto-generated constructor of a *parametric*
+# struct matches the declared field types exactly and would not perform that conversion.
+function TempArgs(rowi,coli,ranges::NamedTuple{(:nua, :nub, :NUa, :NUb),NTuple{4,TR}},norm4,mij_arr,sa,JsSa,sb,JsSb,JlLa,JlLb,la,La,lb,Lb,Lsum,avals_new,bvals_new,factor_ab,avals,bvals) where {TR}
+    TempArgs{TR}(rowi,coli,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,JlLa,JlLb,la,La,lb,Lb,Lsum,avals_new,bvals_new,factor_ab,avals,bvals)
+end
+
 
 # T  : element type of H, V and everything that can pick up a complex-scaling phase
 #      (complex as soon as complex_scaling OR complex ranges are active)

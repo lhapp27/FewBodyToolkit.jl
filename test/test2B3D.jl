@@ -106,7 +106,7 @@ for l in [0,1,2]
     e_ho_cent = GEM2B.GEM2B_solve(pp_ho_cent,np_ho)
     exact_ho = [(2*n+l+1.5)*omega_ho for n=0:3]
     @test all(isapprox.(e_ho_pow[1:4], exact_ho; atol=1e-2))
-    @test all(isapprox.(e_ho_pow[1:4], e_ho_cent[1:4]; rtol=1e-6))
+    @test all(isapprox.(e_ho_pow[1:4], e_ho_cent[1:4]; rtol=1e-8))
 end
 
 # 12c. non-integer exponent
