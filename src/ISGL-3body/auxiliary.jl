@@ -40,7 +40,7 @@ function make_phys_params3B3D(;hbar = 1.0, masses=[1.0, 1.0, 1.0], species=[:x,:
 end
 
 """
-    make_num_params3B3D(;lmin=0, Lmin=0, lmax=0, Lmax=0, gem_params=(nmax=10, r1=0.2, rnmax=10.0, Nmax=10, R1=0.2, RNmax=20.0), complex_scaling_angle=0.0, complex_range_freq=0.9, mu0=0.08, c_shoulder=1.6, kmax_interpol=1000, threshold=10^-8)
+    make_num_params3B3D(;lmin=0, Lmin=0, lmax=0, Lmax=0, gem_params=(nmax=10, r1=0.2, rnmax=10.0, Nmax=10, R1=0.2, RNmax=20.0), complex_scaling_angle=0.0, complex_range_freq=0.9, mu0=0.08, c_shoulder=1.6, kmax_interpol=1000, kmax_theta=25, threshold=10^-8)
 
 Create and return a named tuple containing the numerical parameters for a three-body GEM calculation in 3D.
 
@@ -55,6 +55,7 @@ Create and return a named tuple containing the numerical parameters for a three-
 - `mu0::Float64 = 0.08`: Parameter (prefactor) for the ISGL method.
 - `c_shoulder::Float64 = 1.6`: Parameter (base) for the ISGL method.
 - `kmax_interpol::Int = 1000`: Number of numerical integration with effective Gaussian ranges used for interpolation.
+- `kmax_theta::Int = 25`: Number of angular nodes of the range-interpolation. Only used with complex-ranged basis functions, where the effective Gaussian range becomes complex and the interpolation runs over the sector `` |\\arg\\alpha| \\le \\arctan\\omega `` instead of over a real interval. The setup cost of the interpolation grows in proportion, so `kmax_interpol` can be reduced in compensation. Increase it to check convergence; `complex_ranged=:both` is the most demanding case, since the four-fold enlarged basis makes the overlap matrix nearly singular and amplifies any error in the matrix elements.
 - `threshold::Float64 = 1e-8`: Numerical threshold for the generalized eigenvalue solver.
 
 # Returns
@@ -66,28 +67,8 @@ make_num_params3B3D() # for the default basis set
 make_num_params3B3D(gem_params=(nmax=10, r1=0.5, rnmax=20.0, Nmax=15, R1=1.0, RNmax=100.0), kmax_interpol=5000) for a larger basis set, and a finer interpolation grid for matrix-element calculations of interactions with many features.
 ```
 """
-function make_num_params3B3D(;lmin=0, Lmin=0, lmax=0, Lmax=0, gem_params=(nmax=10, Nmax=10, r1=0.2, rnmax=20.0, R1=0.2, RNmax=20.0),complex_scaling_angle=0.0, complex_range_freq=0.9, mu0=0.08, c_shoulder=1.6, kmax_interpol=1000, threshold=10^-8, theta_csm=nothing, omega_cr=nothing)
+function make_num_params3B3D(;lmin=0, Lmin=0, lmax=0, Lmax=0, gem_params=(nmax=10, Nmax=10, r1=0.2, rnmax=20.0, R1=0.2, RNmax=20.0),complex_scaling_angle=0.0, complex_range_freq=0.9, mu0=0.08, c_shoulder=1.6, kmax_interpol=1000, kmax_theta=25, threshold=10^-8, theta_csm=nothing, omega_cr=nothing)
     complex_scaling_angle = isnothing(theta_csm) ? complex_scaling_angle : theta_csm
     complex_range_freq = isnothing(omega_cr) ? complex_range_freq : omega_cr
-    return (;lmax, Lmax, gem_params, complex_scaling_angle, complex_range_freq, mu0, c_shoulder, kmax_interpol, threshold, lmin, Lmin)
-end
-
-
-"""
-    parse_complex_ranged(complex_ranged) -> (complex_ranged_r, complex_ranged_R)
-
-Translates the user-facing `complex_ranged` option into two booleans, one per Jacobi coordinate.
-
-Accepted values are the symbols `:none`, `:r`, `:R`, `:both`, and a `Bool` (`true` meaning `:both`,
-`false` meaning `:none`) for consistency with `GEM2B_solve`, whose basis has only one coordinate.
-
-Kept here rather than in `common/` for now; it should move once `GEM3B1D` gains the same option.
-"""
-function parse_complex_ranged(complex_ranged)
-    complex_ranged isa Bool && return (complex_ranged, complex_ranged)
-    complex_ranged === :none && return (false, false)
-    complex_ranged === :r    && return (true,  false)
-    complex_ranged === :R    && return (false, true)
-    complex_ranged === :both && return (true,  true)
-    error("complex_ranged must be one of :none, :r, :R, :both (or a Bool); got $(repr(complex_ranged))")
+    return (;lmax, Lmax, gem_params, complex_scaling_angle, complex_range_freq, mu0, c_shoulder, kmax_interpol, kmax_theta, threshold, lmin, Lmin)
 end

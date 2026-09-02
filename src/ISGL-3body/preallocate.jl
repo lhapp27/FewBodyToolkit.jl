@@ -30,18 +30,27 @@ struct TempStruct#{maximax,maxkmax}
     temp_D2::Vector{ComplexF64}#MVector{3, ComplexF64}
 end
 
-struct InterpolationStruct{T}
+# T  : element type of the tabulated radial integrals / shoulder weights
+# TA : element type of the interpolation mesh of effective ranges (complex only for complex ranges,
+#      where the mesh covers a sector of the complex plane rather than a real interval)
+# IT : type of the interaction interpolants. One-dimensional in log(alpha) for real ranges,
+#      two-dimensional over (log|alpha|, arg alpha) for complex ones. Inferred rather than spelled
+#      out, since the dimensionality is part of the type.
+# ITO: type of the observable interpolants; always the real, one-dimensional variant.
+struct InterpolationStruct{T,TA,IT,ITO}
     alpha_arr::Vector{Float64}
-    v_arr::Matrix{T}
+    theta_arr::Vector{Float64}
+    alpha_grid::Matrix{TA}
+    v_arr::Array{T, 3}
     A_mat::Matrix{Float64}
-    w_arr::Array{T, 4}
-    w_interpol_arr::OffsetArray{Interpolations.Extrapolation{T, 1, ScaledInterpolation{T, 1, Interpolations.BSplineInterpolation{T, 1, OffsetVector{T, Vector{T}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4, Array{Interpolations.Extrapolation{T, 1, ScaledInterpolation{T, 1, Interpolations.BSplineInterpolation{T, 1, OffsetVector{T, Vector{T}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4}}
+    w_arr::Array{T, 5}
+    w_interpol_arr::OffsetArray{IT, 4, Array{IT, 4}}
     Ainv_arr_kine::OffsetMatrix{Float64, Matrix{Float64}}
     v_pow::Vector{T}
     w_pow_arr::OffsetArray{T, 4, Array{T, 4}}
-    v_obs_arr::Matrix{Float64}
+    v_obs_arr::Array{Float64, 3}
     w_obs_arr::Array{Float64, 5}
-    w_obs_interpol_arr::OffsetArray{Interpolations.Extrapolation{Float64, 1, ScaledInterpolation{Float64, 1, Interpolations.BSplineInterpolation{Float64, 1, OffsetVector{Float64, Vector{Float64}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4, Array{Interpolations.Extrapolation{Float64, 1, ScaledInterpolation{Float64, 1, Interpolations.BSplineInterpolation{Float64, 1, OffsetVector{Float64, Vector{Float64}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{Base.OneTo{Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Tuple{StepRangeLen{Float64, Base.TwicePrecision{Float64}, Base.TwicePrecision{Float64}, Int64}}}, BSpline{Cubic{Line{OnGrid}}}, Throw{Nothing}}, 4}}
+    w_obs_interpol_arr::OffsetArray{ITO, 4, Array{ITO, 4}}
 end
 
 # new struct for temporary arguments
@@ -119,7 +128,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
 
     #Destructing Structs:
     (;J_tot) = phys_params
-    (;gem_params,kmax_interpol) = num_params
+    (;gem_params,kmax_interpol,kmax_theta,complex_range_freq) = num_params
     (;nmax,Nmax) = gem_params
 
     # complex-ranged basis functions come in conjugate pairs, so the corresponding coordinate
@@ -165,13 +174,23 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     SSO_arr = OffsetArray{Float64}(undef,0:maxlmax,0:maxlmax,0:maxlmax,0:maxlmax,JlL_range,JlL_range,1:6,maximax)*0.0 # for spin-orbit interaction
     
     # arrays for range-interpolation method:
+    # With complex ranges the interpolation mesh is a sector of the complex alpha-plane: kmax_interpol
+    # values of |alpha| times ntheta angular nodes (theta_mesh). Without them ntheta = 1 and the mesh
+    # is the plain real one, so everything below reduces to the previous, one-dimensional arrays.
     alpha_arr = zeros(kmax_interpol)
-    v_arr = zeros(TT,kmax_interpol,2*maxlmax+1) # careful, now NOT a OffsetArray! due to problems in A\v
+    theta_arr = theta_mesh(complex_ranged,complex_scaling,complex_range_freq,kmax_theta)
+    ntheta = lastindex(theta_arr)
+    TA = complex_ranged ? ComplexF64 : Float64 # the mesh itself stays real without complex ranges
+    alpha_grid = zeros(TA,kmax_interpol,ntheta)
+    v_arr = zeros(TT,kmax_interpol,ntheta,2*maxlmax+1) # careful, now NOT a OffsetArray! due to problems in A\v
     A_mat = zeros(2*maxlmax+1,2*maxlmax+1)
-    w_arr = zeros(TT,3,kmax_interpol,2*maxlmax+1,2*maxlmax+1) # first dimensionality is 3 for covering interactions for all possible Jacobi-Sets (=3). in principle could be reduced to nboxes? penultimate dimensionality for different Lsum values!
+    w_arr = zeros(TT,3,kmax_interpol,ntheta,2*maxlmax+1,2*maxlmax+1) # first dimensionality is 3 for covering interactions for all possible Jacobi-Sets (=3). in principle could be reduced to nboxes? penultimate dimensionality for different Lsum values!
     x=range(0.1,0.5,3)
     y=x.^2;interpoltype = typeof(cubic_spline_interpolation(x,y))# just for easy inferring the type of interpolation objects
-    yc=x.^2 .+ zero(TT);interpoltypeC = typeof(cubic_spline_interpolation(x,yc))# just for easy inferring the type of interpolation objects # for possibly complex arguments!
+    yc=x.^2 .+ zero(TT);
+    # the interaction interpolants gain a second (angular) dimension for complex ranges; infer the
+    # type from a dummy of the right dimensionality rather than spelling it out
+    interpoltypeC = complex_ranged ? typeof(cubic_spline_interpolation((x,x),yc.*transpose(y))) : typeof(cubic_spline_interpolation(x,yc))
     w_interpol_arr=OffsetArray{interpoltypeC}(undef,3,nintmax,0:2*maxlmax,0:2*maxlmax) # penultimate dimensionality for different Lsum values!; nintmax for (maximum) number of interactions
     #aac=zeros(27);gac=zeros(27);abc=zeros(27);gbc=zeros(27)
     Ainv_arr_kine = OffsetArray{Float64}(undef,0:2*maxlmax,0:2*maxlmax)*0.0 # penultimate dimensionality for different Lsum values!
@@ -180,7 +199,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     w_arr_kine = OffsetArray{TR}(undef,0:2*maxlmax+1)*zero(TR)
     wn_interpol_arr = OffsetArray{TT}(undef,0:2*maxlmax)*0.0 # for the interpolated wn_values that are actually used
     #for observables (in range-interpolation)
-    v_obs_arr = zeros(kmax_interpol,2*maxlmax+1)
+    v_obs_arr = zeros(kmax_interpol,1,2*maxlmax+1) # observables stay on the real mesh: a single angular node
     w_obs_arr = zeros(3,maxobs,kmax_interpol,2*maxlmax+1,2*maxlmax+1)
     w_obs_interpol_arr = OffsetArray{interpoltype}(undef,3,maxobs,0:2*maxlmax,0:2*maxlmax)
     wn_obs_interpol_arr = OffsetArray{Float64}(undef,0:2*maxlmax)*0.0
@@ -220,7 +239,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     # now constructing Structs for different steps in the program:
     precomp_arrs = PrecomputeStruct(gamma_dict,cleb_arr,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr)
     temp_arrs = TempStruct(temp_clmk,temp_dlmk,temp_S,temp_D1,temp_D2)
-    interpol_arrs = InterpolationStruct(alpha_arr,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr)
+    interpol_arrs = InterpolationStruct(alpha_arr,theta_arr,alpha_grid,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr)
     fill_arrs = FillStruct(fij_arr,Kij_arr,w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr,temp_fill_mat,wn_obs_interpol_arr)
     result_arrs = ResultStruct(energies_arr,wavefun_arr,centobs_output,R2_output)
     

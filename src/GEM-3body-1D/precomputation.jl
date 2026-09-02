@@ -1,10 +1,10 @@
 ﻿# functions to precompute repetedly used arrays within the GEM3B1D program
 
-function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs) #diff13
+function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false) #diff13
     
     #Destructing Structs:    
     (;masses) = phys_params #diff13
-    (;lmax,Lmax,gem_params,kmax_interpol) = num_params
+    (;lmax,Lmax,gem_params,kmax_interpol,complex_range_freq) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;lL_complete,l_complete,nl) = size_params # diff13
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
@@ -15,7 +15,7 @@ function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs) #diff1
     
     precompute_murR!(murR_arr,masses)
     
-    precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax) # i think all of these functions could be "commonized"
+    precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax,complex_ranged_r,complex_ranged_R,complex_range_freq) # i think all of these functions could be "commonized"
 
     precompute_norms1D!(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
     
@@ -64,10 +64,23 @@ end
 
 
 ### ranges ###
-function precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax)
-    # fills the array nu_arr[n=1:nmax] for each value of n. same for NU_arr[N=1:Nmax]
-    buildnu!(r1,rnmax,nmax,nu_arr)
-    buildnu!(R1,RNmax,Nmax,NU_arr)
+function precompute_ranges!(nu_arr,NU_arr,r1,rnmax,nmax,R1,RNmax,Nmax,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,complex_range_freq=0.0)
+    # fills the array nu_arr[n=1:nmax] for each value of n. same for NU_arr[N=1:Nmax].
+    # For a complex-ranged coordinate the array is twice as long: the first half carries
+    # nu*(1+i*omega), the second half its complex conjugate.
+    fillranges!(nu_arr,r1,rnmax,nmax,complex_ranged_r,complex_range_freq)
+    fillranges!(NU_arr,R1,RNmax,Nmax,complex_ranged_R,complex_range_freq)
+end
+
+# note: nmax is always the *undoubled* number of ranges here, since the geometric sequence
+# (and in particular its exponent 2*(n-1)/(nmax-1)) must not be affected by the doubling.
+@views function fillranges!(nu_arr,r1,rnmax,nmax,complex_ranged::Bool,complex_range_freq)
+    buildnu!(r1,rnmax,nmax,nu_arr) # fills nu_arr[1:nmax] in place; leaves any further entries untouched
+    if complex_ranged
+        nu_arr[1:nmax] .*= (1 + complex_range_freq*im)
+        nu_arr[nmax+1:2*nmax] .= conj.(nu_arr[1:nmax])
+    end
+    return nu_arr
 end
 
 @views function buildnu!(r1,rnmax,nmax,nu_arr)
@@ -82,7 +95,12 @@ function precompute_norms1D!(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma
     # returns the array norm_arr[l,n] for each combination of n,l. same for NORM_arr
     
     #norm(nu,l) = (2*(2*nu)^(l+3/2)/gamma_dict[l+3/2])^(1/2);
-    norm(nu,l) = ((2*nu)^(l+1/2)/gamma_dict[l+1/2])^(1/2); #adopted to 1D; could be handeled more generally via dim, see GEM2B code
+    norm(nu::Real,l) = ((2*nu)^(l+1/2)/gamma_dict[l+1/2])^(1/2); #adopted to 1D; could be handeled more generally via dim, see GEM2B code
+    # Same value for a real, positive range, but with the fractional power taken directly on 2*nu:
+    # for a complex range the nesting above could push arg((2*nu)^(l+1/2)) past pi and then pick the
+    # wrong branch in the outer square root. arg(2*nu) = atan(omega) is small, so this is the
+    # continuous continuation of the real-range norm.
+    norm(nu::Complex,l) = sqrt(1/gamma_dict[l+1/2]) * (2*nu)^((2*l+1)/4);
     
     for n = 1:lastindex(nu_arr)
         for l in l_complete #lindex = 1:nl

@@ -34,23 +34,11 @@ function sanity_checks(phys_params,complex_ranged::Bool=false,observ_params=noth
     end
     
     # complex-ranged basis functions:
-    # The generic path for a central potential obtains its radial integral numerically on a real
-    # mesh of effective ranges and then interpolates at log(etaprc). Complex ranges make etaprc
-    # complex, which that lookup cannot represent. Only the analytically treated potential types
-    # (GaussianPotential, PowerLawPotential) are therefore supported with complex ranges; they need
-    # neither numerical integration nor interpolation.
+    # The generic path for a central potential obtains its radial integral numerically and then
+    # interpolates at etaprc, which is complex once the ranges are. That is covered: the mesh is a
+    # sector (see theta_mesh), so any non-singular central potential works. Observables, however,
+    # still use the plain one-dimensional mesh in log(alpha) and remain unsupported.
     if complex_ranged
-        for c in 1:lastindex(interactions)
-            for vint in interactions[c]
-                if !(vint isa GaussianPotential || vint isa PowerLawPotential)
-                    println("Complex-ranged basis functions are only supported for analytically treated potentials (GaussianPotential, PowerLawPotential). Got $(typeof(vint)) in Jacobi set c=$c.")
-                    error_code = 5
-                    return error_code
-                end
-            end
-        end
-
-        # observables go through the same interpolation machinery and are equally unsupported
         if !isnothing(observ_params)
             (;centobs_arr,R2_arr) = observ_params
             if any(.!isempty.(centobs_arr)) || any(R2_arr .!= 0)

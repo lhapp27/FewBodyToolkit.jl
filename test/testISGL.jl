@@ -205,19 +205,19 @@ _,_,co_cent,_ = ISGL_solve(phys_params, num_params; return_wavefunctions=true, o
 
 
 # 12. Complex-ranged basis functions: nu -> nu*(1 + i*omega), selectable per Jacobi coordinate.
-# Supported only for the analytically treated potentials (GaussianPotential, PowerLawPotential),
-# since the interpolated path for a generic central potential needs a real etaprc.
+# etaprc is then complex, but stays in the sector |arg| <= atan(omega), over which the radial
+# integrals are interpolated in two dimensions; all potential types are supported.
 
 # 12a. option parsing
-@test FewBodyToolkit.ISGL.parse_complex_ranged(:none) == (false,false)
-@test FewBodyToolkit.ISGL.parse_complex_ranged(:r)    == (true,false)
-@test FewBodyToolkit.ISGL.parse_complex_ranged(:R)    == (false,true)
-@test FewBodyToolkit.ISGL.parse_complex_ranged(:both) == (true,true)
-@test FewBodyToolkit.ISGL.parse_complex_ranged(true)  == (true,true)   # Bool alias, as in GEM2B_solve
-@test FewBodyToolkit.ISGL.parse_complex_ranged(false) == (false,false)
-@test_throws ErrorException FewBodyToolkit.ISGL.parse_complex_ranged(:rR)
+@test FewBodyToolkit.parse_complex_ranged(:none) == (false,false)
+@test FewBodyToolkit.parse_complex_ranged(:r)    == (true,false)
+@test FewBodyToolkit.parse_complex_ranged(:R)    == (false,true)
+@test FewBodyToolkit.parse_complex_ranged(:both) == (true,true)
+@test FewBodyToolkit.parse_complex_ranged(true)  == (true,true)   # Bool alias, as in GEM2B_solve
+@test FewBodyToolkit.parse_complex_ranged(false) == (false,false)
+@test_throws ErrorException FewBodyToolkit.parse_complex_ranged(:rR)
 
-# 12b. unsupported potentials and observables are rejected (sanity_checks returns nothing)
+# 12b. observables are still rejected; interactions of every type are accepted
 # Unit masses (not the m=1/40 of the tests above): with m=1/40 this Gaussian binds nothing, so the
 # lowest eigenvalue is a discretised continuum state and cannot be compared across bases in 12f.
 pp_cr_gauss = make_phys_params3B3D(;masses=[1.0,1.0,1.0], species=[:x,:y,:z], interactions=[[vga],[vga],[vga]])
@@ -225,12 +225,10 @@ pp_cr_cent  = make_phys_params3B3D(;masses=[1.0,1.0,1.0], species=[:x,:y,:z], in
 gp_cr = (;nmax=6,Nmax=6,r1=0.5,rnmax=8.0,R1=0.5,RNmax=7.0)
 np_cr = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_cr,omega_cr=0.9)
 
-@test isnothing(ISGL_solve(pp_cr_cent,np_cr;complex_ranged=:both))   # plain function -> CentralPotential
-@test isnothing(ISGL_solve(pp_cr_cent,np_cr;complex_ranged=:r))
 obs_r2 = (;stateindices=[1], centobs_arr=[PotentialFunction[],PotentialFunction[],PotentialFunction[]], R2_arr=[1,0,0])
 @test isnothing(ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:r,return_wavefunctions=true,observ_params=obs_r2))
-# ... while the analytic potentials are accepted:
 @test !isnothing(ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:r))
+@test !isnothing(ISGL_solve(pp_cr_cent,np_cr;complex_ranged=:r))    # plain function -> CentralPotential
 
 # 12c. basis-size doubling per coordinate
 n_none = length(ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=:none))
@@ -278,6 +276,16 @@ for mode in (:r,:R,:both)
     ecr = ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=mode)
     @test isapprox(ecr[1], e_ref[1]; atol=3e-3)   # same state, not a spurious one
 end
+
+# 12f'. a non-analytic central potential with complex ranges. This is the case the two-dimensional
+# sector interpolation exists for: vg is a plain function, so its radial integrals are obtained
+# numerically and interpolated, unlike the closed-form vga. Both describe the same well, so the two
+# must agree -- within the accuracy of the angular mesh, which kmax_theta controls.
+e_cr_cent = ISGL_solve(pp_cr_cent,np_cr;complex_ranged=:r)
+@test all(isapprox.(e_cr_cent[1:3], e_cr_r[1:3]; atol=1e-5))
+np_cr_fine = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_cr,omega_cr=0.9,kmax_theta=41)
+@test abs(ISGL_solve(pp_cr_cent,np_cr_fine;complex_ranged=:r)[1] - e_cr_r[1]) <
+      abs(ISGL_solve(pp_cr_cent,make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_cr,omega_cr=0.9,kmax_theta=9);complex_ranged=:r)[1] - e_cr_r[1])
 
 # 12g. power-law interactions with complex ranges (Ps^- -like Coulomb system)
 np_coul_cr = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_coul,omega_cr=0.9)

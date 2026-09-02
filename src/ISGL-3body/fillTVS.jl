@@ -81,20 +81,6 @@
 end
 
 
-# Reconstruct a hermitian matrix from its lower triangle.
-# Hermitian(src,:L) leaves the stored diagonal untouched, so the O(eps) imaginary parts that the
-# matrix elements pick up numerically would survive and make ishermitian(dest) false. eigen2step
-# keys its "the eigenvalues are real" decision on exactly that predicate, so the diagonal is made
-# real explicitly here. Mathematically the diagonal of S, T and V is real anyway.
-function hermitian_fill!(dest,src)
-    dest .= Hermitian(src,:L)
-    for i in axes(dest,1)
-        dest[i,i] = real(dest[i,i])
-    end
-    return dest
-end
-
-
 ## functions to calculate one matrix element, summing over the necessary a,b,c values:
 function sab(jmat,temp_args_i,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
     (;rowi,coli,avals_new,bvals_new,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,JlLa,JlLb) = temp_args_i
@@ -138,6 +124,9 @@ end
 
 function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_arr,temp_args_i,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,pow_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr,complex_scaling)
     (;rowi,coli,avals_new,bvals_new,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,Lsum,JlLa,JlLb) = temp_args_i
+    # only the mesh over arg(etaprc) >= 0 is tabulated unless complex scaling made the potential
+    # complex and broke the Schwarz reflection (see theta_mesh)
+    reflect = !complex_scaling
     # complex for complex ranges (via norm4/gij_arr) and/or complex scaling (via wn_interpol_arr)
     tempV = zero(promote_type(typeof(norm4),eltype(gij_arr),eltype(wn_interpol_arr)))
     
@@ -166,7 +155,7 @@ function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_ar
                 end
                 for ivc in central_indices[c] #loop over the central interactions for this c.
                     (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
-                    tempV += factor_ab*factor_symm*uab*element_V(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,ivc)
+                    tempV += factor_ab*factor_symm*uab*element_V(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,ivc,reflect)
                 end
                 #= commented out; spin-orbit is moved to future development
                 for ivso in so_indices[c] # loop over the spin-orbit interactions for this c.
@@ -174,7 +163,7 @@ function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_ar
                     (abs(JsSa-JsSb) <= 1 <= JsSa+JsSb) == false && return tempV #immediately skip if it is violated.
                     #only relevant for SO interactions
                     global6jfac = global6j_dict[JsSa,JsSb,JlLa,JlLb]
-                    tempV += factor_ab*factor_symm*global6jfac*spinoverlap*element_VSO(c,ranges,norm4,jmat[a,c],jmat[b,c],mijSO_arr_dict,SSO_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,JlLb,ivso)
+                    tempV += factor_ab*factor_symm*global6jfac*spinoverlap*element_VSO(c,ranges,norm4,jmat[a,c],jmat[b,c],mijSO_arr_dict,SSO_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,JlLb,ivso,reflect)
                 end =#
                 
             end
@@ -275,7 +264,7 @@ function element_T(ranges,norm4,jab,murR_arr,mij_arr_i,S_arr,la,La,lb,Lb,w_arr_k
 end
 
 # calculation of a single matrix element: interaction V(r_c)
-function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlL,iv)
+function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlL,iv,reflect::Bool)
     
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
@@ -306,10 +295,11 @@ function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu
     prefac = norm4 * (pi/zetac)^(3/2)*(pi/etaprc)^(3/2)/(nua^la*NUa^La*nub^lb*NUb^Lb);
 
     # here, interpolation is called (outside of ii-loop).
-    # NOTE: this path requires a real etaprc, i.e. real Gaussian ranges. Complex-ranged basis
-    # functions are therefore rejected for interpolated potentials in sanity_checks.
+    # For real ranges this is the usual lookup at log(etaprc). For complex ranges etaprc is complex
+    # but confined to the sector |arg| <= atan(omega), over which the interpolant is tabulated in
+    # two dimensions; interpol_lookup picks the right variant (see common/auxiliary.jl).
     for n = 0:Lsum
-        wn_interpol_arr[n] = w_interpol_arr[c,iv,Lsum,n](log(etaprc))
+        wn_interpol_arr[n] = interpol_lookup(w_interpol_arr[c,iv,Lsum,n],etaprc,reflect)
     end
 
     summe = zero(promote_type(typeof(prefac),eltype(wn_interpol_arr),eltype(gij_arr)))
@@ -384,7 +374,7 @@ end
 
 # matrix element for Spin-Orbit interaction; postponed to future version
 #=
-function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,JlLb,ivso)
+function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,JlLb,ivso,reflect::Bool)
     
     #prechecks: they should ideally never trigger, due to proper handling before.
     Lsum < 1 && return 0.0
@@ -429,7 +419,7 @@ function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,g
     
     # here, interpolation is called (outside of ii-loop):
     for n = 0:LsumSO
-        wn_interpol_arr[n] = w_interpol_arr[c,ivso,LsumSO,n](log(etaprc))
+        wn_interpol_arr[n] = interpol_lookup(w_interpol_arr[c,ivso,LsumSO,n],etaprc,reflect)
     end
     
     ivjv_arr = @SVector[(1,2),(1,3),(1,4),(2,3),(2,4),(3,4)] # can also be used for iuju

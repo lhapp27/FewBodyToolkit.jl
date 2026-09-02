@@ -10,6 +10,7 @@
 module ISGL
 
 using .. FewBodyToolkit
+using ..FewBodyToolkit: parse_complex_ranged, hermitian_fill!, theta_mesh, interpol_lookup, check_cr_csm_sector # shared with GEM3B1D, see common/auxiliary.jl
 using LinearAlgebra,StaticArrays,OffsetArrays,Interpolations, SpecialFunctions,QuadGK,PartialWaveFunctions, WignerSymbols
 using Printf: @printf
 
@@ -49,9 +50,10 @@ Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
   with `true` meaning `:both`, for consistency with `GEM2B_solve`.
   Each complex-ranged coordinate doubles its number of basis functions, since the ranges enter as
   conjugate pairs; choosing `:both` therefore multiplies the total basis size by four.
-  Only analytically treated potentials (`GaussianPotential`, `PowerLawPotential`) are supported with
-  complex ranges, as the interpolated path for a generic central potential requires real ranges.
-  Observables are likewise unsupported with complex ranges.
+  All interaction types are supported, including generic central potentials: their radial integrals
+  are interpolated over the sector of the complex plane in which the effective Gaussian range lives,
+  with `kmax_theta` angular nodes (see `make_num_params3B3D`).
+  Observables are not supported with complex ranges.
 - `observ_params`: (optional) Parameters for observable calculations.
     + `stateindices`: Indices of states for which observables are calculated.
     + `centobs_arr`: Array of central (only dependent on `` r ``; must be defined as functions) observables, for each Jacobi set (similar to `interactions` in `phys_params`).
