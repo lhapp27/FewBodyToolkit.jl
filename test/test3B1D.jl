@@ -1,4 +1,5 @@
 # Tests for the module GEM3B1D (three-body, 1D)
+using QuadGK
 # Tests via Gaussian potential
 
 ## Setup:
@@ -43,6 +44,27 @@ np4_10csm = make_num_params3B1D(;lmax=0,Lmax=0,gem_params=gp, theta_csm = 10.0)
 e4_csm_basisfkt = GEM3B1D_solve(pp4, np4_10csm, complex_scaling=true)
 e4_csm_analytical = GEM3B1D_solve(pp4a, np4_10csm, complex_scaling=true)
 @test all(isapprox.(e4_csm_basisfkt[1:5], e4_csm_analytical[1:5]; atol=1e-3))
+
+# same comparison at lmax=Lmax=1. This is the case that matters: the exponents nn = la+La+lb+Lb-2s
+# reaching the potential's range-interpolation are {0} for lmax=Lmax=0 but {0,1,2,3,4} here, so an
+# n-dependent error in the complex-scaling prefactor of precompute_varr! is invisible at l=0 and
+# catastrophic at l=1. (It was: the prefactor read csmfac^(2n+1) instead of csmfac^(n+1), which put
+# entries such as -896.2-4460.3im where the correct lowest state is -5.619-2.5e-7im.)
+np4_10csm_l1 = make_num_params3B1D(;lmax=1,Lmax=1,gem_params=gp, theta_csm = 10.0)
+e4_csm_basisfkt_l1 = GEM3B1D_solve(pp4, np4_10csm_l1, complex_scaling=true)
+e4_csm_analytical_l1 = GEM3B1D_solve(pp4a, np4_10csm_l1, complex_scaling=true)
+@test all(isapprox.(e4_csm_basisfkt_l1[1:5], e4_csm_analytical_l1[1:5]; atol=1e-6))
+
+# and for a non-Gaussian potential the rotated-argument identity can be checked directly on the
+# radial integrals that precompute_varr! interpolates: the value it must reproduce is
+# int V(r e^{i th}) r^n exp(-alpha r^2) dr.
+let th = 10.0, csmfac = exp(-im*th*pi/180), Vt = r -> -3.0*sech(r)^2
+    for n in 0:4, alpha in (0.3, 2.0)
+        want = quadgk(r -> Vt(r*exp(im*th*pi/180))*r^n*exp(-alpha*r^2), -Inf, 0, Inf)[1]
+        got  = quadgk(r -> Vt(r)*r^n*exp(-alpha*csmfac^2*r^2), -Inf, 0, Inf)[1]*csmfac^(n+1)
+        @test isapprox(got, want; atol=1e-10, rtol=1e-10)
+    end
+end
 
 # 4. return_wavefunctions=true
 energies_wf, wfs = GEM3B1D_solve(phys_params, num_params; return_wavefunctions=true)

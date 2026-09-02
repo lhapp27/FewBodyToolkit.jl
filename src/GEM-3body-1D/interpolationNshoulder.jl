@@ -92,12 +92,25 @@ end
 
 
 # range-interpolation method:
-# central interaction # 1D change needs to be confirmed
+# central interaction
+#
+# Under complex scaling the basis stays real (see MatrixT and element_VGauss) and only the
+# Hamiltonian is rotated, so the required element is the potential at the rotated argument,
+#
+#     I(n,alpha) = int V(r*e^{i*theta}) r^n exp(-alpha*r^2) dr .
+#
+# Substituting r = u*e^{i*theta} and deforming the ray back onto the real axis (V analytic and
+# decaying in the sector) turns this into the integral actually evaluated below,
+#
+#     I(n,alpha) = csmfac^(n+1) * int V(u) u^n exp(-alpha*csmfac^2*u^2) du ,   csmfac = e^{-i*theta},
+#
+# hence the prefactor csmfac^(n+1). Note that the integrand here carries r^n, not the r^(2n+2)
+# of the 3D case in ISGL-3body, where the same derivation gives csmfac^(2n+3).
 function precompute_varr!(v_arr,alpha_grid,nnlist,gamma_dict,vcent_fun::Union{Function,CentralPotential},buf,csmfac)
     for n in nnlist
         for kt = 1:size(alpha_grid,2)
             for k = 1:size(alpha_grid,1)
-                v_arr[k,kt,n+1] = vcent_integration(vcent_fun,alpha_grid[k,kt]*csmfac^2,n,buf)*csmfac^(2*n+1) # v_arr is no offset-arr, hence n+1. v_arr[:,:,1] is for n=0, etc. 
+                v_arr[k,kt,n+1] = vcent_integration(vcent_fun,alpha_grid[k,kt]*csmfac^2,n,buf)*csmfac^(n+1) # v_arr is no offset-arr, hence n+1. v_arr[:,:,1] is for n=0, etc. 
             end
         end
     end
