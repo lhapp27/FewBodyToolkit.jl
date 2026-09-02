@@ -1,6 +1,6 @@
 ﻿## Function for calculating the matrix elements and filling the matrices T,V,S within the GEM3B1D program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,debug::Bool)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,debug::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false)
     
     (;gem_params,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
@@ -8,26 +8,47 @@
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
     (;alpha_arr,v_arr,w_interpol_arr) = interpol_arrs
     (;wn_interpol_arr,T,V,S,temp_args_arr,temp_fill_mat) = fill_arrs
-    
+
+    complex_ranged = complex_ranged_r || complex_ranged_R
+    # With complex ranges the bra ranges are conjugated, so S, T and V become hermitian instead of
+    # symmetric. Combined with complex scaling neither symmetry survives and the full matrix is filled.
+    fill_full = complex_ranged && complex_scaling
+
+    # the effective numbers of ranges already include the doubling for a complex-ranged coordinate
+    nmax_eff = lastindex(nu_arr)
+    Nmax_eff = lastindex(NU_arr)
 
     # create a 1D array of NamedTuples to hold the arguments for the matrix element calculation. This also carries the matrix structure via row- and column indices.
-    flati = flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax,Nmax,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals)
+    flati = flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax_eff,Nmax_eff,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals,fill_full)
     
     ## Calculation of matrix elements and filling via 1D loop:
     # Norm-Overlap S
     for index in 1:flati
-        rowi,coli=temp_args_arr[index]
+        (;rowi,coli) = temp_args_arr[index]
         temp_fill_mat[rowi,coli] = sab(jmat,temp_args_arr[index],abI,factor_bf,gamma_dict)
     end
-    S .= Symmetric(temp_fill_mat,:L); # transpose fill
+    # transpose fill: the overlap is hermitian for complex ranges (also together with complex scaling,
+    # since the complex-scaling rotates the potential and leaves the ranges alone)
+    if complex_ranged
+        hermitian_fill!(S,temp_fill_mat);
+    else
+        S .= Symmetric(temp_fill_mat,:L);
+    end
     
 
     # Kinetic energy T
     for index in 1:flati
-        rowi,coli=temp_args_arr[index]
+        (;rowi,coli) = temp_args_arr[index]
         temp_fill_mat[rowi,coli] = tab(jmat,murR_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,hbar) # we can reuse the same temp_fill_mat
     end
-    T .= Symmetric(temp_fill_mat,:L); # transpose fill:
+    # transpose fill:
+    if fill_full
+        T .= temp_fill_mat;
+    elseif complex_ranged
+        hermitian_fill!(T,temp_fill_mat);
+    else
+        T .= Symmetric(temp_fill_mat,:L);
+    end
     
     if complex_scaling
         T .*= exp(-2*im*complex_scaling_angle*pi/180)
@@ -36,10 +57,17 @@
 
     # Interaction V
     for index in 1:flati
-        rowi,coli=temp_args_arr[index]
+        (;rowi,coli) = temp_args_arr[index]
         temp_fill_mat[rowi,coli] = vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,complex_scaling,complex_scaling_angle)
     end
-    V .= Symmetric(temp_fill_mat,:L); # transpose fill:
+    # transpose fill:
+    if fill_full
+        V .= temp_fill_mat;
+    elseif complex_ranged
+        hermitian_fill!(V,temp_fill_mat);
+    else
+        V .= Symmetric(temp_fill_mat,:L);
+    end
     
     # Example usage for debugging
     if debug
@@ -72,7 +100,7 @@ end
 # calculation of a single matrix element: norm-overlap S. Summing over the necessary a,b,c values:
 function sab(jmat,temp_args_i,abI,factor_bf,gamma_dict)
     (;avals_new,bvals_new,factor_ab,ranges,norm4,la,La,lb,Lb) = temp_args_i
-    tempS = 0.0
+    tempS = zero(norm4) # complex for complex-ranged basis functions
     for a in avals_new # only for identical particles we sum over several values of a and b here.
         for b in bvals_new
             factor_symm = facsymm(a,b,abI,la,lb,factor_bf)
@@ -85,7 +113,7 @@ end
 # calculation of a single matrix element: kinetic energy T
 function tab(jmat,murR_arr,temp_args_i,abI,factor_bf,gamma_dict,hbar)
     (;avals_new,bvals_new,factor_ab,ranges,norm4,la,La,lb,Lb) = temp_args_i
-    tempT = 0.0                                
+    tempT = zero(norm4)                                
     for a in avals_new
         for b in bvals_new
             factor_symm = facsymm(a,b,abI,la,lb,factor_bf)
@@ -98,7 +126,10 @@ end
 # calculation of a single matrix element: interaction V(r_c)
 function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,complex_scaling,complex_scaling_angle)
     (;avals_new,bvals_new,factor_ab,ranges,norm4,la,La,lb,Lb,cvals) = temp_args_i
-    tempV = 0.0                                    
+    tempV = zero(promote_type(typeof(norm4),eltype(wn_interpol_arr)))
+    # only the mesh over arg(etaeff) >= 0 is tabulated unless complex scaling made the potential
+    # complex and broke the Schwarz reflection (see theta_mesh)
+    reflect = !complex_scaling
     for a in avals_new
         for b in bvals_new
             factor_symm = facsymm(a,b,abI,la,lb,factor_bf)
@@ -110,7 +141,7 @@ function vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_i,abI,factor_bf,gamma
                 end
                 
                 for ivc in central_indices[c]
-                    tempV += factor_ab*factor_symm*element_V(c,ivc,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,w_interpol_arr,wn_interpol_arr,gamma_dict)
+                    tempV += factor_ab*factor_symm*element_V(c,ivc,ranges,norm4,jmat[a,c],jmat[b,c],la,La,lb,Lb,w_interpol_arr,wn_interpol_arr,gamma_dict,reflect)
                 end
 
                 for ivc1D in contact1D_indices[c]
@@ -127,7 +158,7 @@ end
 # function for a single matrix element: norm-overlap S
 function element_S(ranges,norm4,jab,la,La,lb,Lb,gamma_dict)
     
-    mod(la+La+lb+Lb,2) == 1 && return 0.0 #parity of <a| and |b> must be the same, otherwise return 0
+    mod(la+La+lb+Lb,2) == 1 && return zero(norm4) #parity of <a| and |b> must be the same, otherwise return 0
     
     (;nua,nub,NUa,NUb) = ranges;# named tuple unnecessary slow?
     (alpha,gamma,beta,delta) = jab # careful with order (gamma before beta)
@@ -136,11 +167,11 @@ function element_S(ranges,norm4,jab,la,La,lb,Lb,gamma_dict)
     eta2 = 2*(nua*alpha*beta + NUa*gamma*delta)
     eta3 = nua*beta^2 + NUa*delta^2 + NUb
     
-    sumk = 0.0
+    sumk = zero(norm4)
     for k = 0:la
-        sumK = 0.0
+        sumK = zero(norm4)
         for K = 0:La
-            sums = 0.0
+            sums = zero(norm4)
             for s = 0:floor((k+K+Lb)/2)
                 sums += gamma_dict[(la+La+lb+Lb-2*s+1)/2]/gamma_dict[s+1]/gamma_dict[k+K+Lb-2*s+1] * eta3^s*eta2^(k+K+Lb-2*s)/((eta1-eta2^2/4/eta3)^((la+La+lb+Lb-2*s+1)/2))
             end
@@ -179,7 +210,7 @@ end
 
 
 # function for a single matrix element: interaction V(r_c) based on numerical integration and interpolation over effective Gaussian range.
-function element_V(c,iv,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_interpol_arr,gamma_dict)
+function element_V(c,iv,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_interpol_arr,gamma_dict,reflect::Bool)
     
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
@@ -193,21 +224,25 @@ function element_V(c,iv,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_inter
     etaeff = eta5 - eta6^2/4/eta7
     Lsum = la+La+lb+Lb
 
+    # For real ranges this is the usual lookup at log(etaeff). For complex ranges etaeff is complex
+    # but confined to the sector |arg| <= atan(omega), over which the interpolant is tabulated in
+    # two dimensions; interpol_lookup picks the right variant (see common/auxiliary.jl).
     for n = Lsum:-2:0
-        wn_interpol_arr[n] = w_interpol_arr[c,iv,n](log(etaeff)) # interpolated numerical integration value for the effective Gaussian range etaeff
+        wn_interpol_arr[n] = interpol_lookup(w_interpol_arr[c,iv,n],etaeff,reflect) # interpolated numerical integration value for the effective Gaussian range etaeff
     end
     
-    sumk = 0.0
+    zz = zero(promote_type(typeof(norm4),eltype(wn_interpol_arr)))
+    sumk = zz
     for k = 0:la
-        sumK = 0.0
+        sumK = zz
         for K = 0:La
-            sumkp = 0.0
+            sumkp = zz
             for kp = 0:lb
-                sumKp = 0.0
+                sumKp = zz
                 for Kp = 0:Lb                    
                     KK = k+K+kp+Kp; LL = la+La+lb+Lb;
                     
-                    sums = 0.0
+                    sums = zz
                     for s = 0:floor(KK/2)
                         nn = Int(LL -2*s)
                         sums += eta7^s*eta6^(KK-2*s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1])*wn_interpol_arr[nn]
@@ -233,7 +268,7 @@ end
 # calculation of a single matrix element: interaction VGauss(r_c)
 function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,complex_scaling,complex_scaling_angle)
 
-    mod(la+La+lb+Lb,2) == 1 && return 0.0 #Gaussian potential is symmetric, hence parity of <a| and |b> must be the same, otherwise return 0
+    mod(la+La+lb+Lb,2) == 1 && return zero(norm4) #Gaussian potential is symmetric, hence parity of <a| and |b> must be the same, otherwise return 0
     
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
@@ -249,17 +284,18 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,c
     eta6 = 2*(nua*alphaAC*betaAC + NUa*gammaAC*deltaAC + nub*alphaBC*betaBC + NUb*gammaBC*deltaBC)
     eta7 = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2
     
-    sumk = 0.0
+    zz = zero(promote_type(typeof(norm4),typeof(eta5)))
+    sumk = zz
     for k = 0:la
-        sumK = 0.0
+        sumK = zz
         for K = 0:La
-            sumkp = 0.0
+            sumkp = zz
             for kp = 0:lb
-                sumKp = 0.0
+                sumKp = zz
                 for Kp = 0:Lb                    
                     KK = k+K+kp+Kp;
                     
-                    sums = 0.0
+                    sums = zz
                     for s = 0:floor(KK/2)
                         sums += eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * gamma_dict[(LL-2*s+1)/2]/((eta5-eta6^2/4/eta7)^((LL-2*s+1)/2))
                     end
@@ -294,13 +330,14 @@ function element_VContact(c,ranges,norm4,jac,jbc,la,La,lb,Lb,contactopt,gamma_di
     eta6 = 2*(nua*alphaAC*betaAC + NUa*gammaAC*deltaAC + nub*alphaBC*betaBC + NUb*gammaBC*deltaBC)
     eta7 = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2
     
-    sumk = 0.0
+    zz = zero(promote_type(typeof(norm4),typeof(eta5),typeof(z0)))
+    sumk = zz
     for k = 0:la
-        sumK = 0.0
+        sumK = zz
         for K = 0:La
-            sumkp = 0.0
+            sumkp = zz
             for kp = 0:lb
-                sumKp = 0.0
+                sumKp = zz
                 for Kp = 0:Lb                    
                     KK = k+K+kp+Kp;
 
@@ -309,7 +346,7 @@ function element_VContact(c,ranges,norm4,jac,jbc,la,La,lb,Lb,contactopt,gamma_di
                         KK-LL != 0 && continue
                     end
 
-                    sums = 0.0
+                    sums = zz
                     for s = 0:floor(KK/2) #expression via 1F1 exists too
                         sums += eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * z0^(LL-2*s) *exp(-(eta5-eta6^2/4/eta7)*z0^2) #eta7^(-KK) in external factor, like for Gaussian
                     end
@@ -330,19 +367,22 @@ end
 
 
 # returns flati and fills temp_args_arr
-function flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax,Nmax,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals)
+function flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax,Nmax,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals,fill_full::Bool=false)
     # Keep loop-structure and write necessary functions arguments for matrix-element-calculation into 1-dim array temp_args_arr
+    # nmax,Nmax are the *effective* numbers of ranges here, i.e. already doubled for a complex-ranged coordinate.
     flati = 0
     # Iterate over boxes:
     for boxC in groupindex_arr
         for boxR in groupindex_arr
-            boxR < boxC && continue # fill only lower-triangular (boxes, not elements!) only works for real- or complex-symmetric, or hermitian matrices; needs some work for CSM and CR!
+            # fill only lower-triangular (boxes, not elements!). Valid for real-symmetric, complex-symmetric
+            # (CSM) and hermitian (complex ranges) matrices, but not for CSM and complex ranges together.
+            !fill_full && boxR < boxC && continue
             
             # if there are some identical particles: we can ignore the sum over a-values and simply multiply by a factor which is equal to the number of a-values. ONLY ON THE BOX-DIAGONAL! (boxC = boxR)
             if boxC == boxR
                 bvals_new = bvalsdiag[boxC] # for changing the role of a,b to be in line with lower triangular!
                 factor_ab = lastindex(abvals_arr[boxR]) # factor for amount of a-values normally
-                diag_bool = 1 # for skipping lower-triangular calculation within each box!
+                diag_bool = fill_full ? 0 : 1 # for skipping lower-triangular calculation within each box!
             else
                 bvals_new = abvals_arr[boxC]
                 factor_ab = 1
@@ -368,11 +408,13 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals
                             Lsum=0 #Int64((la+La+lb+Lb)/2) #unnecessary in 1D
                             
                             for na = 1:nmax
-                                nua = nu_arr[na]
-                                norma = norm_arr[la,na]
+                                # the bra ranges enter conjugated. This is a no-op for real
+                                # ranges and is what makes S,T,V hermitian for complex ones.
+                                nua = conj(nu_arr[na])
+                                norma = conj(norm_arr[la,na])
                                 for Na = 1:Nmax
-                                    NUa = NU_arr[Na]
-                                    NORMa = NORM_arr[La,Na]
+                                    NUa = conj(NU_arr[Na])
+                                    NORMa = conj(NORM_arr[La,Na])
                                     
                                     alpha += 1
                                     diag_bool == 1 && alpha < alphab && continue # skip upper-triangular only on diagonal boxes!
@@ -385,7 +427,7 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals
                                     coli = starts[boxC] + alphab - 1
                                     
                                     flati += 1
-                                    temp_args_arr[flati] = (;rowi,coli,ranges,norm4,la,La,lb,Lb,Lsum,avals_new,bvals_new,cvals,factor_ab,avals,bvals) # write all loop-index-depending function-arguments into a temporary 1D array
+                                    temp_args_arr[flati] = TempArgs1D(rowi,coli,ranges,norm4,la,La,lb,Lb,Lsum,avals_new,bvals_new,cvals,factor_ab,avals,bvals) # write all loop-index-depending function-arguments into a temporary 1D array
                                 end
                             end
                         end
