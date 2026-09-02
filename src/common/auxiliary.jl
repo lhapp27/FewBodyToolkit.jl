@@ -66,9 +66,9 @@ guard nodes turn the whole used interval into interior. They also remove any nee
 roundoff pushing `abs(angle(etaeff))` a few eps past `atan(omega)`, where the interpolants, which
 throw on extrapolation, would otherwise error.
 """
-const NGUARD_THETA = 2
 
 function theta_mesh(complex_ranged::Bool,complex_scaling::Bool,complex_range_freq,kmax_theta)
+    const NGUARD_THETA = 2
     !complex_ranged && return [0.0]
     theta_max = atan(complex_range_freq)
     theta_min = complex_scaling ? -theta_max : 0.0
