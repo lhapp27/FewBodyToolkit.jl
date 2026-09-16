@@ -92,12 +92,12 @@ end
 
 
 # range-interpolation method:
-# central interaction # 1D change needs to be confirmed
+# central interaction
 function precompute_varr!(v_arr,alpha_grid,nnlist,gamma_dict,vcent_fun::Union{Function,CentralPotential},buf,csmfac)
     for n in nnlist
         for kt = 1:size(alpha_grid,2)
             for k = 1:size(alpha_grid,1)
-                v_arr[k,kt,n+1] = vcent_integration(vcent_fun,alpha_grid[k,kt]*csmfac^2,n,buf)*csmfac^(2*n+1) # v_arr is no offset-arr, hence n+1. v_arr[:,:,1] is for n=0, etc. 
+                v_arr[k,kt,n+1] = vcent_integration(vcent_fun,alpha_grid[k,kt]*csmfac^2,n,buf)*csmfac^(n+1) # v_arr is no offset-arr, hence n+1. v_arr[:,:,1] is for n=0, etc. 
             end
         end
     end
