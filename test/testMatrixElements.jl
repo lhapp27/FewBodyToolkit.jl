@@ -1,6 +1,13 @@
 # Direct low-level tests for GEM2B matrix-element dispatch and branch coverage
 
 @testset "GEM2B Matrix Elements" begin
+    @testset "quadgk_scaled" begin
+        n_evals = Ref(0) # vanishing integral: quadgk with only rtol would run into maxevals (10^7)
+        @test abs(FewBodyToolkit.quadgk_scaled(r -> (n_evals[] += 1; r*exp(-r^2)), (-Inf,0,Inf))) < 1e-12
+        @test n_evals[] < 10^4
+        @test FewBodyToolkit.quadgk_scaled(r -> exp(-r^2), (-Inf,0,Inf)) ≈ sqrt(pi)
+    end
+
     # Small deterministic setup for direct matrix-element calls
     gamma_dict = Dict(
         0.5 => sqrt(pi),

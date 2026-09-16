@@ -10,7 +10,7 @@
 module ISGL
 
 using .. FewBodyToolkit
-using ..FewBodyToolkit: parse_complex_ranged, hermitian_fill!, theta_mesh, interpol_lookup, check_cr_csm_sector # shared with GEM3B1D, see common/auxiliary.jl
+using ..FewBodyToolkit: parse_complex_ranged, hermitian_fill!, theta_mesh, interpol_lookup, check_cr_csm_sector, quadgk_scaled # shared with GEM3B1D, see common/auxiliary.jl
 using LinearAlgebra,StaticArrays,OffsetArrays,Interpolations, SpecialFunctions,QuadGK,PartialWaveFunctions, WignerSymbols
 using Printf: @printf
 

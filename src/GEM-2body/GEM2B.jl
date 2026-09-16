@@ -5,6 +5,7 @@
 module GEM2B
 
 using .. FewBodyToolkit
+using ..FewBodyToolkit: quadgk_scaled
 using SpecialFunctions, QuadGK, LinearAlgebra, Optim, StaticArrays, Roots
 using Printf: @printf
 

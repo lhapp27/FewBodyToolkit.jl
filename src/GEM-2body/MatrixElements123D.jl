@@ -54,7 +54,7 @@ function element_V(vint::ContactPotential1D,lmax,nu1,nu2,gamma_dict,buf,dim,doma
 end
 
 function element_V(vint::CentralPotential,lmax,nu1,nu2,gamma_dict,buf,dim,domain,dimfac) # 1D; needs different integration domain
-    return quadgk(r -> integrand(r,lmax,nu1,nu2,vint,dim),domain...;segbuf=buf)[1]*norm(nu1,lmax,gamma_dict,dim)*norm(nu2,lmax,gamma_dict,dim) * dimfac
+    return quadgk_scaled(r -> integrand(r,lmax,nu1,nu2,vint,dim),domain;segbuf=buf)*norm(nu1,lmax,gamma_dict,dim)*norm(nu2,lmax,gamma_dict,dim) * dimfac
 end
 
 # if central potential is simply defined as a function: wrap into CentralPotential type

@@ -7,6 +7,27 @@ function comparison(num_arr,ref_arr,simax;s1="Numerical", s2="Reference", indexl
 end;
 
 """
+    quadgk_scaled(f, domain::Tuple; segbuf=nothing)
+
+`quadgk` over `domain` (e.g. `(-Inf,0,Inf)`), with a fallback for integrals that vanish or nearly cancel
+(e.g. odd moments of even potentials, needed for `parity=0` in 1D). With its purely relative default
+tolerance, `quadgk` cannot converge on those and runs until `maxevals` (10^7 evaluations); the fallback
+measures the error relative to `∫|f|` instead. Integrals that converge normally are computed as before.
+"""
+function quadgk_scaled(f, domain::Tuple; segbuf=nothing)
+    I, E = quadgk(f, domain...; maxevals=2000, segbuf=segbuf)
+    E <= sqrt(eps())*abs(I) && return I
+    return Base.invokelatest(quadgk_scaled_fallback, f, domain, segbuf) # runtime dispatch: compiled only when needed
+end
+
+function quadgk_scaled_fallback(f, domain, segbuf)
+    rtol = sqrt(eps())
+    scale = quadgk(x -> abs(f(x)), domain...; rtol=1e-2)[1] # coarse estimate of ∫|f|
+    return quadgk(f, domain...; rtol=rtol, atol=rtol*scale, segbuf=segbuf)[1]
+end
+
+
+"""
     parse_complex_ranged(complex_ranged) -> (complex_ranged_r, complex_ranged_R)
 
 Translates the user-facing `complex_ranged` option into two booleans, one per Jacobi coordinate.
