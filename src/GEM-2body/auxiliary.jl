@@ -3,7 +3,7 @@
 # functions for creating inputs
 
 """
-    make_phys_params2B(; hbar=1.0, mur=1.0, interactions=[[GaussianPotential(-1.0, 1.0)]], lmin=0, lmax=0, dim=3)
+    make_phys_params2B(; hbar=1.0, mur=1.0, interactions=[[GaussianPotential(-1.0, 1.0)]], lmin=0, lmax=0, dim=3, parity=nothing)
 
 Create and return a named tuple containing the physical parameters for a two-body system.
 
@@ -14,6 +14,7 @@ Create and return a named tuple containing the physical parameters for a two-bod
 - `lmin::Int = 0`: Minimum orbital angular momentum quantum number.
 - `lmax::Int = 0`: Maximum orbital angular momentum quantum number.
 - `dim::Int = 3`: Spatial dimension of the system.
+- `parity = nothing`: With `parity=0` (only for `dim=1`), the basis contains both even (`l=0`) and odd (`l=1`) functions, as needed for potentials with `V(r) != V(-r)`; `lmin`, `lmax` are then not used.
 
 # Returns
 - `NamedTuple`: Named tuple with the specified physical parameters.
@@ -24,12 +25,13 @@ make_phys_params2B(interactions=[GaussianPotential(-1.0, 0.5)], dim=1) # 1D syst
 make_phys_params2B(mur=0.5, interactions=[r -> -1/r], lmax=2)       # 3D Coulomb potential in d-wave (l=2) with reduced mass 0.5
 ```
 """
-function make_phys_params2B(;hbar = 1.0, mur=1.0, interactions=[GaussianPotential(-1.0, 1.0)], lmin=0, lmax=0, dim=3)
+function make_phys_params2B(;hbar = 1.0, mur=1.0, interactions=[GaussianPotential(-1.0, 1.0)], lmin=0, lmax=0, dim=3, parity=nothing)
     # Abstract eltype on purpose: a concrete Vector{typeof(v)} makes the whole solver
     # pipeline re-specialize for every new potential function. element_V provides the
     # function barrier that keeps the quadrature itself fully specialized.
     interactions = Vector{Any}(interactions)
-    return (;hbar, mur, interactions, lmin, lmax, dim)
+    isnothing(parity) || (parity == 0 && dim == 1) || error("parity must be nothing, or 0 (even and odd basis functions) for dim=1")
+    return (;hbar, mur, interactions, lmin, lmax, dim, parity)
 end
 
 """
@@ -99,7 +101,7 @@ struct PreallocStruct2B{TTV, TS, TE}
     energies::Vector{TE}
     wavefunctions::Matrix{TTV}
 
-    function PreallocStruct2B(num_params, complex_ranged::Bool, complex_scaling::Bool)
+    function PreallocStruct2B(num_params, complex_ranged::Bool, complex_scaling::Bool, nblocks::Int=1) # nblocks=2 for parity=0
         nbasis = num_params.gem_params.nmax
 
         # Determine types: TTV = type of T and V matrix; TS = type of S matrix; TE = type of energies array
@@ -119,6 +121,7 @@ struct PreallocStruct2B{TTV, TS, TE}
         end
 
         nu_arr = zeros(TTV, nbasis)
+        nbasis *= nblocks # matrices hold nblocks blocks of basis functions with the same ranges
         S  = zeros(TS, nbasis, nbasis)
         T  = zeros(TTV, nbasis, nbasis)
         V  = zeros(TTV, nbasis, nbasis)

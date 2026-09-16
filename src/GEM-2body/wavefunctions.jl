@@ -47,8 +47,10 @@ function wavefun_arr(r_arr, phys_params, num_params, wf_arr; complex_ranged::Boo
     end
     
     psi_arr = zeros(typeof(nu_arr[1]),lastindex(r_arr))
+    nb = lastindex(nu_arr)
     for (ii,r) in enumerate(r_arr)
-        psi_arr[ii] = wavefun_point(r,nu_arr,wf_arr,lmax,dim)
+        psi_arr[ii] = get(phys_params, :parity, nothing) != 0 ? wavefun_point(r,nu_arr,wf_arr,lmax,dim) :
+            wavefun_point(r,nu_arr,wf_arr[1:nb],0,dim) + wavefun_point(r,nu_arr,wf_arr[nb+1:2*nb],1,dim) # parity=0: even, then odd coefficients
     end
     
     return psi_arr
