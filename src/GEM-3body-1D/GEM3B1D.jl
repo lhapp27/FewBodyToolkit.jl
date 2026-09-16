@@ -5,7 +5,7 @@
 module GEM3B1D
 
 using .. FewBodyToolkit
-using ..FewBodyToolkit: parse_complex_ranged, hermitian_fill!, theta_mesh, interpol_lookup, check_cr_csm_sector # shared with ISGL, see common/auxiliary.jl
+using ..FewBodyToolkit: parse_complex_ranged, hermitian_fill!, theta_mesh, interpol_lookup, check_cr_csm_sector, quadgk_scaled # shared with ISGL, see common/auxiliary.jl
 using SpecialFunctions, QuadGK, LinearAlgebra, StaticArrays, Roots, Interpolations, OffsetArrays
 using Printf: @printf
 

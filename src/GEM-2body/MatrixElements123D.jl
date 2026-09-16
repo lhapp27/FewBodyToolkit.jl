@@ -54,7 +54,7 @@ function element_V(vint::ContactPotential1D,lmax,nu1,nu2,gamma_dict,buf,dim,doma
 end
 
 function element_V(vint::CentralPotential,lmax,nu1,nu2,gamma_dict,buf,dim,domain,dimfac) # 1D; needs different integration domain
-    return quadgk(r -> integrand(r,lmax,nu1,nu2,vint,dim),domain...;segbuf=buf)[1]*norm(nu1,lmax,gamma_dict,dim)*norm(nu2,lmax,gamma_dict,dim) * dimfac
+    return quadgk_scaled(r -> integrand(r,lmax,nu1,nu2,vint,dim),domain;segbuf=buf)*norm(nu1,lmax,gamma_dict,dim)*norm(nu2,lmax,gamma_dict,dim) * dimfac
 end
 
 # if central potential is simply defined as a function: wrap into CentralPotential type
@@ -120,6 +120,26 @@ function MatrixV(V, lmax, nu_arr, interactions, gamma_dict, buf, complex_scaling
 
     end
     
+end
+
+
+## V for parity=0 (1D): coupling of odd (l=1, lower-left block) and even (l=0) basis functions.
+## Even potentials do not couple them. The upper-right block follows from the symmetric/hermitian
+## fill in GEM2B_solve!, except for simultaneous csm and cr, where it is filled here.
+element_V_mixed(vint::Union{GaussianPotential,PowerLawPotential},nu_odd,nu_even,gamma_dict,buf) = 0.0
+element_V_mixed(vint::ContactPotential1D,nu_odd,nu_even,gamma_dict,buf) =
+    vint.v0 * vint.z0*exp(-(nu_odd+nu_even)*vint.z0^2) * norm(nu_odd,1,gamma_dict,1)*norm(nu_even,0,gamma_dict,1) / 2
+element_V_mixed(vint::Function,nu_odd,nu_even,gamma_dict,buf) = element_V_mixed(CentralPotential(vint),nu_odd,nu_even,gamma_dict,buf)
+element_V_mixed(vint::CentralPotential,nu_odd,nu_even,gamma_dict,buf) =
+    quadgk_scaled(r -> r*exp(-(nu_odd+nu_even)*r^2)*vint(r),(-Inf,0,Inf);segbuf=buf) * norm(nu_odd,1,gamma_dict,1)*norm(nu_even,0,gamma_dict,1) / 2
+
+function MatrixV_mixed(V, nu_arr, interactions, gamma_dict, buf, complex_scaling::Bool, complex_scaling_angle, complex_ranged::Bool)
+    csmfacnu = complex_scaling ? exp(-2*im*complex_scaling_angle*pi/180) : 1.0 # as in MatrixV
+    nb = lastindex(nu_arr)
+    for vint in interactions, ncol in 1:nb, nrow in 1:nb
+        V[nb+nrow, ncol] += element_V_mixed(vint, nu_arr[nrow]'*csmfacnu, nu_arr[ncol]*csmfacnu, gamma_dict, buf)
+        (complex_scaling && complex_ranged) && (V[nrow, nb+ncol] += element_V_mixed(vint, nu_arr[ncol]*csmfacnu, nu_arr[nrow]'*csmfacnu, gamma_dict, buf))
+    end
 end
 
 

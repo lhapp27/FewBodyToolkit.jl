@@ -39,6 +39,12 @@ num_paramsC = make_num_params2B(;gem_params,complex_scaling_angle=5.0)
 energies_arr = GEM2B.GEM2B_solve(phys_params,num_paramsC;complex_scaling=true,complex_ranged=true)
 @test all(isapprox.(real.(energies_arr[1:4]), exact_results; atol=1e-3))
 
+# 6. parity=0: even and odd basis functions for potentials without reflection symmetry (1D only).
+#    A shifted potential has all 8 Poschl-Teller levels (the unshifted even/odd sectors have 4 each).
+e_shifted = GEM2B.GEM2B_solve(make_phys_params2B(;interactions=[r -> v_poschl(r-0.4)],dim=1,parity=0),num_params)
+@test all(isapprox.(e_shifted[1:3], [-(lambda-i)^2/2/mur for i=0:2]; atol=1e-2))
+@test_throws ErrorException make_phys_params2B(;dim=3,parity=0)
+
 # PowerLawPotential (1D): analytic treatment of V(x) = v0*|x|^p
 # 1D harmonic oscillator; lmax=0 selects the even states E=(2n+1/2)*omega,
 # lmax=1 the odd ones E=(2n+3/2)*omega

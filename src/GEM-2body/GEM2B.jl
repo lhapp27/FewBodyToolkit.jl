@@ -5,6 +5,7 @@
 module GEM2B
 
 using .. FewBodyToolkit
+using ..FewBodyToolkit: quadgk_scaled
 using SpecialFunctions, QuadGK, LinearAlgebra, Optim, StaticArrays, Roots
 using Printf: @printf
 
@@ -83,7 +84,7 @@ function GEM2B_solve(phys_params, num_params;
     end
         
     # preallocations:
-    prealloc_arrs = PreallocStruct2B(num_params, complex_ranged, complex_scaling)
+    prealloc_arrs = PreallocStruct2B(num_params, complex_ranged, complex_scaling, get(phys_params, :parity, nothing) == 0 ? 2 : 1)
     
     # function call with preallocations:
     GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions,complex_ranged,complex_scaling,debug,inverse,target_energy)
@@ -145,9 +146,20 @@ function GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions:
         buf = alloc_segbuf(Float64,Float64,Float64)
     end
 
-    MatrixS(S,lmax,nu_arr,dim)
-    MatrixT(T,lmax,nu_arr,hbar,mur,complex_scaling,complex_scaling_angle,complex_ranged,dim)
-    MatrixV(V,lmax,nu_arr,interactions,gamma_dict,buf,complex_scaling,complex_scaling_angle,complex_ranged,dim)
+    if get(phys_params, :parity, nothing) != 0
+        MatrixS(S,lmax,nu_arr,dim)
+        MatrixT(T,lmax,nu_arr,hbar,mur,complex_scaling,complex_scaling_angle,complex_ranged,dim)
+        MatrixV(V,lmax,nu_arr,interactions,gamma_dict,buf,complex_scaling,complex_scaling_angle,complex_ranged,dim)
+    else # parity=0 (1D): blocks of even (l=0) and odd (l=1) functions, coupled only by V
+        nb = lastindex(nu_arr)
+        for (ib,l) in enumerate((0,1))
+            blk = (ib-1)*nb+1:ib*nb
+            MatrixS(view(S,blk,blk),l,nu_arr,dim)
+            MatrixT(view(T,blk,blk),l,nu_arr,hbar,mur,complex_scaling,complex_scaling_angle,complex_ranged,dim)
+            MatrixV(view(V,blk,blk),l,nu_arr,interactions,gamma_dict,buf,complex_scaling,complex_scaling_angle,complex_ranged,dim)
+        end
+        MatrixV_mixed(V,nu_arr,interactions,gamma_dict,buf,complex_scaling,complex_scaling_angle,complex_ranged)
+    end
     
     if debug
         stp = min(9, size(T, 1))  # Adjust size_to_print as needed
@@ -244,6 +256,7 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC;
     
     (;nu_arr,S,T,V,energies,wavefunctions) = pa # de-struct
     (;lmax,mur,dim) = phys_params
+    get(phys_params, :parity, nothing) == 0 && error("parity=0 is not supported by GEM2B_solveCC")
     (;gem_params,complex_range_freq,complex_scaling_angle,threshold) = num_params
     (;nmax,r1,rnmax) = gem_params 
     

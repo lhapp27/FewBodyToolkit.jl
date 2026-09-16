@@ -146,7 +146,7 @@ function precompute_varr!(v_arr,alpha_grid,Lsum,gamma_dict,vcent_fun::PowerLawPo
 end
 
 function vcent_integration(vcent_fun,alpha,n,buf) #where {V}
-    val = quadgk(r -> integrand(r,alpha,n,vcent_fun),0,Inf;segbuf=buf)[1]
+    val = quadgk_scaled(r -> integrand(r,alpha,n,vcent_fun),(0,Inf);segbuf=buf)
 end
 function integrand(r,alpha,n,vcent_fun)
     return vcent_fun(r)*r^(2*n+2)*exp(-alpha*r^2)
