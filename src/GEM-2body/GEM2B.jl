@@ -59,8 +59,8 @@ energies, wavefunctions = GEM2B_solve(phys_params, num_params; return_wavefuncti
 ```
 """
 function GEM2B_solve(phys_params, num_params;
-    return_wavefunctions=false, complex_ranged=false, complex_scaling=false, debug=false,
-    wf_bool=nothing, cr_bool=nothing, csm_bool=nothing, debug_bool=nothing)
+    return_wavefunctions=false, complex_ranged=false, complex_scaling=false,
+    wf_bool=nothing, cr_bool=nothing, csm_bool=nothing)
 
     if !isnothing(wf_bool)
         @warn "wf_bool is deprecated, use return_wavefunctions instead"
@@ -74,27 +74,16 @@ function GEM2B_solve(phys_params, num_params;
         @warn "csm_bool is deprecated, use complex_scaling instead"
         complex_scaling = csm_bool
     end
-    if !isnothing(debug_bool)
-        @warn "debug_bool is deprecated, use debug instead"
-        debug = debug_bool
-    end
         
     # preallocations:
     prealloc_arrs = PreallocStruct2B(num_params, complex_ranged, complex_scaling, get(phys_params, :parity, nothing) == 0 ? 2 : 1)
     
     # function call with preallocations:
-    GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions,complex_ranged,complex_scaling,debug)
+    GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions,complex_ranged,complex_scaling)
     
     if !return_wavefunctions
-        if debug
-            return prealloc_arrs
-        end
         return prealloc_arrs.energies
-
     elseif return_wavefunctions
-        if debug
-            return prealloc_arrs
-        end
         return prealloc_arrs.energies, prealloc_arrs.wavefunctions
     else
         error("error in return_wavefunctions: only boolean values allowed.")
@@ -102,10 +91,10 @@ function GEM2B_solve(phys_params, num_params;
 end
 
 # function with preallocated arrays:
-function GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions::Bool,complex_ranged::Bool,complex_scaling::Bool,debug::Bool)
+function GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions::Bool,complex_ranged::Bool,complex_scaling::Bool)
 
     ## 1. + 2. Preliminaries and matrix elements:
-    GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged,complex_scaling,debug)
+    GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged,complex_scaling)
     
     (;S,T,V,energies,wavefunctions) = prealloc_arrs
     (;threshold) = num_params
@@ -138,12 +127,12 @@ T,V,S = GEM2B_matrices(phys_params, num_params)
 """
 function GEM2B_matrices(phys_params, num_params; complex_ranged=false, complex_scaling=false)
     prealloc_arrs = PreallocStruct2B(num_params, complex_ranged, complex_scaling, get(phys_params, :parity, nothing) == 0 ? 2 : 1)
-    GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged,complex_scaling,false)
+    GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged,complex_scaling)
     return (;T=prealloc_arrs.T, V=prealloc_arrs.V, S=prealloc_arrs.S)
 end
 
 # matrix elements with preallocated arrays: steps 1. and 2. of GEM2B_solve!
-function GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged::Bool,complex_scaling::Bool,debug::Bool)
+function GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged::Bool,complex_scaling::Bool)
 
     (;nu_arr,S,T,V) = prealloc_arrs
     
@@ -198,16 +187,6 @@ function GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged::Bo
         MatrixV_mixed(V,nu_arr,interactions,gamma_dict,buf,complex_scaling,complex_scaling_angle,complex_ranged)
     end
     
-    if debug
-        stp = min(9, size(T, 1))  # Adjust size_to_print as needed
-        println("T:")
-        display(T[1:stp,1:stp])
-        println("V:")
-        display(V[1:stp,1:stp])
-        println("S:")
-        display(S[1:stp,1:stp])
-    end
-
     # symmetric fill:
     S .= Hermitian(S,:L) # if Hermitian or Symmetric: type-unstable? hermitian overall is ok, even if real-symmetric
     if !complex_scaling && !complex_ranged

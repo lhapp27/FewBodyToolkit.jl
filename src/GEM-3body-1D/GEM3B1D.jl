@@ -55,8 +55,8 @@ energies = GEM3B3D_solve(phys_params, num_params) #solving with default paramete
 ```
 """
 function GEM3B1D_solve(phys_params, num_params;
-    return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), debug=false,
-    wf_bool=nothing, csm_bool=nothing, debug_bool=nothing)
+    return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]),
+    wf_bool=nothing, csm_bool=nothing)
 
     complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
 
@@ -67,10 +67,6 @@ function GEM3B1D_solve(phys_params, num_params;
     if !isnothing(csm_bool)
         @warn "csm_bool is deprecated, use complex_scaling instead"
         complex_scaling = csm_bool
-    end
-    if !isnothing(debug_bool)
-        @warn "debug_bool is deprecated, use debug instead"
-        debug = debug_bool
     end
     
     ## 1. interpretation of inputs
@@ -83,7 +79,7 @@ function GEM3B1D_solve(phys_params, num_params;
     end
     
     ## 2. - 7. sanity checks, preallocation, precomputation and matrix elements:
-    fill_arrs,result_arrs = build_TVS(phys_params,num_params,observ_params,return_wavefunctions,complex_scaling,complex_ranged_r,complex_ranged_R,debug)
+    fill_arrs,result_arrs = build_TVS(phys_params,num_params,observ_params,return_wavefunctions,complex_scaling,complex_ranged_r,complex_ranged_R)
     
     ## 8. Solving the generalized eigenproblem:
     solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)
@@ -116,13 +112,13 @@ T,V,S = GEM3B1D_matrices(phys_params, num_params)
 function GEM3B1D_matrices(phys_params, num_params; complex_scaling=false, complex_ranged=:none)
     complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
     observ_params = (;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0])
-    fill_arrs,_ = build_TVS(phys_params,num_params,observ_params,false,complex_scaling,complex_ranged_r,complex_ranged_R,false,false)
+    fill_arrs,_ = build_TVS(phys_params,num_params,observ_params,false,complex_scaling,complex_ranged_r,complex_ranged_R,false)
     return (;T=fill_arrs.T, V=fill_arrs.V, S=fill_arrs.S)
 end
 
 # steps 2. - 7. of GEM3B1D_solve: sanity checks, preallocation, precomputation and matrix elements.
 # add_V=false leaves the kinetic energy in fill_arrs.T instead of the Hamiltonian T+V (matrix export).
-function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged_r::Bool,complex_ranged_R::Bool,debug::Bool,add_V::Bool=true)
+function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged_r::Bool,complex_ranged_R::Bool,add_V::Bool=true)
 
     cr_any = complex_ranged_r || complex_ranged_R
 
@@ -149,7 +145,7 @@ function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bo
     interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling,cr_any)
     
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,debug,complex_ranged_r,complex_ranged_R,add_V)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,complex_ranged_r,complex_ranged_R,add_V)
     
     return fill_arrs,result_arrs
 end

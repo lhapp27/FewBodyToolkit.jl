@@ -73,7 +73,6 @@ energies_wf, wfs = GEM3B1D_solve(phys_params, num_params; return_wavefunctions=t
 # 5. deprecated keyword aliases
 @test_logs (:warn, r"wf_bool is deprecated") GEM3B1D_solve(phys_params, num_params; wf_bool=false)
 @test_logs (:warn, r"csm_bool is deprecated") GEM3B1D_solve(phys_params, num_params; csm_bool=false)
-@test_logs (:warn, r"debug_bool is deprecated") GEM3B1D_solve(phys_params, num_params; debug_bool=false)
 
 # 6. sanity check failure paths (sanity_checks3B throws ErrorException)
 pp_badsize1d  = (masses=[1.0,1.0], species=[:b,:b,:b], interactions=[[],[],[]], parity=1)

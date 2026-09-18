@@ -75,8 +75,8 @@ energies = ISGL_solve(phys_params, num_params) #solving with default parameters:
 ```
 """
 function ISGL_solve(phys_params, num_params;
-    return_wavefunctions = false, complex_scaling = false, complex_ranged = :none, observ_params=DEFAULT_OBS, debug = false,
-    wf_bool=nothing, csm_bool=nothing, debug_bool=nothing)
+    return_wavefunctions = false, complex_scaling = false, complex_ranged = :none, observ_params=DEFAULT_OBS,
+    wf_bool=nothing, csm_bool=nothing)
 
     complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
 
@@ -87,10 +87,6 @@ function ISGL_solve(phys_params, num_params;
     if !isnothing(csm_bool)
         @warn "csm_bool is deprecated, use complex_scaling instead"
         complex_scaling = csm_bool
-    end
-    if !isnothing(debug_bool)
-        @warn "debug_bool is deprecated, use debug instead"
-        debug = debug_bool
     end
     
     ## 1. interpretation of inputs
@@ -103,7 +99,7 @@ function ISGL_solve(phys_params, num_params;
     end
     
     ## 2. - 7. sanity checks, preallocation, precomputation and matrix elements:
-    build = build_TVS(phys_params,num_params,observ_params,return_wavefunctions,complex_scaling,complex_ranged_r,complex_ranged_R,debug)
+    build = build_TVS(phys_params,num_params,observ_params,return_wavefunctions,complex_scaling,complex_ranged_r,complex_ranged_R)
     isnothing(build) && return
     size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs = build
 
@@ -137,7 +133,7 @@ T,V,S = ISGL_matrices(phys_params, num_params)
 """
 function ISGL_matrices(phys_params, num_params; complex_scaling=false, complex_ranged=:none)
     complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
-    build = build_TVS(phys_params,num_params,DEFAULT_OBS,false,complex_scaling,complex_ranged_r,complex_ranged_R,false,false)
+    build = build_TVS(phys_params,num_params,DEFAULT_OBS,false,complex_scaling,complex_ranged_r,complex_ranged_R,false)
     isnothing(build) && error("ISGL_matrices: erroneous inputs, see the sanity checks.")
     fill_arrs = build[4]
     return (;T=fill_arrs.T, V=fill_arrs.V, S=fill_arrs.S)
@@ -146,7 +142,7 @@ end
 # steps 2. - 7. of ISGL_solve: sanity checks, preallocation, precomputation and matrix elements.
 # add_V=false leaves the kinetic energy in fill_arrs.T instead of the Hamiltonian T+V (matrix export).
 # Returns nothing if the sanity checks fail.
-function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged_r::Bool,complex_ranged_R::Bool,debug::Bool,add_V::Bool=true)
+function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged_r::Bool,complex_ranged_R::Bool,add_V::Bool=true)
 
     cr_any = complex_ranged_r || complex_ranged_R
 
@@ -170,7 +166,7 @@ function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bo
     interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling,cr_any)
 
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,debug,complex_ranged_r,complex_ranged_R,add_V)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,complex_ranged_r,complex_ranged_R,add_V)
 
     return size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs
 end

@@ -23,7 +23,7 @@ energies_arr = GEM2B.GEM2B_solve(phys_params,num_params)
 
 # 2. Test of preallocation
 pa = GEM2B.PreallocStruct2B(num_params, false, false) #complex_scaling = false, complex_ranged = false
-GEM2B.GEM2B_solve!(pa,phys_params,num_params,false,false,false,false)
+GEM2B.GEM2B_solve!(pa,phys_params,num_params,false,false,false)
 energies_arr = pa.energies
 @test all(isapprox.(energies_arr[1:4], exact_results; atol=1e-3))
 
@@ -47,13 +47,6 @@ energies_arr = GEM2B.GEM2B_solveCC(phys_paramsCC, num_params, WCC, DCC; return_d
 # Results of the current code:
 exact_resultsCC = [-0.513423475743586, -0.486063239098383, -0.1260365599478753, -0.12340375414310918, -0.05573101564535911, -0.054935509952023065, -0.031248675303256424, -0.0309785242186285]
 @test all(isapprox.(energies_arr[1:8], exact_resultsCC; atol=1e-5))
-
-# 6. Debug return path should return the preallocation struct
-debug_out = GEM2B.GEM2B_solve(phys_params, num_params; debug=true)
-@test debug_out isa GEM2B.PreallocStruct2B
-
-debug_out_wf = GEM2B.GEM2B_solve(phys_params, num_params; debug=true, return_wavefunctions=true)
-@test debug_out_wf isa GEM2B.PreallocStruct2B
 
 # 7. Matrix export and inverse problem
 # T is the kinetic energy alone, so T+V reproduces the forward energies
@@ -91,7 +84,6 @@ Tc,Vc,Sc = GEM2B_matrices(phys_params, num_paramsC; complex_scaling=true)
 @test_logs (:warn, r"wf_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; wf_bool=true)
 @test_logs (:warn, r"cr_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; cr_bool=false)
 @test_logs (:warn, r"csm_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; csm_bool=false)
-@test_logs (:warn, r"debug_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; debug_bool=false)
 @test_logs (:warn, r"diff_bool is deprecated") GEM2B.GEM2B_solveCC(phys_paramsCC, num_params, WCC, DCC; diff_bool=false)
 
 # 9. Incompatible coupled-channel options should throw

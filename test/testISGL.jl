@@ -67,7 +67,6 @@ energies_wf, wfs_wf, co_wf, r2_wf = ISGL_solve(phys_params, num_params; return_w
 # 7. deprecated keyword aliases
 @test_logs (:warn, r"wf_bool is deprecated") ISGL_solve(phys_params, num_params; wf_bool=false)
 @test_logs (:warn, r"csm_bool is deprecated") ISGL_solve(phys_params, num_params; csm_bool=false)
-@test_logs (:warn, r"debug_bool is deprecated") ISGL_solve(phys_params, num_params; debug_bool=false)
 
 # 8. observables error for complex_scaling=true
 @test_throws ErrorException ISGL_solve(phys_params, num_params; return_wavefunctions=true, complex_scaling=true, observ_params=obs_params)
