@@ -73,3 +73,23 @@ v_pl_cent(r) = 0.8*abs(r)^1.5
 @test_throws ErrorException GEM2B.GEM2B_solve(make_phys_params2B(;mur,interactions=[PowerLawPotential(-1.0,-1.0)],dim=1),np_1d)
 # for lmax=1 the bound is p > -3, so p=-1 is fine there
 @test all(isfinite.(GEM2B.GEM2B_solve(make_phys_params2B(;mur,interactions=[PowerLawPotential(-1.0,-1.0)],dim=1,lmax=1,lmin=1),np_1d)[1:2]))
+
+# 7. Inverse problem for an indefinite potential (1D dipole-like: attractive for r<0.75, repulsive beyond).
+#    The old implementation used -V as the metric, which is only valid for a purely attractive V.
+v_dip(r) = (1 - 2*0.5*r - 0.5^2)/(r^2+1)^2.5
+np_dip = make_num_params2B(;gem_params=(;nmax=12,r1=0.2,rnmax=20.0))
+pp_dip(l) = make_phys_params2B(;interactions=[r -> l*v_dip(r)],dim=1,parity=0)
+Td,Vd,Sd = GEM2B_matrices(pp_dip(1.0),np_dip)
+@test minimum(eigvals(Symmetric(Vd))) < 0 < maximum(eigvals(Symmetric(Vd))) # V is indeed indefinite
+
+for target_e in (-0.5,-0.1) # one matrix build serves several target energies
+    lam = inverse_solve(Td,Vd,Sd;target_energy=target_e,threshold=np_dip.threshold)
+    @test isapprox(GEM2B.GEM2B_solve(pp_dip(lam[1]),np_dip)[1], target_e; atol=1e-8)
+    @test all(lam[1:3] .> 0)
+end
+
+# complex-ranged basis functions are supported by the inverse problem too (hermitian S, T, V)
+pp_pt_scaled(l) = make_phys_params2B(;interactions=[r -> l*v_poschl(r)],dim=1)
+Tcr,Vcr,Scr = GEM2B_matrices(pp_pt_scaled(1.0),num_params;complex_ranged=true)
+lam_cr = inverse_solve(Tcr,Vcr,Scr;target_energy=-8.0,threshold=num_params.threshold)
+@test isapprox(GEM2B.GEM2B_solve(pp_pt_scaled(lam_cr[1]),num_params;complex_ranged=true)[1], -8.0; atol=1e-8)

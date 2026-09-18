@@ -1,6 +1,6 @@
 ﻿## Function for calculating the matrix elements and filling the matrices T,V,S within the GEM3B1D program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,debug::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,debug::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,add_V::Bool=true)
     
     (;gem_params,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
@@ -80,7 +80,7 @@
         display(S[1:stp,1:stp])
     end
     
-    T .+= V # T becomes the full Hamiltonian matrix H = T + V
+    add_V && (T .+= V) # T becomes the full Hamiltonian matrix H = T + V. Skipped when the kinetic energy is needed separately (inverse problem, matrix export)
 
 end
 

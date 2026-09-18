@@ -23,7 +23,7 @@ energies_arr = GEM2B.GEM2B_solve(phys_params,num_params)
 
 # 2. Test of preallocation
 pa = GEM2B.PreallocStruct2B(num_params, false, false) #complex_scaling = false, complex_ranged = false
-GEM2B.GEM2B_solve!(pa,phys_params,num_params,false,false,false,false,false,0.0)
+GEM2B.GEM2B_solve!(pa,phys_params,num_params,false,false,false,false)
 energies_arr = pa.energies
 @test all(isapprox.(energies_arr[1:4], exact_results; atol=1e-3))
 
@@ -55,20 +55,43 @@ debug_out = GEM2B.GEM2B_solve(phys_params, num_params; debug=true)
 debug_out_wf = GEM2B.GEM2B_solve(phys_params, num_params; debug=true, return_wavefunctions=true)
 @test debug_out_wf isa GEM2B.PreallocStruct2B
 
-# 7. Inverse branch (both energies-only and energies+wavefunctions)
-inv_vals = GEM2B.GEM2B_solve(phys_params, num_params; inverse=true, target_energy=-0.5)
-@test all(isfinite.(inv_vals[1:4]))
+# 7. Matrix export and inverse problem
+# T is the kinetic energy alone, so T+V reproduces the forward energies
+Tm,Vm,Sm = GEM2B_matrices(phys_params, num_params)
+e_matrices = zeros(size(Tm,1))
+FewBodyToolkit.eigen2step(e_matrices, Tm .+ Vm, Sm; threshold=num_params.threshold)
+@test all(isapprox.(e_matrices[1:4], exact_results; atol=1e-3))
 
-inv_vals_wf, inv_wf = GEM2B.GEM2B_solve(phys_params, num_params; inverse=true, target_energy=-0.5, return_wavefunctions=true)
-@test all(isfinite.(inv_vals_wf[1:4]))
-@test size(inv_wf, 1) == num_params.gem_params.nmax
+# reduce_basis: L orthonormalizes the basis
+L = reduce_basis(Sm; threshold=num_params.threshold)
+@test L' * Sm * L ≈ I
+
+# inverse problem: the strengths are exact, scaling the interaction by inv_vals[1] puts the ground state at target_energy
+inv_vals = inverse_solve(Tm, Vm, Sm; target_energy=-0.5, threshold=num_params.threshold)
+@test isapprox(GEM2B.GEM2B_solve(make_phys_params2B(;interactions=[r -> inv_vals[1]*v_coulomb(r)]), num_params)[1], -0.5; atol=1e-10)
+
+inv_vals_vec, inv_vecs = inverse_solve(Tm, Vm, Sm; target_energy=-0.5, threshold=num_params.threshold, return_vectors=true)
+@test all(isapprox.(inv_vals_vec, inv_vals; rtol=1e-10)) # the vector path uses a different LAPACK driver
+@test size(inv_vecs, 1) == num_params.gem_params.nmax
+@test inv_vecs[:,1]' * Sm * inv_vecs[:,1] ≈ 1 # normalized as x'*S*x == 1
+
+# purely attractive V: the S-reduced pencil reproduces the old -V-metric implementation
+old_vals = zeros(size(Tm,1))
+FewBodyToolkit.eigen2step(old_vals, Tm .+ 0.5.*Sm, -Vm; threshold=num_params.threshold)
+@test all(isapprox.(inv_vals[1:4], old_vals[1:4]; rtol=1e-6))
+
+# target_energy above the lowest eigenvalue of T makes T - target_energy*S indefinite
+@test_throws ErrorException inverse_solve(Tm, Vm, Sm; target_energy=1.0, threshold=num_params.threshold)
+
+# complex scaling leaves T and V complex-symmetric instead of hermitian and is rejected
+Tc,Vc,Sc = GEM2B_matrices(phys_params, num_paramsC; complex_scaling=true)
+@test_throws ErrorException inverse_solve(Tc, Vc, Sc; target_energy=-0.5, threshold=num_params.threshold)
 
 # 8. Deprecated keyword aliases should emit warnings and still execute
 @test_logs (:warn, r"wf_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; wf_bool=true)
 @test_logs (:warn, r"cr_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; cr_bool=false)
 @test_logs (:warn, r"csm_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; csm_bool=false)
 @test_logs (:warn, r"debug_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; debug_bool=false)
-@test_logs (:warn, r"inverse_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; inverse_bool=false)
 @test_logs (:warn, r"diff_bool is deprecated") GEM2B.GEM2B_solveCC(phys_paramsCC, num_params, WCC, DCC; diff_bool=false)
 
 # 9. Incompatible coupled-channel options should throw

@@ -184,3 +184,19 @@ np_csm40 = make_num_params3B1D(;gem_params=gp_cr,omega_cr=0.9,kmax_interpol=150,
 # ... while an analytically treated interaction is unaffected, since it is never integrated
 pp_ga = make_phys_params3B1D(;interactions=[[vga],[vga],[vga]])
 @test !isempty(GEM3B1D_solve(pp_ga,np_csm40;complex_ranged=:r,complex_scaling=true))
+
+
+# Inverse problem: the interaction strengths at which a state reaches target_energy.
+# Small basis, since only the round-trip against the forward solve is checked.
+gp_inv3 = (;nmax=6,Nmax=6,r1=0.5,rnmax=10.0,R1=0.5,RNmax=10.0)
+np_inv3 = make_num_params3B1D(;gem_params=gp_inv3)
+pp_inv3(l) = make_phys_params3B1D(;species=[:b,:b,:b],interactions=[[GaussianPotential(l*v0,mu_g)] for _=1:3])
+Tm3,Vm3,Sm3 = GEM3B1D_matrices(pp_inv3(1.0),np_inv3)
+lam3 = inverse_solve(Tm3,Vm3,Sm3;target_energy=-30.0,threshold=np_inv3.threshold)
+@test all(lam3[1:3] .> 0)
+@test isapprox(GEM3B1D_solve(pp_inv3(lam3[1]),np_inv3)[1], -30.0; atol=1e-8)
+
+# matrix export: T is the kinetic energy alone, so T+V reproduces the forward energies
+e_m3 = zeros(size(Tm3,1))
+FewBodyToolkit.eigen2step(e_m3,Tm3.+Vm3,Sm3;threshold=np_inv3.threshold)
+@test isapprox(e_m3[1], GEM3B1D_solve(pp_inv3(1.0),np_inv3)[1]; rtol=1e-10)

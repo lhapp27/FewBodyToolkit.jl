@@ -7,6 +7,7 @@ include("common/potentialtypes.jl")
 include("common/eigen2step.jl")
 include("common/auxiliary.jl")
 export PotentialFunction, CentralPotential, GaussianPotential, PowerLawPotential, ContactPotential1D, comparison#, SpinOrbitPotential
+export reduce_basis, inverse_solve
 
 ### GEM-2body
 include("GEM-2body/GEM2B.jl")
