@@ -56,16 +56,25 @@ For full details on the method, basis choices, and research-driven examples, see
 If you use `FewBodyToolkit.jl` in your work, please cite the following:
 
 ```tex
-@misc{happ2025fewbodytoolkit,
-  author  = {Happ, Lucas},
-  title   = {FewBodyToolkit.jl: a {Julia} package for solving quantum few-body problems},
-  year = {2025},
-  number = {arXiv:2510.04447},
-  eprint = {2510.04447},
-  primaryclass = {quant-ph},
-  publisher = {arXiv},
-  doi = {10.48550/arXiv.2510.04447},
-  url = {http://arxiv.org/abs/2510.04447},
-  archiveprefix = {arXiv}
+@article{Happ2026aFewBodyToolkit,
+	title = {FewBodyToolkit.jl: A Julia package for solving quantum few-body problems},
+	pages = {81},
+	author = {Happ, Lucas},
+	journal = {SciPost Phys. Codebases},
+	year = {2026},
+	publisher = {SciPost},
+	doi = {10.21468/SciPostPhysCodeb.81},
+	url = {https://scipost.org/10.21468/SciPostPhysCodeb.81}
+}
+
+@article{Happ2026bFewBodyToolkit,
+	title = {Codebase release 0.5 for FewBodyToolkit.jl},
+	pages = {81-r0.5},
+	author = {Happ, Lucas},
+	journal = {SciPost Phys. Codebases},
+	year = {2026},
+	publisher = {SciPost},
+	doi = {10.21468/SciPostPhysCodeb.81-r0.5},
+	url = {https://scipost.org/10.21468/SciPostPhysCodeb.81-r0.5}
 }
 ```
