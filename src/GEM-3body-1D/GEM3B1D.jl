@@ -19,7 +19,7 @@ include("fillTVS.jl")
 include("solveHS.jl")
 include("../common/eigen2step.jl")
 
-export GEM3B1D_solve
+export GEM3B1D_solve, GEM3B1D_matrices
 export make_phys_params3B1D,make_num_params3B1D
 
 """
@@ -55,11 +55,10 @@ energies = GEM3B3D_solve(phys_params, num_params) #solving with default paramete
 ```
 """
 function GEM3B1D_solve(phys_params, num_params;
-    return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), debug=false,
-    wf_bool=nothing, csm_bool=nothing, debug_bool=nothing)
+    return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]),
+    wf_bool=nothing, csm_bool=nothing)
 
     complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
-    cr_any = complex_ranged_r || complex_ranged_R
 
     if !isnothing(wf_bool)
         @warn "wf_bool is deprecated, use return_wavefunctions instead"
@@ -68,10 +67,6 @@ function GEM3B1D_solve(phys_params, num_params;
     if !isnothing(csm_bool)
         @warn "csm_bool is deprecated, use complex_scaling instead"
         complex_scaling = csm_bool
-    end
-    if !isnothing(debug_bool)
-        @warn "debug_bool is deprecated, use debug instead"
-        debug = debug_bool
     end
     
     ## 1. interpretation of inputs
@@ -83,6 +78,50 @@ function GEM3B1D_solve(phys_params, num_params;
         println("")
     end
     
+    ## 2. - 7. sanity checks, preallocation, precomputation and matrix elements:
+    fill_arrs,result_arrs = build_TVS(phys_params,num_params,observ_params,return_wavefunctions,complex_scaling,complex_ranged_r,complex_ranged_R)
+    
+    ## 8. Solving the generalized eigenproblem:
+    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)
+    
+    ## 9. Calculate observables: (currently not supported for 1D)
+    if !return_wavefunctions
+        return result_arrs.energies_arr
+    elseif return_wavefunctions
+        #calc_observables(num_params,observ_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs)
+        return result_arrs.energies_arr,result_arrs.wavefun_arr
+    end
+end
+
+
+
+"""
+    GEM3B1D_matrices(phys_params, num_params; complex_scaling=false, complex_ranged=:none)
+
+Builds and returns the matrices of a 1D three-body problem without solving it: `(; T, V, S)`, where `T` is the kinetic energy (*not* the Hamiltonian `T+V`), `V` the interaction, and `S` the norm-overlap of the basis functions.
+
+Arguments and keywords are the same as for [`GEM3B1D_solve`](@ref). Intended for problems which are more naturally posed in terms of the matrices than of the energies, in particular the inverse problem, see [`inverse_solve`](@ref).
+
+With `complex_scaling=true`, `T` already carries the factor `exp(-2*i*theta)` and `V` the rotated potential.
+
+# Example
+```julia
+T,V,S = GEM3B1D_matrices(phys_params, num_params)
+```
+"""
+function GEM3B1D_matrices(phys_params, num_params; complex_scaling=false, complex_ranged=:none)
+    complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
+    observ_params = (;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0])
+    fill_arrs,_ = build_TVS(phys_params,num_params,observ_params,false,complex_scaling,complex_ranged_r,complex_ranged_R,false)
+    return (;T=fill_arrs.T, V=fill_arrs.V, S=fill_arrs.S)
+end
+
+# steps 2. - 7. of GEM3B1D_solve: sanity checks, preallocation, precomputation and matrix elements.
+# add_V=false leaves the kinetic energy in fill_arrs.T instead of the Hamiltonian T+V (matrix export).
+function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged_r::Bool,complex_ranged_R::Bool,add_V::Bool=true)
+
+    cr_any = complex_ranged_r || complex_ranged_R
+
     ## 2. sanity checks:
     error_code = sanity_checks3B(phys_params);
     if error_code != 0
@@ -106,18 +145,9 @@ function GEM3B1D_solve(phys_params, num_params;
     interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling,cr_any)
     
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,debug,complex_ranged_r,complex_ranged_R)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,complex_ranged_r,complex_ranged_R,add_V)
     
-    ## 8. Solving the generalized eigenproblem:
-    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)
-    
-    ## 9. Calculate observables: (currently not supported for 1D)
-    if !return_wavefunctions
-        return result_arrs.energies_arr
-    elseif return_wavefunctions
-        #calc_observables(num_params,observ_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs)
-        return result_arrs.energies_arr,result_arrs.wavefun_arr
-    end
+    return fill_arrs,result_arrs
 end
 
 

@@ -1,6 +1,6 @@
 ﻿## Function for calculating the matrix elements and filling the matrices T,V,S within the ISGL program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,debug::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,add_V::Bool=true)
 
     (;gem_params,mu0,c_shoulder,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
@@ -66,17 +66,7 @@
         V .= Symmetric(temp_fill_mat,:L);
     end
 
-    if debug
-        stp = min(9, size(T, 1))  # Adjust size_to_print as needed
-        println("T:")
-        display(T[1:stp,1:stp])
-        println("V:")
-        display(V[1:stp,1:stp])
-        println("S:")
-        display(S[1:stp,1:stp])
-    end
-    
-    T .+= V
+    add_V && (T .+= V) # T becomes the full Hamiltonian matrix H = T + V. Skipped when the kinetic energy is needed separately (inverse problem, matrix export)
     
 end
 

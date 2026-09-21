@@ -1,5 +1,6 @@
 using FewBodyToolkit
 using Test
+using LinearAlgebra
 
 # GEM2B:
 @time include("test2B1D.jl")

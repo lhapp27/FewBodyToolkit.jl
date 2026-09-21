@@ -125,7 +125,6 @@ function benchmark_stages(pp, np; samples::Int = 8)
         obs_params = obs,
         complex_scaling = COMPLEX_SCALING,
         return_wavefunctions = RETURN_WAVEFUNCTIONS,
-        debug = false,
         npreview = 2,
     )
 

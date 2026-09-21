@@ -16,7 +16,7 @@ include("optimV0.jl")
 include("MatrixElements123D.jl")
 include("wavefunctions.jl")
 
-export GEM2B_solve
+export GEM2B_solve, GEM2B_matrices
 export make_phys_params2B,make_num_params2B,PreallocStruct2B
 export v0GEMOptim,GEM_Optim_2B
 export wavefun_arr,wavefun_point
@@ -59,8 +59,8 @@ energies, wavefunctions = GEM2B_solve(phys_params, num_params; return_wavefuncti
 ```
 """
 function GEM2B_solve(phys_params, num_params;
-    return_wavefunctions=false, complex_ranged=false, complex_scaling=false, debug=false, inverse=false, target_energy=0.0,
-    wf_bool=nothing, cr_bool=nothing, csm_bool=nothing, debug_bool=nothing, inverse_bool=nothing)
+    return_wavefunctions=false, complex_ranged=false, complex_scaling=false,
+    wf_bool=nothing, cr_bool=nothing, csm_bool=nothing)
 
     if !isnothing(wf_bool)
         @warn "wf_bool is deprecated, use return_wavefunctions instead"
@@ -74,31 +74,16 @@ function GEM2B_solve(phys_params, num_params;
         @warn "csm_bool is deprecated, use complex_scaling instead"
         complex_scaling = csm_bool
     end
-    if !isnothing(debug_bool)
-        @warn "debug_bool is deprecated, use debug instead"
-        debug = debug_bool
-    end
-    if !isnothing(inverse_bool)
-        @warn "inverse_bool is deprecated, use inverse instead"
-        inverse = inverse_bool
-    end
         
     # preallocations:
     prealloc_arrs = PreallocStruct2B(num_params, complex_ranged, complex_scaling, get(phys_params, :parity, nothing) == 0 ? 2 : 1)
     
     # function call with preallocations:
-    GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions,complex_ranged,complex_scaling,debug,inverse,target_energy)
+    GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions,complex_ranged,complex_scaling)
     
     if !return_wavefunctions
-        if debug
-            return prealloc_arrs
-        end
         return prealloc_arrs.energies
-
     elseif return_wavefunctions
-        if debug
-            return prealloc_arrs
-        end
         return prealloc_arrs.energies, prealloc_arrs.wavefunctions
     else
         error("error in return_wavefunctions: only boolean values allowed.")
@@ -106,13 +91,54 @@ function GEM2B_solve(phys_params, num_params;
 end
 
 # function with preallocated arrays:
-function GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions::Bool,complex_ranged::Bool,complex_scaling::Bool,debug::Bool,inverse::Bool,target_energy)
+function GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions::Bool,complex_ranged::Bool,complex_scaling::Bool)
 
-    (;nu_arr,S,T,V,energies,wavefunctions) = prealloc_arrs
+    ## 1. + 2. Preliminaries and matrix elements:
+    GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged,complex_scaling)
+    
+    (;S,T,V,energies,wavefunctions) = prealloc_arrs
+    (;threshold) = num_params
+    
+    ## 3. Eigensolver
+    if !return_wavefunctions
+        eigen2step(energies,T.+V,S;threshold=threshold) # only energies
+        return energies
+    else
+        eigen2step_valvec(energies,wavefunctions,T.+V,S;threshold=threshold)
+        return energies,wavefunctions
+    end    
+end
+
+
+
+"""
+    GEM2B_matrices(phys_params, num_params; complex_ranged=false, complex_scaling=false)
+
+Builds and returns the matrices of a two-body problem without solving it: `(; T, V, S)`, where `T` is the kinetic energy (*not* the Hamiltonian `T+V`), `V` the interaction, and `S` the norm-overlap of the basis functions.
+
+Arguments and keywords are the same as for [`GEM2B_solve`](@ref). Intended for problems which are more naturally posed in terms of the matrices than of the energies, in particular the inverse problem, see [`inverse_solve`](@ref).
+
+With `complex_scaling=true`, `T` already carries the factor `exp(-2*i*theta)` and `V` the rotated potential.
+
+# Example
+```julia
+T,V,S = GEM2B_matrices(phys_params, num_params)
+```
+"""
+function GEM2B_matrices(phys_params, num_params; complex_ranged=false, complex_scaling=false)
+    prealloc_arrs = PreallocStruct2B(num_params, complex_ranged, complex_scaling, get(phys_params, :parity, nothing) == 0 ? 2 : 1)
+    GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged,complex_scaling)
+    return (;T=prealloc_arrs.T, V=prealloc_arrs.V, S=prealloc_arrs.S)
+end
+
+# matrix elements with preallocated arrays: steps 1. and 2. of GEM2B_solve!
+function GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged::Bool,complex_scaling::Bool)
+
+    (;nu_arr,S,T,V) = prealloc_arrs
     
     # Destructuring struct:
     (;hbar,mur,interactions,lmax,dim) = phys_params # dimension is moved to a physical parameter
-    (;gem_params,complex_range_freq,complex_scaling_angle,threshold) = num_params
+    (;gem_params,complex_range_freq,complex_scaling_angle) = num_params
     (;nmax,r1,rnmax) = gem_params    
     
     ## 1. Preliminaries:
@@ -161,16 +187,6 @@ function GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions:
         MatrixV_mixed(V,nu_arr,interactions,gamma_dict,buf,complex_scaling,complex_scaling_angle,complex_ranged)
     end
     
-    if debug
-        stp = min(9, size(T, 1))  # Adjust size_to_print as needed
-        println("T:")
-        display(T[1:stp,1:stp])
-        println("V:")
-        display(V[1:stp,1:stp])
-        println("S:")
-        display(S[1:stp,1:stp])
-    end
-
     # symmetric fill:
     S .= Hermitian(S,:L) # if Hermitian or Symmetric: type-unstable? hermitian overall is ok, even if real-symmetric
     if !complex_scaling && !complex_ranged
@@ -188,29 +204,9 @@ function GEM2B_solve!(prealloc_arrs,phys_params,num_params,return_wavefunctions:
     elseif complex_scaling && complex_ranged # no symmetric filling possible for T and V !!!
         #T .+= V 
     end
-
     
-    ## 3. Eigensolver
-    if !return_wavefunctions
-        if inverse
-            # solve the inverse problem: find the values of v0 such that the first energy is close to target_energy
-            eigen2step(energies,T .- target_energy.*S,-V;threshold=threshold) # The usual variable "energies" is used here for the eigenvalues which are the critical values of v0 leading to the target energy; a smaller threshold might be required!
-        else
-            eigen2step(energies,T.+V,S;threshold=threshold) # only energies
-        end
-        
-        return energies
-    else
-        if inverse
-            # solve the inverse problem: find basis parameters such that the first energy is close to target_energy
-            eigen2step_valvec(energies,wavefunctions,T .- target_energy.*S,-V;threshold=threshold)
-        else
-            eigen2step_valvec(energies,wavefunctions,T.+V,S;threshold=threshold)
-        end
-        return energies,wavefunctions
-    end    
+    return prealloc_arrs
 end
-
 
 
 ## Gaussian ranges:

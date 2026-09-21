@@ -67,7 +67,6 @@ energies_wf, wfs_wf, co_wf, r2_wf = ISGL_solve(phys_params, num_params; return_w
 # 7. deprecated keyword aliases
 @test_logs (:warn, r"wf_bool is deprecated") ISGL_solve(phys_params, num_params; wf_bool=false)
 @test_logs (:warn, r"csm_bool is deprecated") ISGL_solve(phys_params, num_params; csm_bool=false)
-@test_logs (:warn, r"debug_bool is deprecated") ISGL_solve(phys_params, num_params; debug_bool=false)
 
 # 8. observables error for complex_scaling=true
 @test_throws ErrorException ISGL_solve(phys_params, num_params; return_wavefunctions=true, complex_scaling=true, observ_params=obs_params)
@@ -324,3 +323,18 @@ nb2 = count(<(0), real.(e2_real))   # compare the bound states only
 @test nb2 >= 1
 @test all(isapprox.(e3_real[1:nb2], e2_real[1:nb2]; atol=1e-3))
 @test all(isapprox.(e3_cr[1:nb2],   e2_cr[1:nb2];   atol=1e-3))
+
+
+# Inverse problem: the interaction strengths at which a state reaches target_energy.
+gp_invI = (;nmax=6,Nmax=6,r1=0.5,rnmax=8.0,R1=0.5,RNmax=7.0)
+np_invI = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=gp_invI)
+pp_invI(l) = make_phys_params3B3D(;species=[:b,:b,:b],interactions=[[GaussianPotential(-5.0*l,1.0)] for _=1:3])
+TmI,VmI,SmI = ISGL_matrices(pp_invI(1.0),np_invI)
+lamI = inverse_solve(TmI,VmI,SmI;target_energy=-1.0,threshold=np_invI.threshold)
+@test all(lamI[1:3] .> 0)
+@test isapprox(ISGL_solve(pp_invI(lamI[1]),np_invI)[1], -1.0; atol=1e-8)
+
+# matrix export: T is the kinetic energy alone, so T+V reproduces the forward energies
+e_mI = zeros(size(TmI,1))
+FewBodyToolkit.eigen2step(e_mI,TmI.+VmI,SmI;threshold=np_invI.threshold)
+@test isapprox(e_mI[1], ISGL_solve(pp_invI(1.0),np_invI)[1]; rtol=1e-10)
