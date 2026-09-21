@@ -31,6 +31,13 @@ function reduce_basis(S; threshold::Float64 = 10^-13)
     return y_mask*diagm(1 ./sqrt.(abs.(dvec_mask)))
 end
 
+"""
+    eigen2step(e_arr, H, S; threshold=1e-13)
+
+Solves the generalized eigenvalue problem `H*x = E*S*x` and writes the energies into `e_arr`.
+
+Similar to `eigvals(H,S)`, but the basis is first orthonormalized by [`reduce_basis`](@ref), which cuts the small eigenvalues of `S`. The number of energies can therefore be smaller than the size of `H`.
+"""
 function eigen2step(e_arr,H, S; threshold::Float64 = 10^-13)
     
     l = reduce_basis(S;threshold=threshold)
@@ -40,6 +47,11 @@ function eigen2step(e_arr,H, S; threshold::Float64 = 10^-13)
 end
 
 
+"""
+    eigen2step_valvec(e_arr, v_arr, H, S; threshold=1e-13)
+
+Same as [`eigen2step`](@ref), but also writes the coefficient vectors into the columns of `v_arr`, normalized as `x' * S * x == 1`.
+"""
 function eigen2step_valvec(e_arr,v_arr,H, S; threshold::Float64 = 10^-13)
     
     l = reduce_basis(S;threshold=threshold)
