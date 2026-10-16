@@ -12,7 +12,7 @@
     (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,maxlmax,mij_arr_dict) = size_params
     (;spintrafo_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr) = precomp_arrs
     (;alpha_arr,v_arr,A_mat,Ainv_arr_kine,w_obs_interpol_arr) = interpol_arrs
-    (;w_arr_kine,kij_arr,gij_arr,T,V,S,temp_args_arr,temp_fill_mat,wn_obs_interpol_arr) = fill_arrs
+    (;w_arr_kine,kij_arr,gij_arr,T,V,S,temp_args_arr,wn_obs_interpol_arr) = fill_arrs
     (;energies_arr,wavefun_arr,centobs_output,R2_output) = result_arrs
     
     # error check:
