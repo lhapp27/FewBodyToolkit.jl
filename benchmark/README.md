@@ -22,7 +22,7 @@ Options of `run.jl`: `--quick` (smallest size only), `--cases=isgl_cr,inverse` (
   `inverse`), for a consistency check between versions.
 - **Results** (`results/`): `<label>.csv` (one row per point), `<label>.toml` (package version and
   commit, julia version, CPU, julia and BLAS threads, load average), `<label>_Manifest.toml`,
-  `<label>.log`. The label is `<version or commit>_<host>_<date>`.
+  `<label>.log`. The label is `<version or commit>_<date>`. No host name or local paths are recorded.
 - Timings are only comparable on the same machine with the same thread settings and an otherwise
-  idle machine (check `loadavg_start` and the log). A full run takes about 30 min on a
-  2x Xeon E5-2630 v3 and needs < 10 GB.
+  idle machine (check `loadavg_start` and the log). A full run takes about 35 min on a
+  2x Xeon E5-2630 v3 (16 cores) and needs up to ~12 GB (v0.5.4, `isgl_cr` at N = 6912).

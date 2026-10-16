@@ -3,7 +3,8 @@
 #   <fbtk>: a registered version (e.g. 0.5.4) or the path to a FewBodyToolkit.jl checkout
 #   --quick: only the smallest size of each case (to check the setup)
 # Output in benchmark/results/: <label>.csv (one row per point), <label>.toml (metadata),
-# <label>_Manifest.toml (environment), <label>.log. <label> = <version or commit>_<host>_<date>.
+# <label>_Manifest.toml (environment), <label>.log. <label> = <version or commit>_<date>.
+# No host name or local paths are recorded (results may be published).
 
 using Pkg, TOML, Dates, LinearAlgebra
 
@@ -31,15 +32,15 @@ if isrepo
 else
     id = "v" * fbtk["version"]
 end
-host = gethostname()
-label = id * "_" * host * "_" * Dates.format(now(), "yyyymmdd-HHMM") * (QUICK ? "_quick" : "")
+label = id * "_" * Dates.format(now(), "yyyymmdd-HHMM") * (QUICK ? "_quick" : "")
 resdir = joinpath(HERE, "results"); mkpath(resdir)
 csvfile = joinpath(resdir, label * ".csv")
-cp(joinpath(env, "Manifest.toml"), joinpath(resdir, label * "_Manifest.toml"))
+write(joinpath(resdir, label * "_Manifest.toml"),  # without the local path of a developed checkout
+      replace(read(joinpath(env, "Manifest.toml"), String), r"\npath = \".*\"" => "\npath = \"<local checkout>\""))
 
 meta = Dict(
-    "label" => label, "date" => string(now()), "host" => host,
-    "fbtk_spec" => SPEC, "fbtk_version" => fbtk["version"],
+    "label" => label, "date" => string(now()),
+    "fbtk_spec" => isrepo ? "local checkout" : SPEC, "fbtk_version" => fbtk["version"],
     "fbtk_commit" => isrepo ? gitcmd("rev-parse", "HEAD") : get(fbtk, "git-tree-sha1", ""),
     "fbtk_dirty" => isrepo ? dirty : false,
     "julia_version" => string(VERSION), "cpu" => Sys.cpu_info()[1].model, "logical_cores" => Sys.CPU_THREADS,
