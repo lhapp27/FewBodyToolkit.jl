@@ -1,5 +1,6 @@
-# Compares two benchmark result files (run.jl): times, peak memory, and the lowest energies.
-# usage: julia benchmark/compare.jl results/<old>.csv results/<new>.csv
+# Compares benchmark result files (run.jl): times, peak memory, and the lowest energies.
+# usage: julia benchmark/compare.jl results/<old>.csv results/<new>.csv     (detailed comparison)
+#        julia benchmark/compare.jl results/<a>.csv results/<b>.csv ...    (overview of several versions)
 
 using DelimitedFiles, Printf
 
@@ -22,6 +23,35 @@ function fit_c1(N, y)
     count(ok) >= 2 || return NaN
     A = hcat(ones(count(ok)), float.(N[ok]).^2)
     return (A \ y[ok])[2]
+end
+
+# overview: time and peak memory of the solve (inverse: one inverse_solve) per version, and the
+# largest deviation of the lowest energies from the last file
+if length(ARGS) > 2
+    R = load.(ARGS)
+    names = [first(split(basename(f), "_")) for f in ARGS]
+    allkeys = sort(unique(vcat(collect.(keys.(R))...)))
+    for (title, col, fmt) in (("time [s]", k -> k == "inverse" ? "t_inv1" : "t_solve", sec),
+                              ("peak memory [GB]", k -> k == "inverse" ? "dpeak_inv1" : "dpeak_solve", gb))
+        println("\n", title); @printf("%-11s %3s %6s", "case", "n", "N"); foreach(n -> @printf(" %15s", n), names); println()
+        for key in allkeys
+            N = first(r[key]["N"] for r in R if haskey(r, key))
+            @printf("%-11s %3d %6d", key[1], key[2], N)
+            foreach(r -> @printf(" %15s", haskey(r, key) ? fmt(float(r[key][col(key[1])])) : "-"), R); println()
+        end
+    end
+    println("\nmax |dE| of the lowest three energies against ", names[end])
+    for key in allkeys
+        haskey(R[end], key) || continue
+        @printf("%-11s %3d       ", key[1], key[2])
+        for r in R
+            dE = haskey(r, key) ? maximum(abs(complex(r[key]["E$(i)_re"], r[key]["E$(i)_im"]) -
+                 complex(R[end][key]["E$(i)_re"], R[end][key]["E$(i)_im"])) for i in 1:3) : NaN
+            @printf(" %15s", isfinite(dE) ? @sprintf("%.1e", dE) : "-")
+        end
+        println()
+    end
+    exit()
 end
 
 A, B = load(ARGS[1]), load(ARGS[2])

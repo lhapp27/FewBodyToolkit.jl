@@ -21,7 +21,7 @@ function run_point(case, n)
     r = Dict{String,Any}(c => NaN for c in COLUMNS)
     r["case"] = case.name; r["n"] = n
     pp, np = params(case.kind, n)
-    solve, matrices = solvers(case.kind)
+    solve, matrices = (isdefined(FewBodyToolkit, f) ? getfield(FewBodyToolkit, f) : nothing for f in solvers(case.kind))
     if case.kind == :inverse
         (T, V, S), r["t_build"], r["dpeak_build"] = measure(() -> ISGL_matrices(pp, np))
         lam, r["t_inv1"], r["dpeak_inv1"] = measure(() -> inverse_solve(T, V, S; target_energy=0.0, threshold=np.threshold))
@@ -35,10 +35,12 @@ function run_point(case, n)
         r["N"] = size(S, 1)
         E = lam
     else
-        E, r["t_solve"], r["dpeak_solve"] = measure(() -> solve(pp, np; case.kw...))
-        M, r["t_build"], r["dpeak_build"] = measure(() -> matrices(pp, np; case.kw...))
-        r["N"] = size(M.S, 1)
-        M = nothing
+        E, r["t_solve"], r["dpeak_solve"] = measure(() -> solve(pp, np; solve_kw(case.kw)...))
+        r["N"] = length(E) # one entry per basis function
+        if !isnothing(matrices) # >= 0.5.4
+            M, r["t_build"], r["dpeak_build"] = measure(() -> matrices(pp, np; case.kw...))
+            M = nothing
+        end
     end
     E = sort(E[abs.(E) .> 0], by=real) # entries cut by the overlap threshold are 0
     for i in 1:3

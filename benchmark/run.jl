@@ -54,6 +54,7 @@ worker = joinpath(HERE, "worker.jl")
 open(joinpath(resdir, label * ".log"), "w") do log
     for case in CASES
         isempty(CASEFILTER) || case.name in only(CASEFILTER) || continue
+        VersionNumber(fbtk["version"]) >= case.since || continue
         for n in (QUICK ? case.sizes[1:1] : case.sizes)
             cmd = `$(Base.julia_cmd()) --project=$env --threads=$(Threads.nthreads()) $worker $(case.name) $n $csvfile`
             println(log, now(), "  ", case.name, " n=", n, "  load ", chomp(read("/proc/loadavg", String))); flush(log)
