@@ -10,6 +10,11 @@ function sanity_checks3B(phys_params)
         error_code = 0
     end
     
+    # one infinite mass is fine (inverse masses in jcbtr), two or more have no unique limit (0/0)
+    if any(masses .<= 0) || count(isinf, masses) > 1
+        error("masses must be positive, and at most one of them may be infinite")
+    end
+    
     fasb = findall(species .== :b)
     fasf = findall(species .== :f)
     if (lastindex(fasb) in [0,2,3]) && (lastindex(fasf) in [0,2,3])

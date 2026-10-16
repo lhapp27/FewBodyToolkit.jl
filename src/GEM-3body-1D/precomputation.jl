@@ -40,13 +40,15 @@ function precompute_jmat!(jmat,m_arr)
 end
 
 function jcbtr(i::Int64,f::Int64,m_arr::Array{Float64}) # For fixed m1,m2,m3. Trafo from initial (i) to final (f) Jacobi set
-    ma = m_arr[i];mb = m_arr[mod(i,3)+1];mc = m_arr[mod(i+1,3)+1]
+    # written in inverse masses w = 1/m, such that one infinite mass (w = 0) stays finite
+    wa = 1/m_arr[i];wb = 1/m_arr[mod(i,3)+1];wc = 1/m_arr[mod(i+1,3)+1]
+    w3 = wa*wb + wb*wc + wa*wc # = (ma+mb+mc)*wa*wb*wc
     if f==i
         return SA[1.0 0.0;0.0 1.0]
     elseif mod(f-i,3)==1    # trafo a->b (+1), also if f = i+1
-        return SA[-ma/(ma+mc) 1.0; -mc*(ma+mb+mc)/(ma+mc)/(mb+mc) -mb/(mb+mc)]
+        return SA[-wc/(wa+wc) 1.0; -w3/(wa+wc)/(wb+wc) -wc/(wb+wc)]
     elseif mod(f-i,3)==2    # trafo a->c (+2), also if f = i+2
-        return SA[-ma/(ma+mb) -1.0; +mb*(ma+mb+mc)/(ma+mb)/(mb+mc) -mc/(mb+mc)]
+        return SA[-wb/(wa+wb) -1.0; +w3/(wa+wb)/(wb+wc) -wb/(wb+wc)]
     end
     error("something went wrong in jtrafo")    
 end
@@ -57,8 +59,10 @@ function precompute_murR!(murR_arr,m_arr)
         ma = m_arr[mod(b+1,3)+1]#circshift(m_arr,1)[b];#m_arr[mod(b+1,3)+1]; # Ergibt b-1 in Möglichkeiten 1,2,3; mappt 1,2,3 auf 3,1,2.
         mb = m_arr[b];
         mc = m_arr[mod(b,3)+1]#circshift(m_arr,-1)[b];#m_arr[mod(b,3)+1]; # Ergibt b+1 in Möglichkeiten 1,2,3; mappt 1,2,3 auf 2,3,1
-        murR_arr[1,b] = mc*ma/(mc+ma); # mur
-        murR_arr[2,b] = mb*(ma+mc)/(ma+mb+mc); # muR
+        # in inverse masses, such that one infinite mass stays finite
+        wa,wb,wc = 1/ma,1/mb,1/mc
+        murR_arr[1,b] = 1/(wa+wc); # mur
+        murR_arr[2,b] = (wa+wc)/(wa*wb + wb*wc + wa*wc); # muR = 1/(wb + 1/(ma+mc))
     end
 end
 

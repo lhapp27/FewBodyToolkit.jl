@@ -84,6 +84,14 @@ pp_bad1ident1d = (masses=[1.0,1.0,1.0], species=[:b,:x,:y], interactions=[[],[],
 pp_badmasses1d = (masses=[1.0,2.0,1.0], species=[:b,:b,:y], interactions=[[],[],[]], parity=1)
 @test_throws ErrorException GEM3B1D_solve(pp_badmasses1d, num_params) # bosons with unequal masses
 
+pp_2inf1d = (masses=[Inf,1.0,Inf], species=[:x,:y,:z], interactions=[[],[],[]], parity=1)
+@test_throws ErrorException GEM3B1D_solve(pp_2inf1d, num_params) # two infinite masses: no unique limit
+
+# one infinite mass is the limit of a large finite mass
+e_inf1d = GEM3B1D_solve(make_phys_params3B1D(;masses=[Inf,1.0,1.0], species=[:x,:b,:b], interactions=[[v_gauss],[v_gauss],[v_gauss]]), num_params)
+e_big1d = GEM3B1D_solve(make_phys_params3B1D(;masses=[1e12,1.0,1.0], species=[:x,:b,:b], interactions=[[v_gauss],[v_gauss],[v_gauss]]), num_params)
+@test all(isapprox.(e_inf1d[1:3], e_big1d[1:3]; atol=1e-8))
+
 
 # 7. Complex-ranged basis functions: nu -> nu*(1 + i*omega), selectable per Jacobi coordinate.
 # The effective Gaussian range etaeff of the interpolated interaction becomes complex, but stays in
