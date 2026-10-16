@@ -51,9 +51,13 @@ exact_resultsCC = [-0.513423475743586, -0.486063239098383, -0.1260365599478753, 
 # 7. Matrix export and inverse problem
 # T is the kinetic energy alone, so T+V reproduces the forward energies
 Tm,Vm,Sm = GEM2B_matrices(phys_params, num_params)
+Sm0 = copy(Sm)
 e_matrices = zeros(size(Tm,1))
 FewBodyToolkit.eigen2step(e_matrices, Tm .+ Vm, Sm; threshold=num_params.threshold)
 @test all(isapprox.(e_matrices[1:4], exact_results; atol=1e-3))
+e_destr = zeros(size(Tm,1)) # destructive variant, used by the 3-body solvers
+FewBodyToolkit.eigen2step!(e_destr, Tm .+ Vm, copy(Sm); threshold=num_params.threshold)
+@test e_destr ≈ e_matrices
 
 # reduce_basis: L orthonormalizes the basis
 L = reduce_basis(Sm; threshold=num_params.threshold)
@@ -67,6 +71,11 @@ inv_vals_vec, inv_vecs = inverse_solve(Tm, Vm, Sm; target_energy=-0.5, threshold
 @test all(isapprox.(inv_vals_vec, inv_vals; rtol=1e-10)) # the vector path uses a different LAPACK driver
 @test size(inv_vecs, 1) == num_params.gem_params.nmax
 @test inv_vecs[:,1]' * Sm * inv_vecs[:,1] ≈ 1 # normalized as x'*S*x == 1
+@test Sm == Sm0 # the caller's S is left intact
+
+# two-stage version for scans over target_energy
+P_inv = inverse_prepare(Tm, Vm, Sm; threshold=num_params.threshold)
+@test inverse_solve(P_inv; target_energy=-0.5) ≈ inv_vals
 
 # purely attractive V: the S-reduced pencil reproduces the old -V-metric implementation
 old_vals = zeros(size(Tm,1))
