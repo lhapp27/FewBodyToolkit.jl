@@ -154,3 +154,18 @@ function check_cr_csm_sector(complex_ranged::Bool,complex_scaling::Bool,complex_
     end
     return nothing
 end
+
+# Gamma function at the half-integers 0.5, 1.0, ..., ende+0.5 (all modules). Stored at index 2x, so that
+# gamma_dict[x] is an array access instead of a Dict lookup (hashing) in the matrix-element loops.
+struct GammaTable
+    vals::Vector{Float64}
+end
+GammaTable() = GammaTable(Float64[])
+function precompute_gamma!(gamma_dict::GammaTable,ende)
+    resize!(gamma_dict.vals,Int(2*ende+1))
+    for i in eachindex(gamma_dict.vals)
+        gamma_dict.vals[i] = gamma(i/2)
+    end
+    return gamma_dict
+end
+Base.getindex(g::GammaTable,x::Real) = g.vals[Int(2*x)]

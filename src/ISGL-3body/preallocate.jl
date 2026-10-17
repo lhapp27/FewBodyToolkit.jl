@@ -4,7 +4,7 @@
 # (norms, gij/kij, the overlap matrix S). It is Float64 for the usual real ranges and ComplexF64
 # as soon as complex-ranged basis functions are used in at least one Jacobi coordinate.
 struct PrecomputeStruct{TR}
-    gamma_dict::Dict{Float64, Float64}
+    gamma_dict::GammaTable
     cleb_arr::OffsetArray{Float64, 5, Array{Float64, 5}}
     spintrafo_dict::Dict{Tuple{Int64,Int64,Float64,Float64,Float64},Float64}
     spinoverlap_dict::Dict{Tuple{Int64,Int64,Int64,Float64,Float64,Float64,Float64},Float64}
@@ -138,7 +138,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     (;stateindices,centobs_arr,R2_arr) = observ_params
     
     # Allocate facts & cleb
-    gamma_dict = Dict{Float64, Float64}() # necessary dimensionality not clear atm --> Dict
+    gamma_dict = GammaTable() # filled in precompute_gamma!
     JlL_range = minimum(JlL_complete):maximum(JlL_complete) # OffsetArray needs range as input
     r3 = min(0,minimum(JlL_complete)):max(maxlmax,maximum(JlL_complete)) # for third argument of cleb_arr instead of 0:maxlmax
     m3 = max(maxlmax,maximum(JlL_complete)) # for m-arguments of cleb_arr instead of -maxlmax:maxlmax
