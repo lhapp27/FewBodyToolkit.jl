@@ -64,6 +64,13 @@ energies_obs, wfs_obs, centobs_out, R2_out = ISGL_solve(phys_params, num_params;
 energies_wf, wfs_wf, co_wf, r2_wf = ISGL_solve(phys_params, num_params; return_wavefunctions=true)
 @test size(wfs_wf, 1) == size(wfs_wf, 2)
 
+# 6a. regression: real basis with exactly degenerate levels (equal masses, distinguishable particles);
+# the wavefunction path threw an InexactError in v0.5.4 (general eigensolver, complex eigenvectors)
+pp_deg = make_phys_params3B3D(;interactions=[[vga],[vga],[vga]])
+np_deg = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=(;nmax=6,Nmax=6,r1=0.3,rnmax=10.0,R1=0.3,RNmax=10.0))
+e_deg = ISGL_solve(pp_deg, np_deg; return_wavefunctions=true)[1]
+@test all(isapprox.(e_deg[1:5], ISGL_solve(pp_deg, np_deg)[1:5]; atol=1e-10))
+
 # 7. deprecated keyword aliases
 @test_logs (:warn, r"wf_bool is deprecated") ISGL_solve(phys_params, num_params; wf_bool=false)
 @test_logs (:warn, r"csm_bool is deprecated") ISGL_solve(phys_params, num_params; csm_bool=false)

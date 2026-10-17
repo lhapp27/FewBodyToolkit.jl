@@ -70,6 +70,13 @@ energies_wf, wfs = GEM3B1D_solve(phys_params, num_params; return_wavefunctions=t
 @test all(isfinite.(energies_wf[1:4]))
 @test size(wfs, 1) == size(wfs, 2)
 
+# 4a. regression: real basis with exactly degenerate levels (equal masses, distinguishable particles);
+# the wavefunction path threw an InexactError in v0.5.4 (general eigensolver, complex eigenvectors)
+pp_deg = make_phys_params3B1D(;interactions=[[r -> -6.0/cosh(r)^2] for _ in 1:3])
+np_deg = make_num_params3B1D(;gem_params=(;nmax=6,Nmax=6,r1=0.2,rnmax=8.0,R1=0.2,RNmax=7.0),kmax_interpol=150)
+e_deg = GEM3B1D_solve(pp_deg, np_deg; return_wavefunctions=true)[1]
+@test all(isapprox.(e_deg[1:5], GEM3B1D_solve(pp_deg, np_deg)[1:5]; atol=1e-10))
+
 # 5. deprecated keyword aliases
 @test_logs (:warn, r"wf_bool is deprecated") GEM3B1D_solve(phys_params, num_params; wf_bool=false)
 @test_logs (:warn, r"csm_bool is deprecated") GEM3B1D_solve(phys_params, num_params; csm_bool=false)
