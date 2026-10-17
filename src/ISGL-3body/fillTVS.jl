@@ -517,7 +517,7 @@ function flattento1Dloop(temp_args_arr,groupindex_arr,bvalsdiag,abvals_arr,s_arr
                                             for (ijlla,JlLa) in enumerate(JlL_arr[avals_new[1]][isa][ijssa])
                                                 for (la,La) in lL_nested[avals_new[1]][isa][ijssa][ijlla]
                                                     Lsum=Int64((la+La+lb+Lb)/2)
-                                                    mij_arr = mij_arr_dict[(la,La),(lb,Lb)]
+                                                    mij_arr = mij_arr_dict[la,La,lb,Lb]
                                                     for na = 1:nmax
                                                         # the bra ranges enter conjugated. This is a no-op for real
                                                         # ranges and is what makes S,T,V hermitian for complex ones.
