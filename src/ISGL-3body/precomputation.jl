@@ -390,7 +390,7 @@ end
             for j in keys(lL_complete)
                 (lb,Lb) = lL_complete[j]
 
-                S_arr[la,La,lb,Lb,JlL,:] .= Si_fun(JlL,la,La,lb,Lb,imax_dict[((la,La),(lb,Lb))],mij_arr_dict[((la,La),(lb,Lb))],kmax_dict,gamma_dict,cleb_arr,Clmk_arr,Dlmk_arr,temp_arr,tempD1,tempD2)
+                S_arr[la,La,lb,Lb,JlL,:] .= Si_fun(JlL,la,La,lb,Lb,imax_dict[la,La,lb,Lb],mij_arr_dict[la,La,lb,Lb],kmax_dict,gamma_dict,cleb_arr,Clmk_arr,Dlmk_arr,temp_arr,tempD1,tempD2)
             end
         end
     end

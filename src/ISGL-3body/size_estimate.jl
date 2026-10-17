@@ -42,12 +42,12 @@ struct SizeParams{T<:Number}
     nlL::Int64
     nl::Int64
     maxlmax::Int64
-    imax_dict::Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}}, Int64}
+    imax_dict::OffsetArray{Int64, 4, Array{Int64, 4}}
     imaxSO_dict::Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}, Int64}, Int64}
     maximax::Int64
-    mij_arr_dict::Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}},Vector{SVector{6, Int64}}}
+    mij_arr_dict::OffsetArray{Vector{SVector{6, Int64}}, 4, Array{Vector{SVector{6, Int64}}, 4}}
     mijSO_arr_dict::Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}, Int64},Vector{SVector{6, Int64}}}
-    kmax_dict::Dict{Tuple{Int64, Int64},Int64}
+    kmax_dict::OffsetArray{Int64, 2, Matrix{Int64}}
     maxkmax::Int64
     maxobs::Int64
 end
@@ -434,12 +434,14 @@ function boxsize_fun(groupindex_arr,abvals_arr,lL_nested,nmax,Nmax)
 end
 
 # imax for ISGL:
+# tables indexed by [la,La,lb,Lb]; mij_arr_dict holds for each pair a vector (length imax) of SVectors (length 6, for m12,m13,...)
 function imax_fun(lL_complete)
-    imax_dict = Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}}, Int64}()
-    mij_arr_dict = Dict{Tuple{Tuple{Int64, Int64}, Tuple{Int64, Int64}},Vector{SVector{6, Int64}}}() # this is a dict (for the different (la,La),(lb,Lb) pairs) of vectors (each has length imax) of SVectors (length 6, for m12,m13,...).
-    for i in keys(lL_complete)
-        for j in keys(lL_complete)
-            imax_dict[lL_complete[i],lL_complete[j]], mij_arr_dict[lL_complete[i],lL_complete[j]] = imax(lL_complete[i],lL_complete[j])
+    lm = maximum(maximum, lL_complete)
+    imax_dict = OffsetArray(zeros(Int64, lm+1, lm+1, lm+1, lm+1), 0:lm, 0:lm, 0:lm, 0:lm)
+    mij_arr_dict = OffsetArray(Array{Vector{SVector{6, Int64}}}(undef, lm+1, lm+1, lm+1, lm+1), 0:lm, 0:lm, 0:lm, 0:lm)
+    for (la,La) in lL_complete
+        for (lb,Lb) in lL_complete
+            imax_dict[la,La,lb,Lb], mij_arr_dict[la,La,lb,Lb] = imax((la,La),(lb,Lb))
         end
     end
     return imax_dict,mij_arr_dict
@@ -526,8 +528,8 @@ end
 
 # kmax for ISGL: same for any interaction type.
 function kmax_fun(l_complete)
-    #kmax_arr = Array{Array}(undef, lastindex(l_complete))
-    kmax_dict = Dict{Tuple{Int64, Int64},Int64}()
+    lm = maximum(l_complete)
+    kmax_dict = OffsetArray(zeros(Int64, lm+1, 2*lm+1), 0:lm, -lm:lm) # indexed by [l,m]
     
     for i in keys(l_complete)
         l=l_complete[i]
