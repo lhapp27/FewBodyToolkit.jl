@@ -151,7 +151,7 @@ function element_S(ranges,norm4,jab,la,La,lb,Lb,gamma_dict)
         sumK = zero(norm4)
         for K = 0:La
             sums = zero(norm4)
-            for s = 0:floor((k+K+Lb)/2)
+            for s = 0:div(k+K+Lb,2)
                 sums += gamma_dict[(la+La+lb+Lb-2*s+1)/2]/gamma_dict[s+1]/gamma_dict[k+K+Lb-2*s+1] * eta3^s*eta2^(k+K+Lb-2*s)/((eta1-eta2^2/4/eta3)^((la+La+lb+Lb-2*s+1)/2))
             end
             sumK += sums*gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * alpha^(la-k) * beta^k * gamma^(La-K) * delta^K * gamma_dict[k+K+Lb+1]*(-1/2/eta3)^(k+K+Lb)
@@ -222,7 +222,7 @@ function element_V(c,iv,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_inter
                     KK = k+K+kp+Kp; LL = la+La+lb+Lb;
                     
                     sums = zz
-                    for s = 0:floor(KK/2)
+                    for s = 0:div(KK,2)
                         nn = Int(LL -2*s)
                         sums += eta7^s*eta6^(KK-2*s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1])*wn_interpol_arr[nn]
                     end
@@ -275,7 +275,7 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,c
                     KK = k+K+kp+Kp;
                     
                     sums = zz
-                    for s = 0:floor(KK/2)
+                    for s = 0:div(KK,2)
                         sums += eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * gamma_dict[(LL-2*s+1)/2]/((eta5-eta6^2/4/eta7)^((LL-2*s+1)/2))
                     end
                     
@@ -326,7 +326,7 @@ function element_VContact(c,ranges,norm4,jac,jbc,la,La,lb,Lb,contactopt,gamma_di
                     end
 
                     sums = zz
-                    for s = 0:floor(KK/2) #expression via 1F1 exists too
+                    for s = 0:div(KK,2) #expression via 1F1 exists too
                         sums += eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * z0^(LL-2*s) *exp(-(eta5-eta6^2/4/eta7)*z0^2) #eta7^(-KK) in external factor, like for Gaussian
                     end
                     

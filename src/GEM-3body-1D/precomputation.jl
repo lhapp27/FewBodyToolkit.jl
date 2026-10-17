@@ -9,7 +9,7 @@ function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs,complex
     (;lL_complete,l_complete,nl) = size_params # diff13
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
     
-    precompute_gamma!(gamma_dict,max(nmax,3*max(lmax,Lmax)+3)) # gamma_dict is called many times. maybe an array would be better than a dict
+    precompute_gamma!(gamma_dict,max(nmax,3*max(lmax,Lmax)+3)) # see GammaTable in common/auxiliary.jl
     
     precompute_jmat!(jmat,masses)
     
@@ -20,15 +20,6 @@ function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs,complex
     precompute_norms1D!(norm_arr,NORM_arr,nu_arr,NU_arr,nl,l_complete,gamma_dict)
     
 end
-
-### gamma functions
-function precompute_gamma!(gamma_dict,ende)
-    # returns the dict gamma_dict with keys "n" for each value of n between 0.5 and ende in steps of 0.5
-    for i=0.5:0.5:ende+0.5
-        gamma_dict[i] = gamma(i)
-    end
-end
-
 
 ### jacobi transformation matrices:
 function precompute_jmat!(jmat,m_arr)
