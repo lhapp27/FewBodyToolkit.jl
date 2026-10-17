@@ -122,6 +122,19 @@ for (mode,factor) in ((:r,2),(:R,2),(:both,4))
     @test length(e0) == factor*length(e_pt_ref0) # each complex-ranged coordinate doubles its ranges
 end
 
+# 7b. without complex scaling the solver works in the real basis of the pairs phi, phi* (real cos/sin
+# combinations): same energies as the complex eigenproblem of the exported matrices, and wavefunctions in
+# the original basis
+np_rb = make_num_params3B1D(;gem_params=(;nmax=6,Nmax=5,r1=0.2,rnmax=8.0,R1=0.2,RNmax=7.0),omega_cr=0.9,kmax_interpol=150)
+for mode in (:r,:R,:both)
+    T,V,S = GEM3B1D_matrices(pp_pt,np_rb;complex_ranged=mode)
+    e_c = zeros(size(S,1)); FewBodyToolkit.eigen2step(e_c,T+V,S;threshold=np_rb.threshold)
+    e_rb,wf_rb = GEM3B1D_solve(pp_pt,np_rb;complex_ranged=mode,return_wavefunctions=true)
+    @test all(isapprox.(e_rb[1:5], e_c[1:5]; atol=1e-10))
+    x = wf_rb[:,1]
+    @test isapprox(x'*S*x, 1; atol=1e-10) && isapprox(x'*(T+V)*x, e_rb[1]; atol=1e-8)
+end
+
 
 # 8. Accuracy of the two-dimensional (sector) interpolation itself: compare the interpolant against
 # a direct quadgk evaluation, at points that are not mesh nodes, for several exponents n and both

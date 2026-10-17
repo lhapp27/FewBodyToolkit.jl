@@ -291,6 +291,19 @@ for mode in (:r,:R,:both)
     @test isapprox(ecr[1], e_ref[1]; atol=3e-3)   # same state, not a spurious one
 end
 
+# 12g. without complex scaling the solver works in the real basis of the pairs phi, phi* (real cos/sin
+# combinations): same energies as the complex eigenproblem of the exported matrices, and wavefunctions in
+# the original basis
+pp_cr_xyz = make_phys_params3B3D(;masses=[1.0,2.0,3.0], species=[:x,:y,:z], interactions=[[vga],[vga],[vga]])
+for mode in (:r,:R,:both)
+    T,V,S = ISGL_matrices(pp_cr_xyz,np_cr;complex_ranged=mode)
+    e_c = zeros(size(S,1)); FewBodyToolkit.eigen2step(e_c,T+V,S;threshold=np_cr.threshold)
+    e_rb,wf_rb = ISGL_solve(pp_cr_xyz,np_cr;complex_ranged=mode,return_wavefunctions=true)
+    @test all(isapprox.(e_rb[1:5], e_c[1:5]; atol=1e-10))
+    x = wf_rb[:,1]
+    @test isapprox(x'*S*x, 1; atol=1e-10) && isapprox(x'*(T+V)*x, e_rb[1]; atol=1e-8)
+end
+
 # 12f'. a non-analytic central potential with complex ranges. This is the case the two-dimensional
 # sector interpolation exists for: vg is a plain function, so its radial integrals are obtained
 # numerically and interpolated, unlike the closed-form vga. Both describe the same well, so the two
