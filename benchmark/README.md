@@ -31,3 +31,7 @@ Options of `run.jl`: `--quick` (smallest size only), `--cases=isgl_cr,inverse` (
   idle machine (check `loadavg_start` and the log). A full run takes about 35 min on a
   2x Xeon E5-2630 v3 (16 cores) and needs up to ~12 GB (v0.5.4, `isgl_cr` at N = 6912).
 - Known differences: CSM energies of v0.3.1 are wrong (sign error, fixed by v0.3.9).
+- Peak memory of a single point can differ by about one real N x N matrix between runs of identical
+  code (seen for `isgl_csm` and `inverse` at N = 3072, with identical allocations and GC counts),
+  depending on when freed memory is returned to the system. Compare the per-N^2 fits rather than
+  single points.
