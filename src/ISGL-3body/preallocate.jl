@@ -217,7 +217,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     # for results:
     energies_arr = zeros(TE,nbasis_total);# changed to zeros to avoid bad behavior due to undef values not occupied thresholding (eigen2step)
     wavefun_arr = Matrix{TT}(undef, nbasis_total, nbasis_total)
-    centobs_output = Array{Float64}(undef, 3, maxobs, lastindex(stateindices))
+    centobs_output = fill(NaN, 3, maxobs, lastindex(stateindices)) # NaN: pair with fewer than maxobs observables
     R2_output = zeros(3, lastindex(stateindices))
     
     # temporary arrays for clmk,dlmk,S,D1,D2: temp_clmk,temp_dlmk,temp_S,temp_D1,temp_D2
