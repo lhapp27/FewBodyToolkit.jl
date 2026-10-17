@@ -22,7 +22,7 @@ function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_ar
     end
         
     
-    precompute_gamma!(gamma_dict,max(nmax,2*max(lmax,Lmax)+1+2)) #spin-orbit needs higher values, so let's give it +2...
+    precompute_gamma!(gamma_dict,max(nmax,4*max(lmax,Lmax)+5)) # generous (spin-orbit needs higher values); the table is tiny
     
     precompute_cleb(cleb_arr,JlL_complete,nl,l_complete)
     #@show(cleb_arr)

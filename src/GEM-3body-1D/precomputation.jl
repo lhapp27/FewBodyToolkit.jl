@@ -9,7 +9,7 @@ function precompute_3B1D(phys_params,num_params,size_params,precomp_arrs,complex
     (;lL_complete,l_complete,nl) = size_params # diff13
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
     
-    precompute_gamma!(gamma_dict,max(nmax,3*max(lmax,Lmax)+3)) # see GammaTable in common/auxiliary.jl
+    precompute_gamma!(gamma_dict,max(nmax,4*max(lmax,Lmax)+5)) # V needs up to gamma(la+La+lb+Lb+1); generous, the table is tiny (common/auxiliary.jl)
     
     precompute_jmat!(jmat,masses)
     
