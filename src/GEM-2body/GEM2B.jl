@@ -5,7 +5,7 @@
 module GEM2B
 
 using .. FewBodyToolkit
-using ..FewBodyToolkit: quadgk_scaled, GammaTable, precompute_gamma!
+using ..FewBodyToolkit: quadgk_scaled, HalfIntTable, precompute_gamma!
 using SpecialFunctions, QuadGK, LinearAlgebra, Optim, StaticArrays, Roots
 using Printf: @printf
 
@@ -151,8 +151,8 @@ function GEM2B_matrices!(prealloc_arrs,phys_params,num_params,complex_ranged::Bo
         end
     end
     
-    # gamma function at half-integer arguments, see GammaTable in common/auxiliary.jl
-    gamma_dict = precompute_gamma!(GammaTable(),max(nmax,2*lmax+1))
+    # gamma function at half-integer arguments, see HalfIntTable in common/auxiliary.jl
+    gamma_dict = precompute_gamma!(HalfIntTable{1}(),max(nmax,2*lmax+1))
     
     # gaussian ranges:
     buildnu(nu_arr,r1,rnmax,nmax)
@@ -270,7 +270,7 @@ function GEM2B_solveCC(phys_params, num_params, WCC, DCC;
     ## 2. Preliminaries: 
     
     # gamma function:
-    gamma_dict = precompute_gamma!(GammaTable(),max(nmax,2*lmax+1))
+    gamma_dict = precompute_gamma!(HalfIntTable{1}(),max(nmax,2*lmax+1))
     
     # gaussian ranges:
     GEM2B.buildnu(nu_arr,r1,rnmax,nmax)
