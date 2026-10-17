@@ -1,0 +1,14 @@
+label = "commit-bf3a694_20261017-1820"
+blas = "LBTConfig([ILP64] libopenblas64_.so)"
+loadavg_start = "1.64 2.15 2.36 1/625 3974812"
+quick = false
+julia_version = "1.10.4"
+fbtk_spec = "local checkout"
+cpu = "Intel(R) Xeon(R) CPU E5-2630 v3 @ 2.40GHz"
+blas_threads = 16
+fbtk_dirty = false
+date = "2026-10-17T18:20:48.358"
+julia_threads = 1
+fbtk_commit = "bf3a6949986ceb9d0ad0f4c848b9fdf92d455f44"
+logical_cores = 32
+fbtk_version = "0.5.4"
