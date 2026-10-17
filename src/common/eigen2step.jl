@@ -200,6 +200,62 @@ function inverse_solve(P::InversePrepared; target_energy = 0.0, return_vectors::
     return lambdas
 end
 
+### Real basis for complex ranges (3-body solvers, without complex scaling) ###
+# With complex ranges, every basis function phi comes with its partner phi* (conjugate ranges, same
+# channel), so P*M*P == conj(M) for H and S, with the permutation P = partner. The combinations
+# c = (phi + phi*)/sqrt2 and s = i*(phi - phi*)/sqrt2 are real functions: U'*M*U is real symmetric, and
+# the eigensolve runs in real arithmetic. c is put at the position of the first function of a pair
+# (lo = min(i, partner[i])), s at the second one (hi).
+
+# partner of each basis function. Order within each (l,L,...) channel: (n,N) -> (n-1)*Nmax_eff + N, where
+# the second half of the ranges of a complex-ranged coordinate are the conjugates of the first half.
+function cr_partners(nbasis, gem_params, complex_ranged_r::Bool, complex_ranged_R::Bool)
+    complex_ranged_r || complex_ranged_R || return nothing
+    nm = complex_ranged_r ? 2*gem_params.nmax : gem_params.nmax
+    Nm = complex_ranged_R ? 2*gem_params.Nmax : gem_params.Nmax
+    flip(n, m, cr) = cr ? mod1(n + div(m,2), m) : n
+    return map(0:nbasis-1) do i
+        b, k = divrem(i, nm*Nm)
+        n, N = divrem(k, Nm)
+        b*nm*Nm + (flip(n+1, nm, complex_ranged_r) - 1)*Nm + flip(N+1, Nm, complex_ranged_R)
+    end
+end
+
+# max |M[p,p] - conj(M)| relative to max |M|
+function conj_pair_dev(M, p)
+    d = 0.0
+    @inbounds for j in axes(M,2), i in axes(M,1)
+        d = max(d, abs(M[p[i],p[j]] - conj(M[i,j])))
+    end
+    return d/maximum(abs, M)
+end
+
+# U'*M*U from the rows lo of M only (uses P*M*P == conj(M)); real symmetric by construction
+function realbasis(M, p)
+    n = size(M,1)
+    Mr = Matrix{Float64}(undef, n, n)
+    @inbounds for b in 1:n, a in b:n
+        A = M[min(a,p[a]), min(b,p[b])]
+        B = M[min(a,p[a]), max(b,p[b])]
+        Mr[a,b] = a < p[a] ? (b < p[b] ? real(A) + real(B) : imag(B) - imag(A)) :
+                             (b < p[b] ? imag(A) + imag(B) : real(A) - real(B))
+        Mr[b,a] = Mr[a,b]
+    end
+    return Mr
+end
+
+# coefficients in the original basis, x = U*y (rows lo, hi of each pair), in place
+function realbasis_back!(X, p)
+    @views for i in eachindex(p)
+        i < p[i] || continue
+        yc, ys = X[i,:], X[p[i],:]
+        tmp = (yc .- im .* ys) ./ sqrt(2)
+        yc .= (yc .+ im .* ys) ./ sqrt(2)
+        ys .= tmp
+    end
+    return X
+end
+
 # Cut out too small eigenvalues. They come sorted ascending, so the kept ones are a contiguous tail: views instead of copies.
 function cutSmallEV(dvec,y;threshold = 10^-13)
     k = searchsortedfirst(dvec/maximum(dvec), threshold)
