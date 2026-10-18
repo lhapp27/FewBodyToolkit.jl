@@ -153,6 +153,16 @@ function store_element!(S,T,V,r,c,sel,tel,vel,add_V::Bool,cj::Bool=false)
     end
 end
 
+# fill_columns(cols) for all columns: serially, or with parallel in nthreads() tasks with interleaved columns
+# (balances the triangle). Every element is written once, so the tasks never write to the same position.
+function fill_parallel(fill_columns, nbasis, parallel::Bool)
+    parallel || return fill_columns(1:nbasis)
+    nt = Threads.nthreads()
+    @sync for k in 1:nt
+        Threads.@spawn fill_columns(k:nt:nbasis)
+    end
+end
+
 
 """
     theta_mesh(complex_ranged, complex_scaling, complex_range_freq, kmax_theta)

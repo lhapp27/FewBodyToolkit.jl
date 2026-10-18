@@ -134,6 +134,8 @@ for mode in (:r,:R,:both)
     x = wf_rb[:,1]
     @test isapprox(x'*S*x, 1; atol=1e-10) && isapprox(x'*(T+V)*x, e_rb[1]; atol=1e-8)
 end
+# parallel fill (threads with julia -t n): the same matrices
+@test GEM3B1D_matrices(pp_pt,np_rb;complex_ranged=:both,parallel=true) == GEM3B1D_matrices(pp_pt,np_rb;complex_ranged=:both)
 
 
 # 8. Accuracy of the two-dimensional (sector) interpolation itself: compare the interpolant against

@@ -1,6 +1,6 @@
 ﻿## Function for calculating the matrix elements and filling the matrices T,V,S within the ISGL program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,add_V::Bool=true)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,add_V::Bool=true,parallel::Bool=false)
 
     (;gem_params,mu0,c_shoulder,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
@@ -29,15 +29,18 @@
     end
     # complex ranges without complex scaling: conjugate-paired basis functions (see fill_partners)
     partner = complex_scaling ? nothing : fill_partners(element,nbasis_total,gem_params,complex_ranged_r,complex_ranged_R)
-    for coli in 1:nbasis_total, rowi in (fill_full ? 1 : coli):nbasis_total
-        if !isnothing(partner)
-            pr, pc, cj = pair_position(rowi,coli,partner)
-            (pc, pr) < (coli, rowi) && continue # already filled together with its partner element
+    function fill_columns(cols)
+        for coli in cols, rowi in (fill_full ? 1 : coli):nbasis_total
+            if !isnothing(partner)
+                pr, pc, cj = pair_position(rowi,coli,partner)
+                (pc, pr) < (coli, rowi) && continue # already filled together with its partner element
+            end
+            sel, tel, vel = element(rowi,coli)
+            store_element!(S,T,V,rowi,coli,sel,tel,vel,add_V)
+            !isnothing(partner) && (pr, pc) != (rowi, coli) && store_element!(S,T,V,pr,pc,sel,tel,vel,add_V,cj)
         end
-        sel, tel, vel = element(rowi,coli)
-        store_element!(S,T,V,rowi,coli,sel,tel,vel,add_V)
-        !isnothing(partner) && (pr, pc) != (rowi, coli) && store_element!(S,T,V,pr,pc,sel,tel,vel,add_V,cj)
     end
+    fill_parallel(fill_columns,nbasis_total,parallel)
     # transpose fill: the overlap is hermitian for complex ranges (also together with complex scaling,
     # since the ISGL complex-scaling rotates the potential and leaves the ranges alone)
     hermitian_fill!(S,complex_ranged)
