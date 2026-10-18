@@ -89,6 +89,11 @@ FewBodyToolkit.eigen2step(old_vals, Tm .+ 0.5.*Sm, -Vm; threshold=num_params.thr
 Tc,Vc,Sc = GEM2B_matrices(phys_params, num_paramsC; complex_scaling=true)
 @test_throws ErrorException inverse_solve(Tc, Vc, Sc; target_energy=-0.5, threshold=num_params.threshold)
 
+# find_v0crit: inverse problem and root search give the same strength
+pp_v0 = make_phys_params2B(;interactions=Any[r -> -exp(-r^2)])
+np_v0 = make_num_params2B(;gem_params=(;nmax=10,r1=0.2,rnmax=10.0))
+@test GEM2B.find_v0crit(pp_v0,np_v0,1,-0.5;inverse=true) ≈ GEM2B.find_v0crit(pp_v0,np_v0,1,-0.5) rtol=1e-10
+
 # 8. Deprecated keyword aliases should emit warnings and still execute
 @test_logs (:warn, r"wf_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; wf_bool=true)
 @test_logs (:warn, r"cr_bool is deprecated") GEM2B.GEM2B_solve(phys_params, num_params; cr_bool=false)
