@@ -42,8 +42,9 @@ Solves the 1D three-body problem using the Gaussian Expansion Method (GEM).
   are interpolated over the sector of the complex plane in which the effective Gaussian range lives,
   with `kmax_theta` angular nodes (see `make_num_params3B1D`).
 - `observ_params`: (optional) Parameters for observable calculations. Currently not supported for 1D.
-- `parallel`: (optional) If `true`, the matrix elements are computed in `Threads.nthreads()` tasks (start julia with
-  `-t <n>`). Same results. Default is `false`; for many independent calculations, running them in parallel is
+- `parallel`: (optional) If `true`, the matrix elements and the radial integrals of the range interpolation are
+  computed in `Threads.nthreads()` tasks (start julia with `-t <n>`). Same results; user-supplied potentials
+  are then called from several threads and must not modify shared state. Default is `false`; for many independent calculations, running them in parallel is
   usually the better choice.
 
 # Returns
@@ -146,7 +147,7 @@ function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bo
     precompute_3B1D(phys_params,num_params,size_params,precomp_arrs,complex_ranged_r,complex_ranged_R)
 
     ## 6. preparation of interpolation & shoulder:
-    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling,cr_any)
+    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling,cr_any,parallel)
     
     ## 7. Calculation of matrix elements
     fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,complex_ranged_r,complex_ranged_R,add_V,parallel)
