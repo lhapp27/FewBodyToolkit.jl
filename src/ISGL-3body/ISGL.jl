@@ -59,8 +59,9 @@ Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
     + `stateindices`: Indices of states for which observables are calculated.
     + `centobs_arr`: Array of central (only dependent on `` r ``; must be defined as functions) observables, for each Jacobi set (similar to `interactions` in `phys_params`).
     + `R2_arr`: Array which indicates whether the observable `` \\langle R^2 \\rangle `` should be calculated (1) for any of the three Jacobi sets, or not (0).
-- `parallel`: (optional) If `true`, the matrix elements are computed in `Threads.nthreads()` tasks (start julia with
-  `-t <n>`). Same results. Default is `false`; for many independent calculations, running them in parallel is
+- `parallel`: (optional) If `true`, the matrix elements and the radial integrals of the range interpolation are
+  computed in `Threads.nthreads()` tasks (start julia with `-t <n>`). Same results; user-supplied potentials
+  are then called from several threads and must not modify shared state. Default is `false`; for many independent calculations, running them in parallel is
   usually the better choice.
 
 # Returns
@@ -168,7 +169,7 @@ function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bo
     precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs,complex_ranged_r,complex_ranged_R)
 
     ## 6. preparation of interpolation & shoulder:
-    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling,cr_any)
+    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling,cr_any,parallel)
 
     ## 7. Calculation of matrix elements
     fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,complex_ranged_r,complex_ranged_R,add_V,parallel)

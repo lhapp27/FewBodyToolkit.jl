@@ -153,13 +153,14 @@ function store_element!(S,T,V,r,c,sel,tel,vel,add_V::Bool,cj::Bool=false)
     end
 end
 
-# fill_columns(cols) for all columns: serially, or with parallel in nthreads() tasks with interleaved columns
-# (balances the triangle). Every element is written once, so the tasks never write to the same position.
-function fill_parallel(fill_columns, nbasis, parallel::Bool)
-    parallel || return fill_columns(1:nbasis)
+# f(inds) for the indices 1:n (matrix columns, or nodes of the radial integrals): serially, or with parallel
+# in nthreads() tasks with interleaved indices (balances the triangle). f must write each entry from one index
+# only, so the tasks never write to the same position.
+function fill_parallel(f, n, parallel::Bool)
+    parallel || return f(1:n)
     nt = Threads.nthreads()
     @sync for k in 1:nt
-        Threads.@spawn fill_columns(k:nt:nbasis)
+        Threads.@spawn f(k:nt:n)
     end
 end
 
