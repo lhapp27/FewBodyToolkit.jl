@@ -97,15 +97,10 @@ end
 struct FillStruct{T,TR}
     fij_arr::Matrix{Float64}
     Kij_arr::Matrix{Float64}
-    w_arr_kine::OffsetVector{TR, Vector{TR}}
-    wn_interpol_arr::OffsetVector{T, Vector{T}}
-    kij_arr::OffsetArray{TR, 3, Array{TR, 3}}
-    gij_arr::OffsetArray{TR, 3, Array{TR, 3}}
     T::Matrix{T}
     V::Matrix{T}
     S::Matrix{TR}
     basis::Vector{BasisFun}
-    wn_obs_interpol_arr::OffsetVector{Float64, Vector{Float64}}
 end
 
 # TE: element type of the energies. Complex ranges alone leave H and S hermitian, so the
@@ -198,19 +193,14 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     Ainv_arr_kine = OffsetArray{Float64}(undef,0:2*maxlmax,0:2*maxlmax)*0.0 # penultimate dimensionality for different Lsum values!
     v_pow = zeros(TT,2*maxlmax+1) # scratch for the power-law shoulder solve (alpha-independent); NOT an OffsetArray, as for v_arr
     w_pow_arr = OffsetArray(zeros(TT,3,nintmax,2*maxlmax+1,2*maxlmax+1),1:3,1:nintmax,0:2*maxlmax,0:2*maxlmax) # analytic shoulder-weights for power-law interactions; same indexing as w_interpol_arr, but plain numbers (no interpolation needed)
-    w_arr_kine = OffsetArray{TR}(undef,0:2*maxlmax+1)*zero(TR)
-    wn_interpol_arr = OffsetArray{TT}(undef,0:2*maxlmax)*0.0 # for the interpolated wn_values that are actually used
     #for observables (in range-interpolation)
     v_obs_arr = zeros(kmax_interpol,1,2*maxlmax+1) # observables stay on the real mesh: a single angular node
     w_obs_arr = zeros(3,maxobs,kmax_interpol,2*maxlmax+1,2*maxlmax+1)
     w_obs_interpol_arr = OffsetArray{interpoltype}(undef,3,maxobs,0:2*maxlmax,0:2*maxlmax)
-    wn_obs_interpol_arr = OffsetArray{Float64}(undef,0:2*maxlmax)*0.0
     
     # arrays for shoulder method (used in matrix-element calculations)
     fij_arr = zeros(3,4)
     Kij_arr = zeros(3,4)
-    kij_arr = OffsetArray{TR}(undef,3,4,0:2*maxlmax)*zero(TR)
-    gij_arr = OffsetArray{TR}(undef,3,4,0:2*maxlmax)*zero(TR)
     S = zeros(TR,nbasis_total,nbasis_total) # hermitian (not just symmetric) for complex ranges
     T = zeros(TT,nbasis_total,nbasis_total) #Matrix{Float64}(undef, nbasis_total, nbasis_total)
     nV = add_V ? 0 : nbasis_total # separate V only for the matrix export (add_V=false); otherwise V is accumulated into T
@@ -238,7 +228,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     precomp_arrs = PrecomputeStruct(gamma_dict,cleb_arr,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr)
     temp_arrs = TempStruct(temp_clmk,temp_dlmk,temp_S,temp_D1,temp_D2)
     interpol_arrs = InterpolationStruct(alpha_arr,theta_arr,alpha_grid,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr)
-    fill_arrs = FillStruct(fij_arr,Kij_arr,w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,basis,wn_obs_interpol_arr)
+    fill_arrs = FillStruct(fij_arr,Kij_arr,T,V,S,basis)
     result_arrs = ResultStruct(energies_arr,wavefun_arr,centobs_output,R2_output)
     
     return precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs
