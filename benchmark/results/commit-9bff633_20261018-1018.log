@@ -1,0 +1,35 @@
+2026-10-18T10:18:55.940  isgl_real n=20  load 3.46 2.29 1.37 1/625 95358
+isgl_real   n= 20 N=  1200  t_solve=    1.56 s  t_build=    1.11 s  dpeak_solve=  0.050 GB
+2026-10-18T10:19:48.590  isgl_real n=30  load 1.98 2.07 1.35 1/620 95671
+isgl_real   n= 30 N=  2700  t_solve=    8.04 s  t_build=    5.64 s  dpeak_solve=  0.241 GB
+2026-10-18T10:20:52.488  isgl_real n=40  load 1.33 1.86 1.32 1/613 96010
+isgl_real   n= 40 N=  4800  t_solve=   26.66 s  t_build=   18.45 s  dpeak_solve=  0.752 GB
+2026-10-18T10:22:28.251  isgl_csm n=16  load 1.90 1.88 1.37 1/620 96590
+isgl_csm    n= 16 N=   768  t_solve=    1.48 s  t_build=    0.48 s  dpeak_solve=  0.067 GB
+2026-10-18T10:23:13.759  isgl_csm n=24  load 1.42 1.75 1.35 1/631 96907
+isgl_csm    n= 24 N=  1728  t_solve=    5.17 s  t_build=    2.55 s  dpeak_solve=  0.234 GB
+2026-10-18T10:24:05.339  isgl_csm n=32  load 1.18 1.63 1.33 1/617 97214
+isgl_csm    n= 32 N=  3072  t_solve=   13.77 s  t_build=    7.87 s  dpeak_solve=  0.544 GB
+2026-10-18T10:25:11.113  isgl_cr n=12  load 2.22 1.78 1.40 1/637 97701
+isgl_cr     n= 12 N=  1728  t_solve=    6.34 s  t_build=    5.06 s  dpeak_solve=  0.195 GB
+2026-10-18T10:26:16.685  isgl_cr n=18  load 1.48 1.65 1.38 1/622 98034
+isgl_cr     n= 18 N=  3888  t_solve=   31.32 s  t_build=   23.51 s  dpeak_solve=  0.929 GB
+2026-10-18T10:28:05.491  isgl_cr n=24  load 2.02 1.76 1.44 1/621 98661
+isgl_cr     n= 24 N=  6912  t_solve=  105.50 s  t_build=   75.03 s  dpeak_solve=  3.035 GB
+2026-10-18T10:31:59.679  gem1d_real n=20  load 2.11 2.10 1.64 2/633 100156
+gem1d_real  n= 20 N=   800  t_solve=    1.42 s  t_build=    1.25 s  dpeak_solve=  0.021 GB
+2026-10-18T10:32:41.022  gem1d_real n=30  load 1.57 1.96 1.61 1/634 100432
+gem1d_real  n= 30 N=  1800  t_solve=    6.95 s  t_build=    6.23 s  dpeak_solve=  0.108 GB
+2026-10-18T10:33:32.055  gem1d_real n=40  load 1.30 1.82 1.58 1/627 100815
+gem1d_real  n= 40 N=  3200  t_solve=   22.11 s  t_build=   20.14 s  dpeak_solve=  0.336 GB
+2026-10-18T10:34:52.638  gem1d_cr n=8  load 1.11 1.64 1.53 1/620 101213
+gem1d_cr    n=  8 N=   512  t_solve=    2.15 s  t_build=    2.04 s  dpeak_solve=  0.022 GB
+2026-10-18T10:35:41.983  gem1d_cr n=12  load 2.36 1.82 1.60 2/628 101504
+gem1d_cr    n= 12 N=  1152  t_solve=    4.79 s  t_build=    4.32 s  dpeak_solve=  0.095 GB
+2026-10-18T10:36:33.951  gem1d_cr n=16  load 2.65 1.93 1.64 1/631 101821
+gem1d_cr    n= 16 N=  2048  t_solve=   11.91 s  t_build=   10.64 s  dpeak_solve=  0.275 GB
+2026-10-18T10:37:40.548  inverse n=24  load 1.55 1.74 1.59 1/618 102169
+inverse     n= 24 N=  1728  t_solve=     NaN s  t_build=    2.30 s  dpeak_solve=    NaN GB
+2026-10-18T10:38:33.034  inverse n=32  load 3.46 2.13 1.73 1/622 102519
+inverse     n= 32 N=  3072  t_solve=     NaN s  t_build=    7.31 s  dpeak_solve=    NaN GB
+2026-10-18T10:39:45.390  done
