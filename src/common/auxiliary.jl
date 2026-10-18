@@ -154,3 +154,32 @@ function check_cr_csm_sector(complex_ranged::Bool,complex_scaling::Bool,complex_
     end
     return nothing
 end
+
+# Lookup table for keys made of non-negative integers and half-integers (angular momenta, spins, particle
+# indices; all modules). Each key component k is stored at index 2k+1 of a dense array, so that t[k...] is
+# an array access instead of a Dict lookup (hashing) in the matrix-element loops. The array grows on
+# assignment; entries never assigned are NaN.
+mutable struct HalfIntTable{N}
+    vals::Array{Float64,N}
+end
+HalfIntTable{N}() where {N} = HalfIntTable{N}(fill(NaN, ntuple(_ -> 0, N)))
+_hidx(k) = Int(2*k) + 1
+Base.getindex(t::HalfIntTable{N}, k::Vararg{Real,N}) where {N} = t.vals[map(_hidx, k)...]
+function Base.setindex!(t::HalfIntTable{N}, v, k::Vararg{Real,N}) where {N}
+    i = map(_hidx, k)
+    if any(i .> size(t.vals))
+        vals = fill(NaN, max.(i, size(t.vals)))
+        vals[CartesianIndices(t.vals)] .= t.vals
+        t.vals = vals
+    end
+    t.vals[i...] = v
+    return t
+end
+
+# gamma function at the half-integers 0.5, 1.0, ..., ende+0.5 (all modules)
+function precompute_gamma!(gamma_dict::HalfIntTable{1},ende)
+    for x in 0.5:0.5:ende+0.5
+        gamma_dict[x] = gamma(x)
+    end
+    return gamma_dict
+end

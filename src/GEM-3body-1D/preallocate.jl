@@ -7,7 +7,7 @@
 # (norms, the overlap matrix S). It is Float64 for the usual real ranges and ComplexF64 as soon as
 # complex-ranged basis functions are used in at least one Jacobi coordinate.
 struct PrecomputeStruct{TR}
-    gamma_dict::Dict{Float64, Float64}
+    gamma_dict::HalfIntTable{1}
     jmat::Matrix{SMatrix{2, 2, Float64, 4}}
     murR_arr::MMatrix{2, 3, Float64, 6}
     nu_arr::Vector{TR}
@@ -102,7 +102,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     Nmax_eff = complex_ranged_R ? 2*Nmax : Nmax
     
     # Allocate factorials (gamma function)
-    gamma_dict = Dict{Float64, Float64}()
+    gamma_dict = HalfIntTable{1}()
     
     # Allocate Jacobi transofmration matrices jmat and reduced masses murR_arr
     jmat = Matrix{SMatrix{2, 2, Float64, 4}}(undef, 3, 3);

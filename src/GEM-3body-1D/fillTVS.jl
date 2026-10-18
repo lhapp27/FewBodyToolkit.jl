@@ -145,20 +145,21 @@ function element_S(ranges,norm4,jab,la,La,lb,Lb,gamma_dict)
     eta1 = nua*alpha^2 + NUa*gamma^2 + nub
     eta2 = 2*(nua*alpha*beta + NUa*gamma*delta)
     eta3 = nua*beta^2 + NUa*delta^2 + NUb
+    sqeta = sqrt(eta1-eta2^2/4/eta3) # x^(n/2) == sqrt(x)^n, also for complex x (principal branch); integer powers are faster
     
     sumk = zero(norm4)
     for k = 0:la
         sumK = zero(norm4)
         for K = 0:La
             sums = zero(norm4)
-            for s = 0:floor((k+K+Lb)/2)
-                sums += gamma_dict[(la+La+lb+Lb-2*s+1)/2]/gamma_dict[s+1]/gamma_dict[k+K+Lb-2*s+1] * eta3^s*eta2^(k+K+Lb-2*s)/((eta1-eta2^2/4/eta3)^((la+La+lb+Lb-2*s+1)/2))
+            for s = 0:div(k+K+Lb,2)
+                sums += gamma_dict[(la+La+lb+Lb-2*s+1)/2]/gamma_dict[s+1]/gamma_dict[k+K+Lb-2*s+1] * eta3^s*eta2^(k+K+Lb-2*s)/sqeta^(la+La+lb+Lb-2*s+1)
             end
             sumK += sums*gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * alpha^(la-k) * beta^k * gamma^(La-K) * delta^K * gamma_dict[k+K+Lb+1]*(-1/2/eta3)^(k+K+Lb)
         end
         sumk += sumK
     end
-    sumk *= norm4 * (pi/eta3)^(1/2)
+    sumk *= norm4 * sqrt(pi/eta3)
     
     return sumk
 end
@@ -176,11 +177,12 @@ function element_T(ranges,norm4,jab,murR_arr,la,La,lb,Lb,b,gamma_dict,hbar)
     tr = -hbar^2/2/mur
     tR = -hbar^2/2/muR
     
-    temp = 4*nub^2*element_S(ranges,norm4,jab,la,La,lb+2,Lb,gamma_dict) - 2*(1+2*lb)*nub*element_S(ranges,norm4,jab,la,La,lb,Lb,gamma_dict)
+    S0 = element_S(ranges,norm4,jab,la,La,lb,Lb,gamma_dict)
+    temp = 4*nub^2*element_S(ranges,norm4,jab,la,La,lb+2,Lb,gamma_dict) - 2*(1+2*lb)*nub*S0
     lb >= 2 && ( temp += lb*(lb-1)*element_S(ranges,norm4,jab,la,La,lb-2,Lb,gamma_dict) )
     temp *= tr
     
-    Temp = 4*NUb^2*element_S(ranges,norm4,jab,la,La,lb,Lb+2,gamma_dict) - 2*(1+2*Lb)*NUb*element_S(ranges,norm4,jab,la,La,lb,Lb,gamma_dict)
+    Temp = 4*NUb^2*element_S(ranges,norm4,jab,la,La,lb,Lb+2,gamma_dict) - 2*(1+2*Lb)*NUb*S0
     Lb >= 2 && ( Temp += Lb*(Lb-1)*element_S(ranges,norm4,jab,la,La,lb,Lb-2,gamma_dict) )
     Temp *= tR
     
@@ -222,13 +224,13 @@ function element_V(c,iv,ranges,norm4,jac,jbc,la,La,lb,Lb,w_interpol_arr,wn_inter
                     KK = k+K+kp+Kp; LL = la+La+lb+Lb;
                     
                     sums = zz
-                    for s = 0:floor(KK/2)
+                    for s = 0:div(KK,2)
                         nn = Int(LL -2*s)
                         sums += eta7^s*eta6^(KK-2*s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1])*wn_interpol_arr[nn]
                     end
                     
                     # possibly costly due to many dict calls?
-                    sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * (pi/eta7)^(1/2)*(-1/2/eta7)^KK
+                    sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * sqrt(pi/eta7)*(-1/2/eta7)^KK
                     
                 end
                 sumkp += sumKp
@@ -262,6 +264,7 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,c
     eta5 = nua*alphaAC^2 + NUa*gammaAC^2 + nub*alphaBC^2 + NUb*gammaBC^2 + mu_g
     eta6 = 2*(nua*alphaAC*betaAC + NUa*gammaAC*deltaAC + nub*alphaBC*betaBC + NUb*gammaBC*deltaBC)
     eta7 = nua*betaAC^2 + NUa*deltaAC^2 + nub*betaBC^2 + NUb*deltaBC^2
+    sqeta = sqrt(eta5-eta6^2/4/eta7) # see element_S
     
     zz = zero(promote_type(typeof(norm4),typeof(eta5)))
     sumk = zz
@@ -275,11 +278,11 @@ function element_VGauss(c,ranges,norm4,jac,jbc,la,La,lb,Lb,gaussopt,gamma_dict,c
                     KK = k+K+kp+Kp;
                     
                     sums = zz
-                    for s = 0:floor(KK/2)
-                        sums += eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * gamma_dict[(LL-2*s+1)/2]/((eta5-eta6^2/4/eta7)^((LL-2*s+1)/2))
+                    for s = 0:div(KK,2)
+                        sums += eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * gamma_dict[(LL-2*s+1)/2]/sqeta^(LL-2*s+1)
                     end
                     
-                    sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * (pi/eta7)^(1/2)*(-1/2/eta7)^KK
+                    sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * sqrt(pi/eta7)*(-1/2/eta7)^KK
                     
                 end
                 sumkp += sumKp
@@ -326,11 +329,11 @@ function element_VContact(c,ranges,norm4,jac,jbc,la,La,lb,Lb,contactopt,gamma_di
                     end
 
                     sums = zz
-                    for s = 0:floor(KK/2) #expression via 1F1 exists too
+                    for s = 0:div(KK,2) #expression via 1F1 exists too
                         sums += eta7^s*eta6^(KK-2s)/(gamma_dict[s+1]*gamma_dict[KK-2*s+1]) * z0^(LL-2*s) *exp(-(eta5-eta6^2/4/eta7)*z0^2) #eta7^(-KK) in external factor, like for Gaussian
                     end
                     
-                    sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * (pi/eta7)^(1/2)*(-1/2/eta7)^KK
+                    sumKp += sums * gamma_dict[la+1]/(gamma_dict[la-k+1]*gamma_dict[k+1]) * gamma_dict[La+1]/(gamma_dict[La-K+1]*gamma_dict[K+1]) * gamma_dict[lb+1]/(gamma_dict[lb-kp+1]*gamma_dict[kp+1]) * gamma_dict[Lb+1]/(gamma_dict[Lb-Kp+1]*gamma_dict[Kp+1]) * alphaAC^(la-k)*betaAC^k*gammaAC^(La-K)*deltaAC^K * alphaBC^(lb-kp)*betaBC^kp*gammaBC^(Lb-Kp)*deltaBC^Kp * gamma_dict[KK+1] * sqrt(pi/eta7)*(-1/2/eta7)^KK
                     
                 end
                 sumkp += sumKp
