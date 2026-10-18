@@ -303,6 +303,8 @@ for mode in (:r,:R,:both)
     x = wf_rb[:,1]
     @test isapprox(x'*S*x, 1; atol=1e-10) && isapprox(x'*(T+V)*x, e_rb[1]; atol=1e-8)
 end
+# parallel fill (threads with julia -t n): the same matrices
+@test ISGL_matrices(pp_cr_xyz,np_cr;complex_ranged=:both,parallel=true) == ISGL_matrices(pp_cr_xyz,np_cr;complex_ranged=:both)
 
 # 12f'. a non-analytic central potential with complex ranges. This is the case the two-dimensional
 # sector interpolation exists for: vg is a plain function, so its radial integrals are obtained

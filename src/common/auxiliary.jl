@@ -153,6 +153,17 @@ function store_element!(S,T,V,r,c,sel,tel,vel,add_V::Bool,cj::Bool=false)
     end
 end
 
+# f(inds) for the indices 1:n (matrix columns, or nodes of the radial integrals): serially, or with parallel
+# in nthreads() tasks with interleaved indices (balances the triangle). f must write each entry from one index
+# only, so the tasks never write to the same position.
+function fill_parallel(f, n, parallel::Bool)
+    parallel || return f(1:n)
+    nt = Threads.nthreads()
+    @sync for k in 1:nt
+        Threads.@spawn f(k:nt:n)
+    end
+end
+
 
 """
     theta_mesh(complex_ranged, complex_scaling, complex_range_freq, kmax_theta)
