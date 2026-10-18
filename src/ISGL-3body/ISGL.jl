@@ -104,7 +104,8 @@ function ISGL_solve(phys_params, num_params;
     size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs = build
 
     ## 8. Solving the generalized eigenproblem:
-    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)
+    partner = complex_scaling ? nothing : cr_partners(size(fill_arrs.S,1),num_params.gem_params,complex_ranged_r,complex_ranged_R)
+    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions,partner)
     
     ## 9. Calculate observables: (limited to "central" observables at the moment)
     if !return_wavefunctions
