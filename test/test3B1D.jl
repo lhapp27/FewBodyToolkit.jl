@@ -231,3 +231,9 @@ FewBodyToolkit.eigen2step(e_m3,Tm3.+Vm3,Sm3;threshold=np_inv3.threshold)
 # lmax = Lmax = 3 with a small basis: the gamma table was too short (KeyError) up to v0.5.4
 pp_l3 = make_phys_params3B1D(;masses=[1.0,5.0,5.0],species=[:x,:b,:b],interactions=[[],[GaussianPotential(-3.0,0.8)],[GaussianPotential(-3.0,0.8)]])
 @test all(isfinite, GEM3B1D_solve(pp_l3, make_num_params3B1D(;lmax=3,Lmax=3,gem_params=(;nmax=5,Nmax=5,r1=0.1,rnmax=10.0,R1=0.15,RNmax=12.0)))[1:2])
+
+# three equal masses with complex ranges: lookups at the exact bound of the interpolation mesh fell off it
+# by one ulp (BoundsError up to v0.5.4)
+pp_3b = make_phys_params3B1D(;species=[:b,:b,:b],interactions=[[r -> -4.0*exp(-r^2)] for _ in 1:3])
+np_3b = make_num_params3B1D(;gem_params=(;nmax=4,Nmax=4,r1=0.1,rnmax=10.0,R1=0.15,RNmax=12.0),kmax_interpol=150)
+@test all(isfinite, GEM3B1D_solve(pp_3b, np_3b; complex_ranged=:both)[1:2])
