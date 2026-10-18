@@ -157,7 +157,7 @@ function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bo
     size_params = size_estimate(phys_params,num_params,observ_params,complex_scaling,complex_ranged_r,complex_ranged_R)
 
     ## 4. preallocation: #is it really necessary? and/or can it not simply be done within the precomputation? better like this for performance analysis
-    precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling,complex_ranged_r,complex_ranged_R)
+    precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling,complex_ranged_r,complex_ranged_R,add_V)
 
     ## 5. precomputation:
     precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs,complex_ranged_r,complex_ranged_R)

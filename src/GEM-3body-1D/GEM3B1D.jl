@@ -136,7 +136,7 @@ function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bo
     size_params = size_estimate(phys_params,num_params,observ_params,complex_ranged_r,complex_ranged_R)
     
     ## 4. preallocation:
-    precomp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling,complex_ranged_r,complex_ranged_R)
+    precomp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling,complex_ranged_r,complex_ranged_R,add_V)
 
     ## 5. precomputation:
     precompute_3B1D(phys_params,num_params,size_params,precomp_arrs,complex_ranged_r,complex_ranged_R)

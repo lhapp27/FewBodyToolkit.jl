@@ -7,12 +7,13 @@
     (;abvals_arr,cvals,gauss_indices,central_indices,so_indices,pow_indices,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,lL_nested,maxlmax,mij_arr_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr) = size_params
     (;gamma_dict,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr) = precomp_arrs
     (;alpha_arr,v_arr,A_mat,w_interpol_arr,Ainv_arr_kine,w_pow_arr) = interpol_arrs
-    (;w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr,temp_fill_mat) = fill_arrs
+    (;w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr) = fill_arrs
     
     complex_ranged = complex_ranged_r || complex_ranged_R
     # With complex ranges the bra ranges are conjugated, so S, T and V become hermitian instead of
     # symmetric. Combined with complex scaling neither symmetry survives and the full matrix is filled.
     fill_full = complex_ranged && complex_scaling
+    add_V || size(V) == size(T) || error("fill_TVS: add_V=false needs a separate V, see preallocate_data")
 
     # the effective numbers of ranges already include the doubling for a complex-ranged coordinate
     nmax_eff = lastindex(nu_arr)
@@ -22,51 +23,40 @@
     flati = flattento1Dloop(temp_args_arr,groupindex_arr,bvalsdiag,abvals_arr,s_arr,JsS_arr,JlL_arr,lL_nested,nmax_eff,Nmax_eff,nu_arr,NU_arr,norm_arr,NORM_arr,mij_arr_dict,starts,fill_full)
 
     ## Calculation of matrix elements and matrix filling via 1d loop (so we dont have redundant loops over all spin configs, lL combinations, and nmax)
+    # The elements are written directly into the lower triangle (full matrix for fill_full) and mirrored in place afterwards.
     for index in 1:flati
         (;rowi,coli) = temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = sab(jmat,temp_args_arr[index],abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
+        S[rowi,coli] = sab(jmat,temp_args_arr[index],abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
     end
     # transpose fill: the overlap is hermitian for complex ranges (also together with complex scaling,
     # since the ISGL complex-scaling rotates the potential and leaves the ranges alone)
-    if complex_ranged
-        hermitian_fill!(S,temp_fill_mat);
-    else
-        S .= Symmetric(temp_fill_mat,:L);
-    end
+    hermitian_fill!(S,complex_ranged)
 
     #combined t and v for some speedup: reverted combination for CSM
     for index in 1:flati
         (;rowi,coli) = temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_arr[index],abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict,hbar)
-    end
-    # transpose fill:
-    if fill_full
-        T .= temp_fill_mat;
-    elseif complex_ranged
-        hermitian_fill!(T,temp_fill_mat);
-    else
-        T .= Symmetric(temp_fill_mat,:L);
+        T[rowi,coli] = tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_arr[index],abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict,hbar)
     end
 
     if complex_scaling
         T .*= exp(-2*im*complex_scaling_angle*pi/180)
     end
     
-    #v
+    #v: accumulated into T, which becomes the Hamiltonian H = T + V. Kept separately only for add_V=false (inverse problem, matrix export)
     for index in 1:flati
         (;rowi,coli) = temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_arr,temp_args_arr[index],abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,pow_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr,complex_scaling) # do we need hbar^2 for SO?
+        vel = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_arr,temp_args_arr[index],abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,pow_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr,complex_scaling) # do we need hbar^2 for SO?
+        if add_V
+            T[rowi,coli] += vel
+        else
+            V[rowi,coli] = vel
+        end
     end
     # transpose fill:
-    if fill_full
-        V .= temp_fill_mat;
-    elseif complex_ranged
-        hermitian_fill!(V,temp_fill_mat);
-    else
-        V .= Symmetric(temp_fill_mat,:L);
+    if !fill_full
+        hermitian_fill!(T,complex_ranged)
+        add_V || hermitian_fill!(V,complex_ranged)
     end
-
-    add_V && (T .+= V) # T becomes the full Hamiltonian matrix H = T + V. Skipped when the kinetic energy is needed separately (inverse problem, matrix export)
     
 end
 
