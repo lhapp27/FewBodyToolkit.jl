@@ -223,19 +223,37 @@ end
             end
         end
         
-        for cc in cvals
-            #performance: precompute_varr needs more time than the interpolation procedure for w_arr below. this is mostly due to the use of quadgk
-            
-            for iv = 1:nint_arr[cc]
+    end
 
-                # numerical integration only necessary for central and spin-orbit interactions, (and more if added)
-                if !(iv in central_indices[cc] || iv in so_indices[cc])
-                    continue
+    # interactions and observables: the radial integrals v_n(alpha) depend on n only, so they are computed once for
+    # all n = 0:2*maxlmax; the shoulder solve uses the leading (Lsum+1)x(Lsum+1) block of A_mat (filled above)
+    Lmax_sum = 2*maxlmax
+    for cc in cvals
+        #performance: precompute_varr needs more time than the interpolation procedure for w_arr below. this is mostly due to the use of quadgk
+
+        for iv = 1:nint_arr[cc]
+
+            # numerical integration only necessary for central and spin-orbit interactions, (and more if added)
+            if !(iv in central_indices[cc] || iv in so_indices[cc])
+                continue
+            end
+
+            # the same central potential on an earlier pair (e.g. identical particles): same w_arr and interpolants
+            prev = [(c0,i0) for c0 in cvals if c0 < cc for i0 in central_indices[c0] if interactions[c0][i0] === interactions[cc][iv]]
+            if !isempty(prev)
+                c0, i0 = prev[1]
+                w_arr[cc,:,:,:,:] .= w_arr[c0,:,:,:,:]
+                for Lsum = 0:Lmax_sum, n = 0:Lsum
+                    w_interpol_arr[cc,iv,Lsum,n] = w_interpol_arr[c0,i0,Lsum,n]
                 end
+                continue
+            end
 
-                # step 1: calculate v_arr via integration. v_arr is only temporary and can be reused for each interaction
-                precompute_varr!(v_arr,alpha_grid,Lsum,gamma_dict,interactions[cc][iv],buf,csmfac)
-                
+            # step 1: calculate v_arr via integration. v_arr is only temporary and can be reused for each interaction
+            precompute_varr!(v_arr,alpha_grid,Lmax_sum,gamma_dict,interactions[cc][iv],buf,csmfac)
+
+            for Lsum = 0:Lmax_sum
+                A_mat_curr = A_mat[1:Lsum+1,1:Lsum+1]
                 # step 2: the shoulder solve is a linear map of v at fixed alpha, so it is done
                 # node by node and the angular direction just comes along
                 for kt = 1:ntheta
@@ -243,38 +261,40 @@ end
                         w_arr[cc,k,kt,Lsum+1,1:Lsum+1] .= A_mat_curr\v_arr[k,kt,1:Lsum+1] # Lsum+1, because w_arr is no OffsetArray!; also consider only subarray 0:Lsum = 1:Lsum+1
                     end
                 end
-                
+
                 for n = 0:Lsum
                     w_interpol_arr[cc,iv,Lsum,n] = complex_ranged ?
                         cubic_spline_interpolation((log_alpha_range,theta_range), w_arr[cc,:,:,Lsum+1,n+1]) :
                         cubic_spline_interpolation(log_alpha_range, w_arr[cc,:,1,Lsum+1,n+1])
                 end
-            end            
+            end
         end
-        
-        
-        ## for the observables: (separate loop, as there could be observables for Jacobi sets without interaction!)
-        for cco = 1:3
-            !return_wavefunctions && continue # no need for observables if return_wavefunctions = false
-            for (jj,obs) in enumerate(centobs_arr[cco]) # for each c there might be several observables -> loop over them
-                
-                # cal v_arr for observables:
-                precompute_varr!(v_obs_arr,alpha_grid_obs,Lsum,gamma_dict,obs,bufr,1.0)
-                
+    end
+
+
+    ## for the observables: (separate loop, as there could be observables for Jacobi sets without interaction!)
+    for cco = 1:3
+        !return_wavefunctions && continue # no need for observables if return_wavefunctions = false
+        for (jj,obs) in enumerate(centobs_arr[cco]) # for each c there might be several observables -> loop over them
+
+            # cal v_arr for observables:
+            precompute_varr!(v_obs_arr,alpha_grid_obs,Lmax_sum,gamma_dict,obs,bufr,1.0)
+
+            for Lsum = 0:Lmax_sum
+                A_mat_curr = A_mat[1:Lsum+1,1:Lsum+1]
                 # w_arr for observables:
                 for k = 1:kmax
                     w_obs_arr[cco,jj,k,Lsum+1,1:Lsum+1] .= A_mat_curr\v_obs_arr[k,1,1:Lsum+1]
                 end
-                
+
                 # w_interpol_arr for observables:
                 for n = 0:Lsum
                     w_obs_interpol_arr[cco,jj,Lsum,n] = cubic_spline_interpolation(log_alpha_range, w_obs_arr[cco,jj,:,Lsum+1,n+1])
                 end
-                
             end
+
         end
-        
     end
-    
+
 end
 
