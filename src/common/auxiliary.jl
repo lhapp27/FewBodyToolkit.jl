@@ -63,6 +63,41 @@ function hermitian_fill!(A,hermitian::Bool=true)
 end
 
 
+# partner for the fill loop: P*M*P == conj(M) means that of the (at most two) related elements of the lower
+# triangle only one has to be computed (see pair_position). It holds for real potentials, but not e.g. for
+# identical particles with different interactions on their equivalent pairs; so it is checked on the first
+# column, whose elements are all computed, against the partner column. Otherwise nothing (full fill).
+function fill_partners(element, nbasis, gem_params, complex_ranged_r::Bool, complex_ranged_R::Bool)
+    p = cr_partners(nbasis, gem_params, complex_ranged_r, complex_ranged_R)
+    isnothing(p) && return nothing
+    d, m = zeros(3), zeros(3)
+    for i in 1:nbasis
+        pr, pc, cj = pair_position(i,1,p)
+        a, b = element(i,1), element(pr,pc)
+        d .= max.(d, abs.(b .- (cj ? conj.(a) : a))); m .= max.(m, abs.(a))
+    end
+    return all(d .<= 1e-10 .* m) ? p : nothing
+end
+
+# position of the element related to M[rowi,coli] in the lower triangle, and whether it is the conjugate
+function pair_position(rowi, coli, p)
+    pr, pc = p[rowi], p[coli]
+    return pr >= pc ? (pr, pc, true) : (pc, pr, false)
+end
+
+# one element of S and T (H = T + V for add_V, else T and V), conjugated for cj
+function store_element!(S,T,V,r,c,sel,tel,vel,add_V::Bool,cj::Bool=false)
+    f(x) = cj ? conj(x) : x
+    S[r,c] = f(sel)
+    if add_V
+        T[r,c] = f(tel + vel)
+    else
+        T[r,c] = f(tel)
+        V[r,c] = f(vel)
+    end
+end
+
+
 """
     theta_mesh(complex_ranged, complex_scaling, complex_range_freq, kmax_theta)
 

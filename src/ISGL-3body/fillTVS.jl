@@ -19,18 +19,24 @@
     # for fill_full), mirrored in place afterwards. The arguments of each element are generated from the basis list.
     # V is accumulated into T, which becomes the Hamiltonian H = T + V. Kept separately only for add_V=false (inverse problem, matrix export)
     csmfac = exp(-2*im*complex_scaling_angle*pi/180)
-    for coli in 1:nbasis_total, rowi in (fill_full ? 1 : coli):nbasis_total
+    function element(rowi,coli)
         args = element_args(rowi,coli,basis,abvals_arr,bvalsdiag,nu_arr,NU_arr,norm_arr,NORM_arr,mij_arr_dict)
-        S[rowi,coli] = sab(jmat,args,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
+        sel = sab(jmat,args,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
         tel = convert(eltype(T), tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,args,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict,hbar))
         complex_scaling && (tel *= csmfac)
         vel = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_arr,args,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,pow_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr,complex_scaling) # do we need hbar^2 for SO?
-        if add_V
-            T[rowi,coli] = tel + vel
-        else
-            T[rowi,coli] = tel
-            V[rowi,coli] = vel
+        return sel, tel, vel
+    end
+    # complex ranges without complex scaling: conjugate-paired basis functions (see fill_partners)
+    partner = complex_scaling ? nothing : fill_partners(element,nbasis_total,gem_params,complex_ranged_r,complex_ranged_R)
+    for coli in 1:nbasis_total, rowi in (fill_full ? 1 : coli):nbasis_total
+        if !isnothing(partner)
+            pr, pc, cj = pair_position(rowi,coli,partner)
+            (pc, pr) < (coli, rowi) && continue # already filled together with its partner element
         end
+        sel, tel, vel = element(rowi,coli)
+        store_element!(S,T,V,rowi,coli,sel,tel,vel,add_V)
+        !isnothing(partner) && (pr, pc) != (rowi, coli) && store_element!(S,T,V,pr,pc,sel,tel,vel,add_V,cj)
     end
     # transpose fill: the overlap is hermitian for complex ranges (also together with complex scaling,
     # since the ISGL complex-scaling rotates the potential and leaves the ranges alone)
