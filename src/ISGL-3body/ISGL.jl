@@ -10,7 +10,7 @@
 module ISGL
 
 using .. FewBodyToolkit
-using ..FewBodyToolkit: parse_complex_ranged, hermitian_fill!, theta_mesh, interpol_lookup, check_cr_csm_sector, quadgk_scaled # shared with GEM3B1D, see common/auxiliary.jl
+using ..FewBodyToolkit: parse_complex_ranged, hermitian_fill!, theta_mesh, interpol_lookup, check_cr_csm_sector, quadgk_scaled, HalfIntTable, precompute_gamma! # shared with GEM3B1D, see common/auxiliary.jl
 using LinearAlgebra,StaticArrays,OffsetArrays,Interpolations, SpecialFunctions,QuadGK,PartialWaveFunctions, WignerSymbols
 using Printf: @printf
 
@@ -65,7 +65,7 @@ Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
 - If `return_wavefunctions=true`: Returns a tuple `(energies, wavefunctions, centobs_output, R2_output)`.
     + `energies`: Vector of computed energies.
     + `wavefunctions`: Matrix of eigenvectors (column-wise) which contain the coefficients of the basis functions.
-    + `centobs_output`: Mean values of central observables for the specified states. The first dimension corresponds to the Jacobi sets, the second to the observables, and the third to the states.
+    + `centobs_output`: Mean values of central observables for the specified states. The first dimension corresponds to the Jacobi sets, the second to the observables, and the third to the states. Entries beyond the number of observables of a Jacobi set are `NaN`.
     + `R2_output`: Mean squared radii for the R-coordinate. Rows corresond to the Jacobi sets, columns to the states.
 
 # Example

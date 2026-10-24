@@ -150,15 +150,15 @@ function MatrixWD(WD,lmax,nu_arr,WCC,DCC,gamma_dict,buf,complex_scaling::Bool,co
     # DCC = [n,fun], where n denotes the derivative order and fun the functional form of the prefactor
     
     n = DCC[1]
-    # Dictionary to map derivative order to corresponding function
+    # functions for derivative orders n = 1..4
     # this needs better treatment for vanishing terms due to lmax < n. maybe its not a problem...
-    Dfun_dict = Dict(
-    1 => (r, l, nu) -> l/r - 2*nu*r,
-    2 => (r, l, nu) -> l*(l-1)/r^2 - 2*(1+2l)*nu + 4*nu^2*r^2,
-    3 => (r, l, nu) -> l*(l-1)*(l-2)/r^3 - 6l^2*nu/r + 12*(l+1)*nu^2*r - 8*nu^3*r^3,
-    4 => (r, l, nu) -> l*(l-1)*(l-2)*(l-3)/r^4 - 4*nu*l*(l-1)*(2l-1)/r^2 + 12*nu^2*(1+2l+2l^2) - 16*(3+2l)*nu^3*r^2 + 16*nu^4*r^4
-    )    
-    if !haskey(Dfun_dict, n)
+    Dfun_dict = (
+    (r, l, nu) -> l/r - 2*nu*r,
+    (r, l, nu) -> l*(l-1)/r^2 - 2*(1+2l)*nu + 4*nu^2*r^2,
+    (r, l, nu) -> l*(l-1)*(l-2)/r^3 - 6l^2*nu/r + 12*(l+1)*nu^2*r - 8*nu^3*r^3,
+    (r, l, nu) -> l*(l-1)*(l-2)*(l-3)/r^4 - 4*nu*l*(l-1)*(2l-1)/r^2 + 12*nu^2*(1+2l+2l^2) - 16*(3+2l)*nu^3*r^2 + 16*nu^4*r^4
+    )
+    if !(n in keys(Dfun_dict))
         error("Derivative order n=$n > 4 not implemented")
     end
     

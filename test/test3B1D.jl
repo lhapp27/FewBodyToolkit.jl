@@ -227,3 +227,7 @@ lam3 = inverse_solve(Tm3,Vm3,Sm3;target_energy=-30.0,threshold=np_inv3.threshold
 e_m3 = zeros(size(Tm3,1))
 FewBodyToolkit.eigen2step(e_m3,Tm3.+Vm3,Sm3;threshold=np_inv3.threshold)
 @test isapprox(e_m3[1], GEM3B1D_solve(pp_inv3(1.0),np_inv3)[1]; rtol=1e-10)
+
+# lmax = Lmax = 3 with a small basis: the gamma table was too short (KeyError) up to v0.5.4
+pp_l3 = make_phys_params3B1D(;masses=[1.0,5.0,5.0],species=[:x,:b,:b],interactions=[[],[GaussianPotential(-3.0,0.8)],[GaussianPotential(-3.0,0.8)]])
+@test all(isfinite, GEM3B1D_solve(pp_l3, make_num_params3B1D(;lmax=3,Lmax=3,gem_params=(;nmax=5,Nmax=5,r1=0.1,rnmax=10.0,R1=0.15,RNmax=12.0)))[1:2])

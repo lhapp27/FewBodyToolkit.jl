@@ -22,7 +22,7 @@ function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_ar
     end
         
     
-    precompute_gamma(gamma_dict,max(nmax,2*max(lmax,Lmax)+1+2)) #spin-orbit needs higher values, so let's give it +2...
+    precompute_gamma!(gamma_dict,max(nmax,4*max(lmax,Lmax)+5)) # generous (spin-orbit needs higher values); the table is tiny
     
     precompute_cleb(cleb_arr,JlL_complete,nl,l_complete)
     #@show(cleb_arr)
@@ -47,15 +47,6 @@ function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_ar
     
     
 end
-
-### gamma functions
-function precompute_gamma(gamma_dict,ende)
-    # returns the dict gamma_dict with keys "n" for each value of n between 0.5 and ende in steps of 0.5
-    for i=0.5:0.5:ende+0.5
-        gamma_dict[i] = gamma(i)
-    end
-end
-
 
 ### clebsch-gordan coefficients: for l-L coupling
 @views @inbounds function precompute_cleb(cleb_arr,JlL_complete,nl,l_complete)
@@ -408,7 +399,7 @@ end
             for j in keys(lL_complete)
                 (lb,Lb) = lL_complete[j]
 
-                S_arr[la,La,lb,Lb,JlL,:] .= Si_fun(JlL,la,La,lb,Lb,imax_dict[((la,La),(lb,Lb))],mij_arr_dict[((la,La),(lb,Lb))],kmax_dict,gamma_dict,cleb_arr,Clmk_arr,Dlmk_arr,temp_arr,tempD1,tempD2)
+                S_arr[la,La,lb,Lb,JlL,:] .= Si_fun(JlL,la,La,lb,Lb,imax_dict[la,La,lb,Lb],mij_arr_dict[la,La,lb,Lb],kmax_dict,gamma_dict,cleb_arr,Clmk_arr,Dlmk_arr,temp_arr,tempD1,tempD2)
             end
         end
     end
