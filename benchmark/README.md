@@ -10,7 +10,8 @@ julia benchmark/compare.jl benchmark/results/<old>.csv benchmark/results/<new>.c
 julia benchmark/compare.jl benchmark/results/<a>.csv <b>.csv <c>.csv ...   # overview, >2 files
 ```
 
-Options of `run.jl`: `--quick` (smallest size only), `--cases=isgl_cr,inverse` (subset).
+Options of `run.jl`: `--quick` (smallest size only), `--cases=isgl_cr,inverse` (subset). The large cases
+`isgl_real_large`, `isgl_cr_large` (N = 14700, up to ~50 GB) only run when named in `--cases`.
 
 - **Cases** (`cases.jl`): ISGL with real ranges, complex scaling and complex ranges; GEM3B1D with real
   and complex ranges; `inverse_solve` on ISGL matrices. Each at three sizes (two for `inverse`).

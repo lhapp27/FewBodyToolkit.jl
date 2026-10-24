@@ -1,0 +1,5 @@
+2026-10-18T11:37:40.771  isgl_real_large n=70  load 1.09 2.00 3.48 1/614 124155
+isgl_real_large n= 70 N= 14700  t_solve=  321.56 s  t_build=  178.08 s  dpeak_solve=  6.919 GB
+2026-10-18T11:46:54.375  isgl_cr_large n=35  load 1.80 4.26 4.12 2/611 127458
+isgl_cr_large n= 35 N= 14700  t_solve=  531.35 s  t_build=  335.72 s  dpeak_solve= 13.820 GB
+2026-10-18T12:02:17.542  done

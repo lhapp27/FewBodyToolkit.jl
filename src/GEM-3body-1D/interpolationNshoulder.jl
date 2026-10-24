@@ -162,6 +162,14 @@ end
     for cc in cvals
         
         for ivc in central_indices[cc]
+            # the same potential on an earlier pair (e.g. identical particles): same interpolants
+            prev = [(c0,i0) for c0 in cvals if c0 < cc for i0 in central_indices[c0] if interactions[c0][i0] === interactions[cc][ivc]]
+            if !isempty(prev)
+                for nn in nnlist
+                    w_interpol_arr[cc,ivc,nn] = w_interpol_arr[prev[1]...,nn]
+                end
+                continue
+            end
             precompute_varr!(v_arr,alpha_grid,nnlist,gamma_dict,interactions[cc][ivc],buf,csmfac) #possible exponents via nnlist
             for nn in nnlist
                 w_interpol_arr[cc,ivc,nn] = complex_ranged ?

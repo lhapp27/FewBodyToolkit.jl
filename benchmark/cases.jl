@@ -29,6 +29,9 @@ const CASES = [
     (name="gem1d_real", kind=:gem1d,   sizes=[20,30,40], since=v"0.3.1", kw=(;)),
     (name="gem1d_cr",   kind=:gem1d,   sizes=[8,12,16],  since=v"0.5.2", kw=(;complex_ranged=:both)),
     (name="inverse",    kind=:inverse, sizes=[24,32],    since=v"0.5.4", kw=(;)),
+    # large: only run when named with --cases= (N = 14700; up to ~50 GB and ~30 min per point for v0.5.4)
+    (name="isgl_real_large", kind=:isgl, sizes=[70], since=v"0.3.1", kw=(;), large=true),
+    (name="isgl_cr_large",   kind=:isgl, sizes=[35], since=v"0.5.1", kw=(;complex_ranged=:both), large=true),
 ]
 const WARMUP_SIZE = 4
 const INVERSE_ENERGIES = range(-2.5, 0.0, length=6)
