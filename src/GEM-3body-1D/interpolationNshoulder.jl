@@ -1,6 +1,6 @@
 ﻿# functions to precompute the w-arrays for the interaction via to be used in range-interpolation
 
-function interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged::Bool=false)
+function interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged::Bool=false,parallel::Bool=false)
     
     # Destruct Structs:
     (;interactions) = phys_params
@@ -26,7 +26,7 @@ function interpolNshoulder(phys_params,num_params,observ_params,size_params,prec
     precompute_alpha_grid!(alpha_grid,alpha_arr,theta_arr)
     
     # numerical integration and range-interpolation
-    precompute_w(v_arr,alpha_arr,theta_arr,alpha_grid,w_interpol_arr,gamma_dict,maxlmax,cvals,interactions,centobs_arr,return_wavefunctions,complex_scaling,complex_scaling_angle,lmax,Lmax,central_indices,lL_complete) # ,w_obs_arr,v_obs_arr,w_obs_interpol_arr
+    precompute_w(v_arr,alpha_arr,theta_arr,alpha_grid,w_interpol_arr,gamma_dict,maxlmax,cvals,interactions,centobs_arr,return_wavefunctions,complex_scaling,complex_scaling_angle,lmax,Lmax,central_indices,lL_complete,parallel) # ,w_obs_arr,v_obs_arr,w_obs_interpol_arr
     
 end
 
@@ -95,12 +95,12 @@ end
 
 # range-interpolation method:
 # central interaction
-function precompute_varr!(v_arr,alpha_grid,nnlist,gamma_dict,vcent_fun::Union{Function,CentralPotential},buf,csmfac)
-    for n in nnlist
-        for kt = 1:size(alpha_grid,2)
-            for k = 1:size(alpha_grid,1)
-                v_arr[k,kt,n+1] = vcent_integration(vcent_fun,alpha_grid[k,kt]*csmfac^2,n,buf)*csmfac^(n+1) # v_arr is no offset-arr, hence n+1. v_arr[:,:,1] is for n=0, etc. 
-            end
+# the nodes k are independent; with parallel they are split over tasks, each with its own quadgk buffer
+function precompute_varr!(v_arr,alpha_grid,nnlist,gamma_dict,vcent_fun::Union{Function,CentralPotential},buf,csmfac,parallel::Bool=false)
+    fill_parallel(size(alpha_grid,1),parallel) do ks
+        b = parallel ? deepcopy(buf) : buf
+        for n in nnlist, kt = 1:size(alpha_grid,2), k in ks
+            v_arr[k,kt,n+1] = vcent_integration(vcent_fun,alpha_grid[k,kt]*csmfac^2,n,b)*csmfac^(n+1) # v_arr is no offset-arr, hence n+1. v_arr[:,:,1] is for n=0, etc. 
         end
     end
 end
@@ -119,7 +119,7 @@ end
 
 
 ### w_interpol_arr: range-interpolation
-@views @inbounds function precompute_w(v_arr,alpha_arr,theta_arr,alpha_grid,w_interpol_arr,gamma_dict,maxlmax,cvals,interactions,centobs_arr,return_wavefunctions::Bool,complex_scaling::Bool,complex_scaling_angle,lmax,Lmax,central_indices,lL_complete) #,w_obs_arr,v_obs_arr,w_obs_interpol_arr
+@views @inbounds function precompute_w(v_arr,alpha_arr,theta_arr,alpha_grid,w_interpol_arr,gamma_dict,maxlmax,cvals,interactions,centobs_arr,return_wavefunctions::Bool,complex_scaling::Bool,complex_scaling_angle,lmax,Lmax,central_indices,lL_complete,parallel::Bool=false) #,w_obs_arr,v_obs_arr,w_obs_interpol_arr
     # returns the Array w_interpol_arr[c in cvals,ivc in central_indices[c],nn in nnlist]
     
     log_alpha_range=range(log(alpha_arr[1]),log(alpha_arr[end]),lastindex(alpha_arr)) # log(alpha) to interpolate over uniform range of effective ranges alpha
@@ -170,7 +170,7 @@ end
                 end
                 continue
             end
-            precompute_varr!(v_arr,alpha_grid,nnlist,gamma_dict,interactions[cc][ivc],buf,csmfac) #possible exponents via nnlist
+            precompute_varr!(v_arr,alpha_grid,nnlist,gamma_dict,interactions[cc][ivc],buf,csmfac,parallel) #possible exponents via nnlist
             for nn in nnlist
                 w_interpol_arr[cc,ivc,nn] = complex_ranged ?
                     cubic_spline_interpolation((log_alpha_range,theta_range), v_arr[:,:,nn+1]) :

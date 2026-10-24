@@ -1,6 +1,6 @@
 ﻿## Function for calculating the matrix elements and filling the matrices T,V,S within the GEM3B1D program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,add_V::Bool=true)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,add_V::Bool=true,parallel::Bool=false)
     
     (;gem_params,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
@@ -19,25 +19,29 @@
     # for fill_full), mirrored in place afterwards. The arguments of each element are generated from the basis list.
     # V is accumulated into T, which becomes the Hamiltonian H = T + V. Kept separately only for add_V=false (inverse problem, matrix export)
     csmfac = exp(-2*im*complex_scaling_angle*pi/180)
-    function element(rowi,coli)
+    function element(rowi,coli,wn) # wn: buffer for the interpolated values, written by vab
         args = element_args(rowi,coli,basis,abvals_arr,bvalsdiag,cvals,nu_arr,NU_arr,norm_arr,NORM_arr)
         sel = sab(jmat,args,abI,factor_bf,gamma_dict)
         tel = convert(eltype(T), tab(jmat,murR_arr,args,abI,factor_bf,gamma_dict,hbar))
         complex_scaling && (tel *= csmfac)
-        vel = vab(jmat,w_interpol_arr,wn_interpol_arr,args,abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,complex_scaling,complex_scaling_angle)
+        vel = vab(jmat,w_interpol_arr,wn,args,abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,complex_scaling,complex_scaling_angle)
         return sel, tel, vel
     end
     # complex ranges without complex scaling: conjugate-paired basis functions (see fill_partners)
-    partner = complex_scaling ? nothing : fill_partners(element,nbasis_total,gem_params,complex_ranged_r,complex_ranged_R)
-    for coli in 1:nbasis_total, rowi in (fill_full ? 1 : coli):nbasis_total
-        if !isnothing(partner)
-            pr, pc, cj = pair_position(rowi,coli,partner)
-            (pc, pr) < (coli, rowi) && continue # already filled together with its partner element
+    partner = complex_scaling ? nothing : fill_partners((i,j) -> element(i,j,wn_interpol_arr),nbasis_total,gem_params,complex_ranged_r,complex_ranged_R)
+    function fill_columns(cols)
+        wn = similar(wn_interpol_arr) # own buffer, also for each task with parallel
+        for coli in cols, rowi in (fill_full ? 1 : coli):nbasis_total
+            if !isnothing(partner)
+                pr, pc, cj = pair_position(rowi,coli,partner)
+                (pc, pr) < (coli, rowi) && continue # already filled together with its partner element
+            end
+            sel, tel, vel = element(rowi,coli,wn)
+            store_element!(S,T,V,rowi,coli,sel,tel,vel,add_V)
+            !isnothing(partner) && (pr, pc) != (rowi, coli) && store_element!(S,T,V,pr,pc,sel,tel,vel,add_V,cj)
         end
-        sel, tel, vel = element(rowi,coli)
-        store_element!(S,T,V,rowi,coli,sel,tel,vel,add_V)
-        !isnothing(partner) && (pr, pc) != (rowi, coli) && store_element!(S,T,V,pr,pc,sel,tel,vel,add_V,cj)
     end
+    fill_parallel(fill_columns,nbasis_total,parallel)
     # transpose fill: the overlap is hermitian for complex ranges (also together with complex scaling,
     # since the complex-scaling rotates the potential and leaves the ranges alone)
     hermitian_fill!(S,complex_ranged)

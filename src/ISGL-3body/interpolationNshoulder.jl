@@ -3,7 +3,7 @@
 # complex_ranged is not read here: nu_arr already carries the complex ranges, so precompute_alpha_arr
 # derives the |alpha| bounds of the sector from them, and theta_arr fixes its opening angle. The
 # argument is kept for symmetry with GEM3B1D.interpolNshoulder and with the other stages.
-function interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged::Bool=false)
+function interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged::Bool=false,parallel::Bool=false)
 
     # Destruct Structs:
     (;interactions) = phys_params
@@ -37,7 +37,7 @@ function interpolNshoulder(phys_params,num_params,observ_params,size_params,prec
     
     
     # upon-the-shoulder
-    precompute_w(w_arr,v_arr,alpha_arr,theta_arr,alpha_grid,A_mat,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,gamma_dict,maxlmax,mu0,c_shoulder,cvals,vint_arr_wrapped,centobs_arr_wrapped,w_obs_arr,v_obs_arr,w_obs_interpol_arr,return_wavefunctions,complex_scaling,complex_scaling_angle,central_indices,so_indices,pow_indices,powopt_arr,nint_arr)
+    precompute_w(w_arr,v_arr,alpha_arr,theta_arr,alpha_grid,A_mat,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,gamma_dict,maxlmax,mu0,c_shoulder,cvals,vint_arr_wrapped,centobs_arr_wrapped,w_obs_arr,v_obs_arr,w_obs_interpol_arr,return_wavefunctions,complex_scaling,complex_scaling_angle,central_indices,so_indices,pow_indices,powopt_arr,nint_arr,parallel)
     
 end
 
@@ -103,15 +103,15 @@ end
 # range-interpolation method
 
 # central interaction
-function precompute_varr!(v_arr,alpha_grid,Lsum,gamma_dict,vcent_fun::CentralPotential,buf,csmfac)
-    for n = 0:Lsum
-        for kt = 1:size(alpha_grid,2)
-            for k = 1:size(alpha_grid,1)
-                alpha = alpha_grid[k,kt]
-                # alpha^(n+3/2) stays on the principal branch: |arg(alpha)| <= atan(omega) < pi/2
-                norm_interpol = 1/2 * gamma_dict[n+1.5]/alpha^(n+3/2)
-                v_arr[k,kt,n+1] = vcent_integration(vcent_fun,alpha*csmfac^2,n,buf)/gamma_dict[n+1.0]/norm_interpol * csmfac^(2*n+3)#584
-            end
+# the nodes k are independent; with parallel they are split over tasks, each with its own quadgk buffer
+function precompute_varr!(v_arr,alpha_grid,Lsum,gamma_dict,vcent_fun::CentralPotential,buf,csmfac,parallel::Bool=false)
+    fill_parallel(size(alpha_grid,1),parallel) do ks
+        b = parallel ? deepcopy(buf) : buf
+        for n = 0:Lsum, kt = 1:size(alpha_grid,2), k in ks
+            alpha = alpha_grid[k,kt]
+            # alpha^(n+3/2) stays on the principal branch: |arg(alpha)| <= atan(omega) < pi/2
+            norm_interpol = 1/2 * gamma_dict[n+1.5]/alpha^(n+3/2)
+            v_arr[k,kt,n+1] = vcent_integration(vcent_fun,alpha*csmfac^2,n,b)/gamma_dict[n+1.0]/norm_interpol * csmfac^(2*n+3)#584
         end
     end
 end
@@ -131,7 +131,7 @@ end =#
 # power-law interaction: the integral is analytic, so no numerical integration is needed.
 # The main interaction path does not use this (see the pow_indices block in precompute_w), but
 # observables (centobs_arr) go through precompute_varr! as well, so a method is provided here.
-function precompute_varr!(v_arr,alpha_grid,Lsum,gamma_dict,vcent_fun::PowerLawPotential,buf,csmfac)
+function precompute_varr!(v_arr,alpha_grid,Lsum,gamma_dict,vcent_fun::PowerLawPotential,buf,csmfac,parallel::Bool=false)
     (;v0,p) = vcent_fun
     for n = 0:Lsum
         for kt = 1:size(alpha_grid,2)
@@ -154,7 +154,7 @@ end
 
 
 ### w_arr: upon-the-shoulder method
-@views @inbounds function precompute_w(w_arr,v_arr,alpha_arr,theta_arr,alpha_grid,A_mat,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,gamma_dict,maxlmax,mu0,c_shoulder,cvals,interactions,centobs_arr,w_obs_arr,v_obs_arr,w_obs_interpol_arr,return_wavefunctions::Bool,complex_scaling::Bool,complex_scaling_angle,central_indices,so_indices,pow_indices,powopt_arr,nint_arr)
+@views @inbounds function precompute_w(w_arr,v_arr,alpha_arr,theta_arr,alpha_grid,A_mat,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,gamma_dict,maxlmax,mu0,c_shoulder,cvals,interactions,centobs_arr,w_obs_arr,v_obs_arr,w_obs_interpol_arr,return_wavefunctions::Bool,complex_scaling::Bool,complex_scaling_angle,central_indices,so_indices,pow_indices,powopt_arr,nint_arr,parallel::Bool=false)
     # returns the Array w_arr[c in cvals,alpha=1:alphamax,theta=1:thetamax,Lsum = 1:2*maxlmax,n=1:Lsum+1]
     # note the +1 in the last argument: w_arr, v_arr are NOT offset-arrays due to problems with linear algebra package. 
     
@@ -250,7 +250,7 @@ end
             end
 
             # step 1: calculate v_arr via integration. v_arr is only temporary and can be reused for each interaction
-            precompute_varr!(v_arr,alpha_grid,Lmax_sum,gamma_dict,interactions[cc][iv],buf,csmfac)
+            precompute_varr!(v_arr,alpha_grid,Lmax_sum,gamma_dict,interactions[cc][iv],buf,csmfac,parallel)
 
             for Lsum = 0:Lmax_sum
                 A_mat_curr = A_mat[1:Lsum+1,1:Lsum+1]
@@ -278,7 +278,7 @@ end
         for (jj,obs) in enumerate(centobs_arr[cco]) # for each c there might be several observables -> loop over them
 
             # cal v_arr for observables:
-            precompute_varr!(v_obs_arr,alpha_grid_obs,Lmax_sum,gamma_dict,obs,bufr,1.0)
+            precompute_varr!(v_obs_arr,alpha_grid_obs,Lmax_sum,gamma_dict,obs,bufr,1.0,parallel)
 
             for Lsum = 0:Lmax_sum
                 A_mat_curr = A_mat[1:Lsum+1,1:Lsum+1]
