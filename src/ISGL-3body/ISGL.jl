@@ -35,7 +35,7 @@ const DEFAULT_OBS = (
 )
 
 """
-    ISGL_solve(phys_params, num_params; return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+    ISGL_solve(phys_params, num_params; return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), hermitian_solver=false)
 
 Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
 
@@ -54,6 +54,7 @@ Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
   are interpolated over the sector of the complex plane in which the effective Gaussian range lives,
   with `kmax_theta` angular nodes (see `make_num_params3B3D`).
   Observables are not supported with complex ranges.
+- `hermitian_solver`: (optional) If `true`, the reduced eigenproblem is solved with the hermitian instead of the general eigensolver (only without complex scaling). About three times faster for the diagonalization, but less accurate for the low states of large, ill-conditioned bases (errors of order `1e-9`, up to spurious states at very small `threshold`). Default is `false`.
 - `observ_params`: (optional) Parameters for observable calculations.
     + `stateindices`: Indices of states for which observables are calculated.
     + `centobs_arr`: Array of central (only dependent on `` r ``; must be defined as functions) observables, for each Jacobi set (similar to `interactions` in `phys_params`).
@@ -76,7 +77,7 @@ energies = ISGL_solve(phys_params, num_params) #solving with default parameters:
 """
 function ISGL_solve(phys_params, num_params;
     return_wavefunctions = false, complex_scaling = false, complex_ranged = :none, observ_params=DEFAULT_OBS,
-    wf_bool=nothing, csm_bool=nothing)
+    hermitian_solver = false, wf_bool=nothing, csm_bool=nothing)
 
     complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
 
@@ -104,7 +105,7 @@ function ISGL_solve(phys_params, num_params;
     size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs = build
 
     ## 8. Solving the generalized eigenproblem:
-    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)
+    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions,hermitian_solver)
     
     ## 9. Calculate observables: (limited to "central" observables at the moment)
     if !return_wavefunctions

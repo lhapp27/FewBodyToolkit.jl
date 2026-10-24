@@ -8,11 +8,32 @@
 # eigenvalues and the orthonormal eigenvectors that reduce_basis relies on.
 _eigen_S(S) = eigen(Hermitian(S))
 
-# real-symmetric or hermitian H (no complex scaling): the projected matrix is hermitian as well. It is
-# wrapped explicitly, since the product l'*H*l is not hermitian bit by bit and would otherwise go to
-# the general (non-hermitian) eigensolver.
+# real-symmetric or hermitian H (no complex scaling): the projected matrix is hermitian as well
 _ishermH(H) = (typeof(H[1,1]) == Float64 && issymmetric(H)) || (typeof(H[1,1]) == ComplexF64 && ishermitian(H))
-_wrapH(Hr, herm::Bool) = herm ? Hermitian(Hr) : Hr
+
+# Eigenvalues (and vectors) of the projected matrix l'*H*l. By default with the general solver (balanced
+# geevx, as eigvals! in v0.5.4), also for hermitian H: the projected matrix is strongly graded (scaled by
+# 1/sqrt(d), d down to threshold*max(d)), and the hermitian solvers lose accuracy on the low states
+# (GEM2B, nmax=100, r1=0.001: E2 off by 1e-9 instead of 2e-11; ISGL, N ~ 1e4: 1e-9 instead of 1e-10).
+# hermitian=true (only for hermitian H) takes the hermitian solver, about 3x faster.
+# For real matrices, geevx returns a complex pair (from exactly degenerate levels) as the real and
+# imaginary parts of its vector, i.e. as two real vectors of the same subspace.
+function _geevx!(A::StridedMatrix{Float64}, jobvr::Char)
+    r = LAPACK.geevx!('B','N',jobvr,'N',A)
+    return complex.(r[2],r[3]), r[5]
+end
+function _geevx!(A::StridedMatrix{ComplexF64}, jobvr::Char)
+    r = LAPACK.geevx!('B','N',jobvr,'N',A)
+    return r[2], r[4]
+end
+_eigsortby(x) = (real(x), imag(x))
+_eigvals!(Hr, herm::Bool, hermitian::Bool) = herm && hermitian ? eigvals!(Hermitian(Hr)) : sort!(_geevx!(Hr,'N')[1], by=_eigsortby)
+function _eigen!(Hr, herm::Bool, hermitian::Bool)
+    herm && hermitian && return eigen!(Hermitian(Hr))
+    e, v = _geevx!(Hr,'V')
+    p = sortperm(e, by=_eigsortby)
+    return e[p], v[:,p]
+end
 
 function _assign_evals!(e_arr, evals, herm::Bool)
     if herm
@@ -43,24 +64,26 @@ function _reduce_basis(dvec, y; threshold::Float64 = 10^-13)
 end
 
 """
-    eigen2step(e_arr, H, S; threshold=1e-13)
+    eigen2step(e_arr, H, S; threshold=1e-13, hermitian=false)
 
 Solves the generalized eigenvalue problem `H*x = E*S*x` and writes the energies into `e_arr`.
 
 Similar to `eigvals(H,S)`, but the basis is first orthonormalized by [`reduce_basis`](@ref), which cuts the small eigenvalues of `S`. The number of energies can therefore be smaller than the size of `H`.
+
+The reduced problem is solved with the general eigensolver. `hermitian=true` uses the hermitian solver instead (only for real-symmetric or hermitian `H`): about three times faster, but less accurate for the low states of ill-conditioned bases (errors of order `1e-9` instead of `1e-11` were seen).
 """
-function eigen2step(e_arr,H, S; threshold::Float64 = 10^-13)
+function eigen2step(e_arr,H, S; threshold::Float64 = 10^-13, hermitian::Bool = false)
     
     herm = _ishermH(H)
     l = reduce_basis(S;threshold=threshold)
     
-    e3 = eigvals!(_wrapH(_project(H,l),herm));
+    e3 = _eigvals!(_project(H,l),herm,hermitian);
     _assign_evals!(e_arr, e3, herm)
 end
 
 # Same as eigen2step, but overwrites S and H (energies-only path of the 3-body solvers, where neither
 # is needed afterwards): S holds H*l after its eigendecomposition, H the projected matrix.
-function eigen2step!(e_arr,H, S; threshold::Float64 = 10^-13)
+function eigen2step!(e_arr,H, S; threshold::Float64 = 10^-13, hermitian::Bool = false)
     
     herm = _ishermH(H)
     l = _reduce_basis(eigen!(Hermitian(S))...; threshold=threshold)
@@ -73,22 +96,22 @@ function eigen2step!(e_arr,H, S; threshold::Float64 = 10^-13)
         Hr = _project(H,l)
     end
 
-    e3 = eigvals!(_wrapH(Hr,herm));
+    e3 = _eigvals!(Hr,herm,hermitian);
     _assign_evals!(e_arr, e3, herm)
 end
 
 
 """
-    eigen2step_valvec(e_arr, v_arr, H, S; threshold=1e-13)
+    eigen2step_valvec(e_arr, v_arr, H, S; threshold=1e-13, hermitian=false)
 
 Same as [`eigen2step`](@ref), but also writes the coefficient vectors into the columns of `v_arr`, normalized as `x' * S * x == 1`.
 """
-function eigen2step_valvec(e_arr,v_arr,H, S; threshold::Float64 = 10^-13)
+function eigen2step_valvec(e_arr,v_arr,H, S; threshold::Float64 = 10^-13, hermitian::Bool = false)
     
     herm = _ishermH(H)
     l = reduce_basis(S;threshold=threshold)
     
-    e3,v3 = eigen!(_wrapH(_project(H,l),herm));
+    e3,v3 = _eigen!(_project(H,l),herm,hermitian);
     
     C = l*v3; # back-transformation to the original basis
     

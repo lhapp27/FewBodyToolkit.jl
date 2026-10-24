@@ -23,7 +23,7 @@ export GEM3B1D_solve, GEM3B1D_matrices
 export make_phys_params3B1D,make_num_params3B1D
 
 """
-    GEM3B1D_solve(phys_params, num_params; return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+    GEM3B1D_solve(phys_params, num_params; return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), hermitian_solver=false)
 
 Solves the 1D three-body problem using the Gaussian Expansion Method (GEM).
 
@@ -41,6 +41,7 @@ Solves the 1D three-body problem using the Gaussian Expansion Method (GEM).
   All interaction types are supported, including generic central potentials: their radial integrals
   are interpolated over the sector of the complex plane in which the effective Gaussian range lives,
   with `kmax_theta` angular nodes (see `make_num_params3B1D`).
+- `hermitian_solver`: (optional) If `true`, the reduced eigenproblem is solved with the hermitian instead of the general eigensolver (only without complex scaling). About three times faster for the diagonalization, but less accurate for the low states of large, ill-conditioned bases (errors of order `1e-9`, up to spurious states at very small `threshold`). Default is `false`.
 - `observ_params`: (optional) Parameters for observable calculations. Currently not supported for 1D.
 
 # Returns
@@ -56,7 +57,7 @@ energies = GEM3B3D_solve(phys_params, num_params) #solving with default paramete
 """
 function GEM3B1D_solve(phys_params, num_params;
     return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]),
-    wf_bool=nothing, csm_bool=nothing)
+    hermitian_solver = false, wf_bool=nothing, csm_bool=nothing)
 
     complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
 
@@ -82,7 +83,7 @@ function GEM3B1D_solve(phys_params, num_params;
     fill_arrs,result_arrs = build_TVS(phys_params,num_params,observ_params,return_wavefunctions,complex_scaling,complex_ranged_r,complex_ranged_R)
     
     ## 8. Solving the generalized eigenproblem:
-    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)
+    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions,hermitian_solver)
     
     ## 9. Calculate observables: (currently not supported for 1D)
     if !return_wavefunctions
