@@ -9,10 +9,10 @@
     (;gem_params,mu0,c_shoulder) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
     (;stateindices,centobs_arr,R2_arr) = observ_params
-    (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,maxlmax,mij_arr_dict) = size_params
+    (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,maxlmax,mij_arr_dict) = size_params
     (;spintrafo_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr) = precomp_arrs
     (;alpha_arr,v_arr,A_mat,Ainv_arr_kine,w_obs_interpol_arr) = interpol_arrs
-    (;w_arr_kine,kij_arr,gij_arr,T,V,S,temp_args_arr,wn_obs_interpol_arr) = fill_arrs
+    (;w_arr_kine,kij_arr,gij_arr,T,V,S,basis,wn_obs_interpol_arr) = fill_arrs
     (;energies_arr,wavefun_arr,centobs_output,R2_output) = result_arrs
     
     # error check:
@@ -26,55 +26,52 @@
         end
     end
     
-    flati = lastindex(temp_args_arr)
-    
     ## Norm:
     norms = zeros(lastindex(stateindices)); #now has length 2 for stateindex =[1,4]! # old: zeros(stateindices[end]) # stateindex 1-4: length 4!
     for (sik,si) in enumerate(stateindices) # e.g. stateindices = [1,4]: sik = 1,2; si = 1,4
         norms[sik] = real.(wavefun_arr[:,si]' * S * wavefun_arr[:,si])
     end
     
-    ## Calculation of matrix elements and matrix filling via 1d loop for CENTRAL observables:
+    ## Calculation of matrix elements for CENTRAL observables, one loop over the lower triangle for all states:
+    temp_obs = zeros(lastindex(stateindices))
     for cco = 1:3 # cvals for centobs_arr
         isempty(centobs_arr[cco]) && continue
         for (obsind,obs) in enumerate(centobs_arr[cco]) # obs might not be needed here, obsind should be sufficient.
-            for (sik,si) in enumerate(stateindices) # for which states should the observables be calculated?
+            temp_obs .= 0.0
+            for coli in 1:nbasis_total, rowi in coli:nbasis_total # sum over contributions of all basis functions
+                args = element_args(rowi,coli,basis,abvals_arr,bvalsdiag,nu_arr,NU_arr,norm_arr,NORM_arr,mij_arr_dict)
                 
-                temp_obs = 0.0
-                for index in 1:flati # sum over contributions of all basis functions
-                    (;rowi,coli) = temp_args_arr[index]
-                    
-                    obs_elem = 2*oab(jmat,gij_arr,mu0,c_shoulder,w_obs_interpol_arr,wn_obs_interpol_arr,temp_args_arr[index],cco,obsind,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
-                    
-                    rowi == coli && (obs_elem *= 1/2) # only lower triangular matrix, therefore global factor 2, but not on the diagonal!
-                    
-                    temp_obs += real(wavefun_arr[rowi,si]' * obs_elem * wavefun_arr[coli,si])
-                    
+                obs_elem = 2*oab(jmat,gij_arr,mu0,c_shoulder,w_obs_interpol_arr,wn_obs_interpol_arr,args,cco,obsind,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
+                
+                rowi == coli && (obs_elem *= 1/2) # only lower triangular matrix, therefore global factor 2, but not on the diagonal!
+                
+                for (sik,si) in enumerate(stateindices) # for which states should the observables be calculated?
+                    temp_obs[sik] += real(wavefun_arr[rowi,si]' * obs_elem * wavefun_arr[coli,si])
                 end
-                centobs_output[cco,obsind,sik] = temp_obs/norms[sik] 
             end
-            
+            centobs_output[cco,obsind,:] .= temp_obs ./ norms
         end
     end
     
     
     ## For (non-central) R^2 observables:
+    temp_R2 = zeros(lastindex(stateindices))
     for cco = 1:3
         R2_arr[cco] == 0 && continue # calculate <R^2> only if indicated by R2_arr[cco] = 1
         
-        for (sik,si) in enumerate(stateindices)
-            temp_R2 = 0.0
-            for index in 1:flati
-                (;rowi,coli) = temp_args_arr[index]
-                
-                R2_elem = 2*R2ab(jmat,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_arr[index],cco,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)                            
-                
-                rowi == coli && (R2_elem *= 1/2) # only lower triangular matrix, therefore global factor 2, but not on the diagonal!
-                
-                temp_R2 += real(wavefun_arr[rowi,si]' * R2_elem * wavefun_arr[coli,si])
+        temp_R2 .= 0.0
+        for coli in 1:nbasis_total, rowi in coli:nbasis_total
+            args = element_args(rowi,coli,basis,abvals_arr,bvalsdiag,nu_arr,NU_arr,norm_arr,NORM_arr,mij_arr_dict)
+            
+            R2_elem = 2*R2ab(jmat,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,args,cco,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
+            
+            rowi == coli && (R2_elem *= 1/2) # only lower triangular matrix, therefore global factor 2, but not on the diagonal!
+            
+            for (sik,si) in enumerate(stateindices)
+                temp_R2[sik] += real(wavefun_arr[rowi,si]' * R2_elem * wavefun_arr[coli,si])
             end
-            R2_output[cco,sik] = temp_R2/norms[sik]
         end
+        R2_output[cco,:] .= temp_R2 ./ norms
         
     end    
 end

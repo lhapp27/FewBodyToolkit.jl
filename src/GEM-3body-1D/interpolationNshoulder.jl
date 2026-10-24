@@ -67,8 +67,10 @@ function precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat,ome
     tempmin -= 100*eps();
     tempmax += 100*eps();
     
-    min_r_eff = 1/sqrt(tempmax)
-    max_r_eff = 1/sqrt(tempmin)
+    # margin on the radii as well (as in ISGL): the one above is below one ulp of tempmax for small r1, R1,
+    # and a lookup at the exact bound (e.g. three equal masses with complex ranges) could fall off the mesh
+    min_r_eff = 1/sqrt(tempmax)-100*eps()
+    max_r_eff = 1/sqrt(tempmin)+100*eps()
     
     buildnu!(max_r_eff,min_r_eff,lastindex(alpha_arr),alpha_arr) # alpha_min and _max interchanged, such that alpha_arr[1] is the smallest value!
 end

@@ -4,10 +4,10 @@
     
     (;gem_params,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
-    (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,lL_arr,maxlmax,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr) = size_params
+    (;abvals_arr,cvals,groupindex_arr,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,lL_arr,maxlmax,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr) = size_params
     (;gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr) = precomp_arrs
     (;alpha_arr,v_arr,w_interpol_arr) = interpol_arrs
-    (;wn_interpol_arr,T,V,S,temp_args_arr) = fill_arrs
+    (;wn_interpol_arr,T,V,S,basis) = fill_arrs
 
     complex_ranged = complex_ranged_r || complex_ranged_R
     # With complex ranges the bra ranges are conjugated, so S, T and V become hermitian instead of
@@ -15,46 +15,26 @@
     fill_full = complex_ranged && complex_scaling
     add_V || size(V) == size(T) || error("fill_TVS: add_V=false needs a separate V, see preallocate_data")
 
-    # the effective numbers of ranges already include the doubling for a complex-ranged coordinate
-    nmax_eff = lastindex(nu_arr)
-    Nmax_eff = lastindex(NU_arr)
-
-    # create a 1D array of NamedTuples to hold the arguments for the matrix element calculation. This also carries the matrix structure via row- and column indices.
-    flati = flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax_eff,Nmax_eff,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals,fill_full)
-    
-    ## Calculation of matrix elements and filling via 1D loop:
-    # The elements are written directly into the lower triangle (full matrix for fill_full) and mirrored in place afterwards.
-    # Norm-Overlap S
-    for index in 1:flati
-        (;rowi,coli) = temp_args_arr[index]
-        S[rowi,coli] = sab(jmat,temp_args_arr[index],abI,factor_bf,gamma_dict)
+    ## Calculation of matrix elements and filling: one loop over the elements of the lower triangle (full matrix
+    # for fill_full), mirrored in place afterwards. The arguments of each element are generated from the basis list.
+    # V is accumulated into T, which becomes the Hamiltonian H = T + V. Kept separately only for add_V=false (inverse problem, matrix export)
+    csmfac = exp(-2*im*complex_scaling_angle*pi/180)
+    for coli in 1:nbasis_total, rowi in (fill_full ? 1 : coli):nbasis_total
+        args = element_args(rowi,coli,basis,abvals_arr,bvalsdiag,cvals,nu_arr,NU_arr,norm_arr,NORM_arr)
+        S[rowi,coli] = sab(jmat,args,abI,factor_bf,gamma_dict)
+        tel = convert(eltype(T), tab(jmat,murR_arr,args,abI,factor_bf,gamma_dict,hbar))
+        complex_scaling && (tel *= csmfac)
+        vel = vab(jmat,w_interpol_arr,wn_interpol_arr,args,abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,complex_scaling,complex_scaling_angle)
+        if add_V
+            T[rowi,coli] = tel + vel
+        else
+            T[rowi,coli] = tel
+            V[rowi,coli] = vel
+        end
     end
     # transpose fill: the overlap is hermitian for complex ranges (also together with complex scaling,
     # since the complex-scaling rotates the potential and leaves the ranges alone)
     hermitian_fill!(S,complex_ranged)
-    
-
-    # Kinetic energy T
-    for index in 1:flati
-        (;rowi,coli) = temp_args_arr[index]
-        T[rowi,coli] = tab(jmat,murR_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,hbar)
-    end
-    
-    if complex_scaling
-        T .*= exp(-2*im*complex_scaling_angle*pi/180)
-    end
-    
-
-    # Interaction V: accumulated into T, which becomes the Hamiltonian H = T + V. Kept separately only for add_V=false (inverse problem, matrix export)
-    for index in 1:flati
-        (;rowi,coli) = temp_args_arr[index]
-        vel = vab(jmat,w_interpol_arr,wn_interpol_arr,temp_args_arr[index],abI,factor_bf,gamma_dict,gauss_indices,central_indices,contact1D_indices,gaussopt_arr,contact1Dopt_arr,complex_scaling,complex_scaling_angle)
-        if add_V
-            T[rowi,coli] += vel
-        else
-            V[rowi,coli] = vel
-        end
-    end
     # transpose fill:
     if !fill_full
         hermitian_fill!(T,complex_ranged)
@@ -348,75 +328,43 @@ function element_VContact(c,ranges,norm4,jac,jbc,la,La,lb,Lb,contactopt,gamma_di
 end
 
 
-# returns flati and fills temp_args_arr
-function flattento1Dloop(temp_args_arr,groupindex_arr,factor_bf,bvalsdiag,abvals_arr,lL_arr,nmax,Nmax,nu_arr,NU_arr,norm_arr,NORM_arr,starts,cvals,fill_full::Bool=false)
-    # Keep loop-structure and write necessary functions arguments for matrix-element-calculation into 1-dim array temp_args_arr
-    # nmax,Nmax are the *effective* numbers of ranges here, i.e. already doubled for a complex-ranged coordinate.
-    flati = 0
-    # Iterate over boxes:
-    for boxC in groupindex_arr
-        for boxR in groupindex_arr
-            # fill only lower-triangular (boxes, not elements!). Valid for real-symmetric, complex-symmetric
-            # (CSM) and hermitian (complex ranges) matrices, but not for CSM and complex ranges together.
-            !fill_full && boxR < boxC && continue
-            
-            # if there are some identical particles: we can ignore the sum over a-values and simply multiply by a factor which is equal to the number of a-values. ONLY ON THE BOX-DIAGONAL! (boxC = boxR)
-            if boxC == boxR
-                bvals_new = bvalsdiag[boxC] # for changing the role of a,b to be in line with lower triangular!
-                factor_ab = lastindex(abvals_arr[boxR]) # factor for amount of a-values normally
-                diag_bool = fill_full ? 0 : 1 # for skipping lower-triangular calculation within each box!
-            else
-                bvals_new = abvals_arr[boxC]
-                factor_ab = 1
-                diag_bool = 0
-            end
-            avals_new = abvals_arr[boxR] # a bit unneccessary, but for more consistent naming. effectively only used here in fillTVS
-            avals = abvals_arr[boxR] # necessary for observables
-            bvals = abvals_arr[boxC] # necessary for observables
-            
-            alphab = 0;
-            for (lb,Lb) in lL_arr[bvals_new[1]] # why bvals_new[1]? -> because either only 1 value in it, or the particles are identical and all lL_arr[bvals_new[1,2,...]] are the same!
-                for nb = 1:nmax
-                    nub = nu_arr[nb]
-                    normb = norm_arr[lb,nb]
-                    for Nb = 1:Nmax
-                        NUb = NU_arr[Nb]
-                        NORMb = NORM_arr[Lb,Nb]
-                        
-                        alphab += 1                        
-                        alpha = 0
-                        
-                        for (la,La) in lL_arr[avals_new[1]]
-                            Lsum=0 #Int64((la+La+lb+Lb)/2) #unnecessary in 1D
-                            
-                            for na = 1:nmax
-                                # the bra ranges enter conjugated. This is a no-op for real
-                                # ranges and is what makes S,T,V hermitian for complex ones.
-                                nua = conj(nu_arr[na])
-                                norma = conj(norm_arr[la,na])
-                                for Na = 1:Nmax
-                                    NUa = conj(NU_arr[Na])
-                                    NORMa = conj(NORM_arr[La,Na])
-                                    
-                                    alpha += 1
-                                    diag_bool == 1 && alpha < alphab && continue # skip upper-triangular only on diagonal boxes!
-                                    
-                                    norm4 = norma*normb*NORMa*NORMb;
-                                    ranges = (;nua,nub,NUa,NUb);
-                                    
-                                    # alpha, alphab are row and column indices within a given box defined by boxR,boxC. Now transforming into the row- and column indices of the big matrix:
-                                    rowi = starts[boxR] + alpha - 1
-                                    coli = starts[boxC] + alphab - 1
-                                    
-                                    flati += 1
-                                    temp_args_arr[flati] = TempArgs1D(rowi,coli,ranges,norm4,la,La,lb,Lb,Lsum,avals_new,bvals_new,cvals,factor_ab,avals,bvals) # write all loop-index-depending function-arguments into a temporary 1D array
-                                end
-                            end
-                        end
-                    end
+# Basis functions in matrix order, one entry per row/column: box, angular-momentum channel, and the range
+# indices n,N (effective ones, i.e. doubled for a complex-ranged coordinate). Same loop order as the matrix.
+function basis_list(size_params,nmax,Nmax)
+    (;groupindex_arr,abvals_arr,lL_arr,starts,nbasis_total) = size_params
+    basis = Vector{BasisFun}(undef,nbasis_total)
+    for box in groupindex_arr
+        a = abvals_arr[box][1] # either only 1 value in it, or the particles are identical and all lL_arr[a] are the same
+        alpha = 0
+        for (l,L) in lL_arr[a]
+            for n = 1:nmax
+                for N = 1:Nmax
+                    alpha += 1
+                    basis[starts[box] + alpha - 1] = (;box,l,L,n,N)
                 end
-            end                
+            end
         end
     end
-    return flati
+    return basis
+end
+
+# arguments of the matrix element between the basis functions rowi (bra) and coli (ket), see TempArgs1D
+function element_args(rowi,coli,basis,abvals_arr,bvalsdiag,cvals,nu_arr,NU_arr,norm_arr,NORM_arr)
+    a, b = basis[rowi], basis[coli]
+    # if there are some identical particles: we can ignore the sum over a-values and simply multiply by a factor which is equal to the number of a-values. ONLY ON THE BOX-DIAGONAL!
+    if a.box == b.box
+        bvals_new = bvalsdiag[b.box]
+        factor_ab = lastindex(abvals_arr[a.box])
+    else
+        bvals_new = abvals_arr[b.box]
+        factor_ab = 1
+    end
+    # the bra ranges enter conjugated. This is a no-op for real ranges and is what makes S,T,V hermitian for complex ones.
+    nua, norma = conj(nu_arr[a.n]), conj(norm_arr[a.l,a.n])
+    NUa, NORMa = conj(NU_arr[a.N]), conj(NORM_arr[a.L,a.N])
+    nub, normb = nu_arr[b.n], norm_arr[b.l,b.n]
+    NUb, NORMb = NU_arr[b.N], NORM_arr[b.L,b.N]
+    norm4 = norma*normb*NORMa*NORMb
+    Lsum = 0 # unnecessary in 1D
+    return TempArgs1D(rowi,coli,(;nua,nub,NUa,NUb),norm4,a.l,a.L,b.l,b.L,Lsum,abvals_arr[a.box],bvals_new,cvals,factor_ab,abvals_arr[a.box],abvals_arr[b.box])
 end
