@@ -47,17 +47,19 @@ function parse_complex_ranged(complex_ranged)
 end
 
 
-# Reconstruct a hermitian matrix from its lower triangle.
-# Hermitian(src,:L) leaves the stored diagonal untouched, so the O(eps) imaginary parts that the
-# matrix elements pick up numerically would survive and make ishermitian(dest) false. eigen2step
-# keys its "the eigenvalues are real" decision on exactly that predicate, so the diagonal is made
-# real explicitly here. Mathematically the diagonal of S, T and V is real anyway.
-function hermitian_fill!(dest,src)
-    dest .= Hermitian(src,:L)
-    for i in axes(dest,1)
-        dest[i,i] = real(dest[i,i])
+# Complete a matrix in place from its lower triangle: hermitian (conjugated mirror) or symmetric.
+# In the hermitian case the diagonal is made real explicitly: the O(eps) imaginary parts that the
+# matrix elements pick up numerically would otherwise make ishermitian(A) false. eigen2step
+# keys its "the eigenvalues are real" decision on exactly that predicate. Mathematically the
+# diagonal of S, T and V is real anyway.
+function hermitian_fill!(A,hermitian::Bool=true)
+    @inbounds for j in axes(A,2)
+        hermitian && (A[j,j] = real(A[j,j]))
+        for i in j+1:lastindex(A,1)
+            A[j,i] = hermitian ? conj(A[i,j]) : A[i,j]
+        end
     end
-    return dest
+    return A
 end
 
 

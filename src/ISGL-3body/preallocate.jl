@@ -102,7 +102,6 @@ struct FillStruct{T,TR}
     V::Matrix{T}
     S::Matrix{TR}
     temp_args_arr::Vector{TempArgs{TR}}
-    temp_fill_mat::Matrix{T}
     wn_obs_interpol_arr::OffsetVector{Float64, Vector{Float64}}
 end
 
@@ -116,7 +115,7 @@ struct ResultStruct{TE,TW}
 end
 
 
-function preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false)
+function preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,add_V::Bool=true)
     complex_ranged = complex_ranged_r || complex_ranged_R
 
     # TT: H, V, and everything that can carry the complex-scaling phase
@@ -211,7 +210,8 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     gij_arr = OffsetArray{TR}(undef,3,4,0:2*maxlmax)*zero(TR)
     S = zeros(TR,nbasis_total,nbasis_total) # hermitian (not just symmetric) for complex ranges
     T = zeros(TT,nbasis_total,nbasis_total) #Matrix{Float64}(undef, nbasis_total, nbasis_total)
-    V = zeros(TT,nbasis_total,nbasis_total);#Matrix{Float64}(undef, nlL * nmax * Nmax, nlL * nmax * Nmax)
+    nV = add_V ? 0 : nbasis_total # separate V only for the matrix export (add_V=false); otherwise V is accumulated into T
+    V = zeros(TT,nV,nV)
     
     
     # for results:
@@ -233,14 +233,13 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     fill_full = complex_ranged && complex_scaling
     ntot = fill_full ? Int64(nbasis_total^2) : Int64((nbasis_total^2+nbasis_total)/2)
     temp_args_arr = Vector{TempArgs{TR}}(undef, ntot)
-    temp_fill_mat = zeros(TT,nbasis_total, nbasis_total)
         
     
     # now constructing Structs for different steps in the program:
     precomp_arrs = PrecomputeStruct(gamma_dict,cleb_arr,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr)
     temp_arrs = TempStruct(temp_clmk,temp_dlmk,temp_S,temp_D1,temp_D2)
     interpol_arrs = InterpolationStruct(alpha_arr,theta_arr,alpha_grid,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr)
-    fill_arrs = FillStruct(fij_arr,Kij_arr,w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr,temp_fill_mat,wn_obs_interpol_arr)
+    fill_arrs = FillStruct(fij_arr,Kij_arr,w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr,wn_obs_interpol_arr)
     result_arrs = ResultStruct(energies_arr,wavefun_arr,centobs_output,R2_output)
     
     return precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs
