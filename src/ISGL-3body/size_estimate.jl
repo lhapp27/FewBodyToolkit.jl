@@ -50,6 +50,8 @@ struct SizeParams{T<:Number}
     kmax_dict::OffsetArray{Int64, 2, Matrix{Int64}}
     maxkmax::Int64
     maxobs::Int64
+    maxobsR::Int64
+    maxmom::Int64
 end
 
 function size_estimate(phys_params,num_params,observ_params,complex_scaling::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false)
@@ -58,7 +60,7 @@ function size_estimate(phys_params,num_params,observ_params,complex_scaling::Boo
     (;masses,species,interactions,J_tot,parity,spins) = phys_params
     (;lmax,Lmax,gem_params,complex_scaling_angle,complex_range_freq,mu0,c_shoulder,kmax_interpol,lmin,Lmin) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
-    (;stateindices,centobs_arr,R2_arr) = observ_params
+    (;stateindices,centobs_arr,R2_arr,centobsR,moments) = observ_params
     
     # size of Hamiltonian matrix due to symmetries and interactions
     cvals = findall(isempty.(interactions) .==0 ) # consider only values for c where there are interactions (any type)
@@ -102,9 +104,11 @@ function size_estimate(phys_params,num_params,observ_params,complex_scaling::Boo
     maximax=findmax(imax_dict)[1]
     maxkmax=findmax(kmax_dict)[1] # [1] is the value; [2] would be the key
     maxobs = maximum(lastindex.(centobs_arr)) # max number of observables
+    maxobsR = maximum(lastindex.(centobsR))
+    maxmom = maximum(lastindex.(moments))
 
     # Constructing Struct (collective data structure size_params with all the size parameters)
-    size_params = SizeParams(abvals_arr,cvals,gauss_indices,gaussopt_arr,pow_indices,powopt_arr,central_indices,so_indices,nint_arr,nintmax,groupindex_arr,nboxes,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,JlL_complete,lL_nested,lL_complete,l_complete,nlL,nl,maxlmax,imax_dict,imaxSO_dict,maximax,mij_arr_dict,mijSO_arr_dict,kmax_dict,maxkmax,maxobs)
+    size_params = SizeParams(abvals_arr,cvals,gauss_indices,gaussopt_arr,pow_indices,powopt_arr,central_indices,so_indices,nint_arr,nintmax,groupindex_arr,nboxes,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,JlL_complete,lL_nested,lL_complete,l_complete,nlL,nl,maxlmax,imax_dict,imaxSO_dict,maximax,mij_arr_dict,mijSO_arr_dict,kmax_dict,maxkmax,maxobs,maxobsR,maxmom)
     
     return size_params
 end

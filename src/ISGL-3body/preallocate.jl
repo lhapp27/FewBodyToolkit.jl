@@ -51,6 +51,9 @@ struct InterpolationStruct{T,TA,IT,ITO}
     v_obs_arr::Array{Float64, 3}
     w_obs_arr::Array{Float64, 5}
     w_obs_interpol_arr::OffsetArray{ITO, 4, Array{ITO, 4}}
+    alpha_arr_R::Vector{Float64} # mesh of the effective R-ranges for the observables f(R_c)
+    w_obsR_arr::Array{Float64, 5}
+    w_obsR_interpol_arr::OffsetArray{ITO, 4, Array{ITO, 4}}
 end
 
 # new struct for temporary arguments
@@ -110,6 +113,8 @@ struct ResultStruct{TE,TW}
     wavefun_arr::Matrix{TW}
     centobs_output::Array{Float64}
     R2_output::Matrix{Float64}
+    centobsR_output::Array{Float64}
+    moments_output::Array{Float64}
 end
 
 
@@ -132,8 +137,8 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     # carries twice as many ranges. The two coordinates are independent.
     nmax_eff = complex_ranged_r ? 2*nmax : nmax
     Nmax_eff = complex_ranged_R ? 2*Nmax : Nmax
-    (;nintmax,nbasis_total,nlL,nl,maxlmax,maximax,maxkmax,maxobs,JlL_complete) = size_params
-    (;stateindices,centobs_arr,R2_arr) = observ_params
+    (;nintmax,nbasis_total,nlL,nl,maxlmax,maximax,maxkmax,maxobs,maxobsR,maxmom,JlL_complete) = size_params
+    (;stateindices) = observ_params
     
     # Allocate facts & cleb
     gamma_dict = HalfIntTable{1}() # filled in precompute_gamma!
@@ -197,6 +202,9 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     v_obs_arr = zeros(kmax_interpol,1,2*maxlmax+1) # observables stay on the real mesh: a single angular node
     w_obs_arr = zeros(3,maxobs,kmax_interpol,2*maxlmax+1,2*maxlmax+1)
     w_obs_interpol_arr = OffsetArray{interpoltype}(undef,3,maxobs,0:2*maxlmax,0:2*maxlmax)
+    alpha_arr_R = zeros(kmax_interpol)
+    w_obsR_arr = zeros(3,maxobsR,kmax_interpol,2*maxlmax+1,2*maxlmax+1)
+    w_obsR_interpol_arr = OffsetArray{interpoltype}(undef,3,maxobsR,0:2*maxlmax,0:2*maxlmax)
     
     # arrays for shoulder method (used in matrix-element calculations)
     fij_arr = zeros(3,4)
@@ -212,6 +220,8 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     wavefun_arr = Matrix{TT}(undef, nbasis_total, nbasis_total)
     centobs_output = fill(NaN, 3, maxobs, lastindex(stateindices)) # NaN: pair with fewer than maxobs observables
     R2_output = zeros(3, lastindex(stateindices))
+    centobsR_output = fill(NaN, 3, maxobsR, lastindex(stateindices))
+    moments_output = fill(NaN, 3, maxmom, lastindex(stateindices))
     
     # temporary arrays for clmk,dlmk,S,D1,D2: temp_clmk,temp_dlmk,temp_S,temp_D1,temp_D2
     temp_clmk=zeros(maxkmax)#MVector{maxkmax, Float64}(zeros(maxkmax))
@@ -227,9 +237,9 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     # now constructing Structs for different steps in the program:
     precomp_arrs = PrecomputeStruct(gamma_dict,cleb_arr,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr)
     temp_arrs = TempStruct(temp_clmk,temp_dlmk,temp_S,temp_D1,temp_D2)
-    interpol_arrs = InterpolationStruct(alpha_arr,theta_arr,alpha_grid,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr)
+    interpol_arrs = InterpolationStruct(alpha_arr,theta_arr,alpha_grid,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr,alpha_arr_R,w_obsR_arr,w_obsR_interpol_arr)
     fill_arrs = FillStruct(fij_arr,Kij_arr,T,V,S,basis)
-    result_arrs = ResultStruct(energies_arr,wavefun_arr,centobs_output,R2_output)
+    result_arrs = ResultStruct(energies_arr,wavefun_arr,centobs_output,R2_output,centobsR_output,moments_output)
     
     return precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs
 end

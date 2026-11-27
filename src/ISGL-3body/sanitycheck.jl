@@ -47,13 +47,20 @@ function sanity_checks(phys_params,complex_ranged::Bool=false,observ_params=noth
     # still use the plain one-dimensional mesh in log(alpha) and remain unsupported.
     if complex_ranged
         if !isnothing(observ_params)
-            (;centobs_arr,R2_arr) = observ_params
-            if any(.!isempty.(centobs_arr)) || any(R2_arr .!= 0)
-                println("Observables (centobs_arr, R2_arr) are not supported together with complex-ranged basis functions.")
+            (;centobs_arr,R2_arr,centobsR,moments) = observ_params
+            if any(.!isempty.(centobs_arr)) || any(R2_arr .!= 0) || any(.!isempty.(centobsR)) || any(.!isempty.(moments))
+                println("Observables (centobs_arr, R2_arr, centobsR, moments) are not supported together with complex-ranged basis functions.")
                 error_code = 6
                 return error_code
             end
         end
+    end
+
+    # joint moments: only even, non-negative powers (k,K) of r^k R^K
+    if !isnothing(observ_params) && any(k < 0 || K < 0 || isodd(k) || isodd(K) for mlist in observ_params.moments for (k,K) in mlist)
+        println("moments: only even, non-negative powers (k,K) of r^k R^K are supported")
+        error_code = 7
+        return error_code
     end
 
     # tests required: ok, even if fasb or fasf is empty?

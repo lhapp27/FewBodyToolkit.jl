@@ -217,6 +217,24 @@ _,_,co_cent,_ = ISGL_solve(phys_params, num_params; return_wavefunctions=true, o
 @test isfinite(co_pow[1,1,1])
 @test isapprox(co_pow[1,1,1], co_cent[1,1,1]; rtol=1e-6)
 
+# 11k. observables f(R), intervals and joint moments <r^k R^K>. The HO ground state is a product of
+# Gaussians in r and R: <r^4> = 5/3 <r^2>^2, <r^2 R^2> = <r^2><R^2>
+obs_rR = (;stateindices=[1], centobs_arr=[PotentialFunction[PowerLawPotential(1.0,2.0)],[],[]], R2_arr=[1,0,0],
+    centobsR=[Any[PowerLawPotential(1.0,2.0), (r->1.0,0.0,1.0), r->(r < 1.0 ? 1.0 : 0.0)],[],[]],
+    moments=[[(0,0),(2,0),(0,2),(4,0),(2,2)],[],[]])
+_,_,co_rR,R2_rR,coR_rR,mo_rR = ISGL_solve(phys_params, num_params; return_wavefunctions=true, observ_params=obs_rR)
+@test isapprox(mo_rR[1,1,1], 1.0; atol=1e-10)                # norm
+@test isapprox(mo_rR[1,2,1], co_rR[1,1,1]; rtol=1e-8)        # analytic vs interpolated r^2
+@test isapprox(mo_rR[1,3,1], R2_rR[1,1]; rtol=1e-10)
+@test isapprox(coR_rR[1,1,1], R2_rR[1,1]; rtol=1e-8)         # f(R) = R^2
+@test isapprox(coR_rR[1,2,1], coR_rR[1,3,1]; rtol=1e-8)      # interval vs step function
+using QuadGK: quadgk
+bR2 = 2/3*R2_rR[1,1] # exact P(R < 1) of the Gaussian with this <R^2>
+@test isapprox(coR_rR[1,2,1], quadgk(R->R^2*exp(-R^2/bR2),0,1)[1]/quadgk(R->R^2*exp(-R^2/bR2),0,Inf)[1]; rtol=1e-5)
+@test isapprox(mo_rR[1,4,1], 5/3*mo_rR[1,2,1]^2; rtol=1e-4)
+@test isapprox(mo_rR[1,5,1], mo_rR[1,2,1]*mo_rR[1,3,1]; rtol=1e-4)
+@test isnothing(ISGL_solve(phys_params, num_params; return_wavefunctions=true, observ_params=(;stateindices=[1], moments=[[(1,2)],[],[]]))) # odd powers
+
 
 # 12. Complex-ranged basis functions: nu -> nu*(1 + i*omega), selectable per Jacobi coordinate.
 # etaprc is then complex, but stays in the sector |arg| <= atan(omega), over which the radial

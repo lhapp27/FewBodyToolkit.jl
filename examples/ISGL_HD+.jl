@@ -24,7 +24,7 @@ num_params = make_num_params3B3D(;gem_params=gp);
 rad(r) = r # radius
 rad2(r) = r^2; # squared radius
 
-# The code also allows for the observable `` \langle R^2\rangle `` in the other Jacobi coordinate, via the input `R2_arr`.
+# The code also allows for the observable `` \langle R^2\rangle `` in the other Jacobi coordinate, via the input `R2_arr`. Functions of `` R `` (`centobsR`), observables on finite intervals (e.g. probabilities `` P(r<r_0) ``) and joint moments `` \langle r^k R^K\rangle `` (`moments`) are described in [`ISGL_solve`](@ref).
 stateindices = 1:3 # for which states to calculate observables
 observ_params = (stateindices,centobs_arr = [[rad,rad2],[rad,rad2],[rad,rad2]],R2_arr = [1,1,1] ) # R2_arr=[0,0,0] means no R^2 calculation
 

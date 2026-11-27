@@ -32,6 +32,8 @@ const DEFAULT_OBS = (
     stateindices = Int[],                           # Vector{Int}
     centobs_arr  = [Vector{PotentialFunction}() for _ in 1:3],  # Vector{Vector{PotentialFunction}}
     R2_arr       = Int[0, 0, 0],                    # Vector{Int}
+    centobsR     = [Vector{PotentialFunction}() for _ in 1:3],  # like centobs_arr, functions of R
+    moments      = [Tuple{Int,Int}[] for _ in 1:3], # powers (k,K) of the joint moments <r^k R^K>
 )
 
 """
@@ -58,7 +60,11 @@ Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
 - `observ_params`: (optional) Parameters for observable calculations.
     + `stateindices`: Indices of states for which observables are calculated.
     + `centobs_arr`: Array of central (only dependent on `` r ``; must be defined as functions) observables, for each Jacobi set (similar to `interactions` in `phys_params`).
+      An entry `(f, r1, r2)` restricts `f` to the interval `` r_1 \\le r \\le r_2 ``, e.g. `(r->1.0, 0.0, r0)` for the probability `` P(r < r_0) ``.
     + `R2_arr`: Array which indicates whether the observable `` \\langle R^2 \\rangle `` should be calculated (1) for any of the three Jacobi sets, or not (0).
+    + `centobsR`: (optional) As `centobs_arr`, but functions of the coordinate `` R `` of each Jacobi set, including intervals `(f, R1, R2)`.
+    + `moments`: (optional) Joint moments `` \\langle r^k R^K \\rangle `` for each Jacobi set, as lists of tuples `(k,K)` of even, non-negative powers, e.g. `[[(2,2),(0,4)],[],[]]`. Computed analytically, without interpolation.
+    Caution: higher moments (beyond `` r^2 ``, `` R^2 ``) and other growing observables can be sensitive to very wide basis ranges (`rnmax`, `RNmax` much larger than the extent of the state), even if the energy is converged. Check their convergence also with respect to `rnmax`, `RNmax`, not only to the number of basis functions.
 - `parallel`: (optional) If `true`, the matrix elements and the radial integrals of the range interpolation are
   computed in `Threads.nthreads()` tasks (start julia with `-t <n>`). Same results; user-supplied potentials
   are then called from several threads and must not modify shared state. Default is `false`; for many independent calculations, running them in parallel is
@@ -66,11 +72,14 @@ Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
 
 # Returns
 - If `return_wavefunctions=false`: Returns an array of computed energies.
-- If `return_wavefunctions=true`: Returns a tuple `(energies, wavefunctions, centobs_output, R2_output)`.
+- If `return_wavefunctions=true`: Returns a tuple `(energies, wavefunctions, centobs_output, R2_output, centobsR_output, moments_output)`.
+  The last two can be omitted when destructuring, e.g. `energies, wfs, co_out, R2_out = ISGL_solve(...)`.
     + `energies`: Vector of computed energies.
     + `wavefunctions`: Matrix of eigenvectors (column-wise) which contain the coefficients of the basis functions.
     + `centobs_output`: Mean values of central observables for the specified states. The first dimension corresponds to the Jacobi sets, the second to the observables, and the third to the states. Entries beyond the number of observables of a Jacobi set are `NaN`.
     + `R2_output`: Mean squared radii for the R-coordinate. Rows corresond to the Jacobi sets, columns to the states.
+    + `centobsR_output`: As `centobs_output`, for `centobsR`.
+    + `moments_output`: As `centobs_output`, for `moments`.
 
 # Example
 ```julia
@@ -84,6 +93,7 @@ function ISGL_solve(phys_params, num_params;
     hermitian_solver = false, wf_bool=nothing, csm_bool=nothing)
 
     complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
+    observ_params = merge(DEFAULT_OBS, observ_params) # optional fields from the defaults
 
     if !isnothing(wf_bool)
         @warn "wf_bool is deprecated, use return_wavefunctions instead"
@@ -117,7 +127,7 @@ function ISGL_solve(phys_params, num_params;
         return result_arrs.energies_arr
     elseif return_wavefunctions
         calc_observables(num_params,observ_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs,complex_scaling)
-        return result_arrs.energies_arr,result_arrs.wavefun_arr,result_arrs.centobs_output,result_arrs.R2_output
+        return result_arrs.energies_arr,result_arrs.wavefun_arr,result_arrs.centobs_output,result_arrs.R2_output,result_arrs.centobsR_output,result_arrs.moments_output
     end
 end
 

@@ -9,10 +9,10 @@ function interpolNshoulder(phys_params,num_params,observ_params,size_params,prec
     (;interactions) = phys_params
     (;lmax,Lmax,gem_params,complex_scaling_angle,complex_range_freq,mu0,c_shoulder,kmax_interpol,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
-    (;stateindices,centobs_arr,R2_arr) = observ_params
+    (;stateindices,centobs_arr,R2_arr,centobsR) = observ_params
     (;cvals,central_indices,so_indices,pow_indices,powopt_arr,maxlmax,nint_arr) = size_params
     (;gamma_dict,jmat,nu_arr,NU_arr) = precomp_arrs
-    (;alpha_arr,theta_arr,alpha_grid,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr) = interpol_arrs
+    (;alpha_arr,theta_arr,alpha_grid,v_arr,A_mat,w_arr,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,v_obs_arr,w_obs_arr,w_obs_interpol_arr,alpha_arr_R,w_obsR_arr,w_obsR_interpol_arr) = interpol_arrs
     
     # range interpolation:
     # alpha_arr holds |alpha|; with complex ranges theta_arr adds the angular direction, so that the
@@ -32,18 +32,39 @@ function interpolNshoulder(phys_params,num_params,observ_params,size_params,prec
     wrap_potential(f::Function) = CentralPotential(f)
     # Identity if already wrapped
     wrap_potential(p::PotentialFunction) = p
+    # observable on a finite interval: (f, r1, r2)
+    wrap_potential(t::Tuple) = IntervalObservable(wrap_potential(t[1]),Float64(t[2]),Float64(t[3]))
     vint_arr_wrapped = [wrap_potential.(potlist) for potlist in phys_params.interactions]
-    centobs_arr_wrapped = [wrap_potential.(obslist) for obslist in centobs_arr]
     
     
     # upon-the-shoulder
-    precompute_w(w_arr,v_arr,alpha_arr,theta_arr,alpha_grid,A_mat,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,gamma_dict,maxlmax,mu0,c_shoulder,cvals,vint_arr_wrapped,centobs_arr_wrapped,w_obs_arr,v_obs_arr,w_obs_interpol_arr,return_wavefunctions,complex_scaling,complex_scaling_angle,central_indices,so_indices,pow_indices,powopt_arr,nint_arr,parallel)
-    
+    precompute_w(w_arr,v_arr,alpha_arr,theta_arr,alpha_grid,A_mat,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,gamma_dict,maxlmax,mu0,c_shoulder,cvals,vint_arr_wrapped,complex_scaling,complex_scaling_angle,central_indices,so_indices,pow_indices,powopt_arr,nint_arr,parallel)
+
+    # observables f(r_c) and f(R_c): own interpolants; for f(R_c) on a mesh of the effective R-ranges
+    # (r_c integrated out analytically, alpha = zetac - xic^2/etac)
+    !return_wavefunctions && return # no need for observables if return_wavefunctions = false
+    if any(!isempty, centobs_arr)
+        precompute_w_obs(w_obs_arr,v_obs_arr,w_obs_interpol_arr,alpha_arr,A_mat,gamma_dict,maxlmax,[wrap_potential.(obslist) for obslist in centobs_arr],parallel)
+    end
+    if any(!isempty, centobsR)
+        precompute_alpha_arr(alpha_arr_R,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat,true)
+        precompute_w_obs(w_obsR_arr,v_obs_arr,w_obsR_interpol_arr,alpha_arr_R,A_mat,gamma_dict,maxlmax,[wrap_potential.(obslist) for obslist in centobsR],parallel)
+    end
 end
+
+# observable f restricted to the interval [r1,r2] of its coordinate (cumulative distributions, finite-interval means)
+struct IntervalObservable{P<:PotentialFunction} <: PotentialFunction
+    f::P
+    r1::Float64
+    r2::Float64
+end
+obs_domain(::PotentialFunction) = (0,Inf)
+obs_domain(o::IntervalObservable) = (o.r1,o.r2)
 
 
 # alpha_arr for range-interpolation method
-function precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
+# Rcoord=true: mesh of the effective ranges zetaprc of the R-coordinate instead of etaprc (observables f(R_c))
+function precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat,Rcoord::Bool=false)
     # returns alpha_arr [1:kmax_interpol] via buildnu function for geometric series
     max_r = max(rnmax,RNmax) # should be roughly ok, can be improved if the mass-coefficients are included!
     min_r = min(r1,R1) # maybe we need indeed mass-dependent max,min values in order to avoid extrapolation.
@@ -63,7 +84,7 @@ function precompute_alpha_arr(alpha_arr,r1,rnmax,R1,RNmax,nu_arr,NU_arr,jmat)
                                 Aa = SA[nua 0.0 ; 0.0 NUa]
                                 Ab = SA[nub 0.0 ; 0.0 NUb]
                                 tempA = transpose(jmat[a,c])*Aa*jmat[a,c] + transpose(jmat[b,c])*Ab*jmat[b,c]
-                                temp = abs(det(tempA)/tempA[2,2]) # abs is a no-op for real ranges (etaprc>0); for complex ranges it is the modulus of etaprc, i.e. the radial coordinate of the sector
+                                temp = abs(det(tempA)/tempA[Rcoord ? 1 : 2,Rcoord ? 1 : 2]) # abs is a no-op for real ranges (etaprc>0); for complex ranges it is the modulus of etaprc, i.e. the radial coordinate of the sector
                                 i==1 && (tempmin = temp; tempmax=temp;)
                                 temp > tempmax && (tempmax = temp)
                                 temp < tempmin && (tempmin = temp)
@@ -102,9 +123,9 @@ end
 
 # range-interpolation method
 
-# central interaction
+# central interaction; numerical radial integral, also the fallback for observables of any other type
 # the nodes k are independent; with parallel they are split over tasks, each with its own quadgk buffer
-function precompute_varr!(v_arr,alpha_grid,Lsum,gamma_dict,vcent_fun::CentralPotential,buf,csmfac,parallel::Bool=false)
+function precompute_varr!(v_arr,alpha_grid,Lsum,gamma_dict,vcent_fun::PotentialFunction,buf,csmfac,parallel::Bool=false)
     fill_parallel(size(alpha_grid,1),parallel) do ks
         b = parallel ? deepcopy(buf) : buf
         for n = 0:Lsum, kt = 1:size(alpha_grid,2), k in ks
@@ -146,7 +167,7 @@ function precompute_varr!(v_arr,alpha_grid,Lsum,gamma_dict,vcent_fun::PowerLawPo
 end
 
 function vcent_integration(vcent_fun,alpha,n,buf) #where {V}
-    val = quadgk_scaled(r -> integrand(r,alpha,n,vcent_fun),(0,Inf);segbuf=buf)
+    val = quadgk_scaled(r -> integrand(r,alpha,n,vcent_fun),obs_domain(vcent_fun);segbuf=buf)
 end
 function integrand(r,alpha,n,vcent_fun)
     return vcent_fun(r)*r^(2*n+2)*exp(-alpha*r^2)
@@ -154,7 +175,7 @@ end
 
 
 ### w_arr: upon-the-shoulder method
-@views @inbounds function precompute_w(w_arr,v_arr,alpha_arr,theta_arr,alpha_grid,A_mat,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,gamma_dict,maxlmax,mu0,c_shoulder,cvals,interactions,centobs_arr,w_obs_arr,v_obs_arr,w_obs_interpol_arr,return_wavefunctions::Bool,complex_scaling::Bool,complex_scaling_angle,central_indices,so_indices,pow_indices,powopt_arr,nint_arr,parallel::Bool=false)
+@views @inbounds function precompute_w(w_arr,v_arr,alpha_arr,theta_arr,alpha_grid,A_mat,w_interpol_arr,Ainv_arr_kine,v_pow,w_pow_arr,gamma_dict,maxlmax,mu0,c_shoulder,cvals,interactions,complex_scaling::Bool,complex_scaling_angle,central_indices,so_indices,pow_indices,powopt_arr,nint_arr,parallel::Bool=false)
     # returns the Array w_arr[c in cvals,alpha=1:alphamax,theta=1:thetamax,Lsum = 1:2*maxlmax,n=1:Lsum+1]
     # note the +1 in the last argument: w_arr, v_arr are NOT offset-arrays due to problems with linear algebra package. 
     
@@ -166,7 +187,6 @@ end
     # ranges and ntheta of them otherwise.
     complex_ranged = eltype(alpha_grid) <: Complex
     ntheta = lastindex(theta_arr)
-    alpha_grid_obs = reshape(alpha_arr,:,1) # observables stay on the real mesh (see sanity_checks)
     
     kmax = lastindex(alpha_arr)    # number of alpha values for interpolation
     
@@ -271,11 +291,19 @@ end
         end
     end
 
+end
 
-    ## for the observables: (separate loop, as there could be observables for Jacobi sets without interaction!)
+
+## observables: (separate loop, as there could be observables for Jacobi sets without interaction!)
+# shoulder weights and interpolants of the central observables obs_arr[cco] on the real mesh alpha_arr;
+# the leading blocks of A_mat are filled in precompute_w
+@views @inbounds function precompute_w_obs(w_obs_arr,v_obs_arr,w_obs_interpol_arr,alpha_arr,A_mat,gamma_dict,maxlmax,obs_arr,parallel::Bool=false)
+    log_alpha_range = range(log(alpha_arr[1]),log(alpha_arr[end]),lastindex(alpha_arr))
+    alpha_grid_obs = reshape(alpha_arr,:,1) # observables stay on the real mesh (see sanity_checks)
+    bufr = alloc_segbuf(Float64,Float64,Float64)
+    Lmax_sum = 2*maxlmax
     for cco = 1:3
-        !return_wavefunctions && continue # no need for observables if return_wavefunctions = false
-        for (jj,obs) in enumerate(centobs_arr[cco]) # for each c there might be several observables -> loop over them
+        for (jj,obs) in enumerate(obs_arr[cco]) # for each c there might be several observables -> loop over them
 
             # cal v_arr for observables:
             precompute_varr!(v_obs_arr,alpha_grid_obs,Lmax_sum,gamma_dict,obs,bufr,1.0,parallel)
@@ -283,7 +311,7 @@ end
             for Lsum = 0:Lmax_sum
                 A_mat_curr = A_mat[1:Lsum+1,1:Lsum+1]
                 # w_arr for observables:
-                for k = 1:kmax
+                for k = 1:lastindex(alpha_arr)
                     w_obs_arr[cco,jj,k,Lsum+1,1:Lsum+1] .= A_mat_curr\v_obs_arr[k,1,1:Lsum+1]
                 end
 
@@ -295,6 +323,4 @@ end
 
         end
     end
-
 end
-
