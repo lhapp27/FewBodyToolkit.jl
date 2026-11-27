@@ -70,6 +70,13 @@ energies_wf, wfs = GEM3B1D_solve(phys_params, num_params; return_wavefunctions=t
 @test all(isfinite.(energies_wf[1:4]))
 @test size(wfs, 1) == size(wfs, 2)
 
+# 4a. regression: real basis with exactly degenerate levels (equal masses, distinguishable particles);
+# the wavefunction path threw an InexactError in v0.5.4 (general eigensolver, complex eigenvectors)
+pp_deg = make_phys_params3B1D(;interactions=[[r -> -6.0/cosh(r)^2] for _ in 1:3])
+np_deg = make_num_params3B1D(;gem_params=(;nmax=6,Nmax=6,r1=0.2,rnmax=8.0,R1=0.2,RNmax=7.0),kmax_interpol=150)
+e_deg = GEM3B1D_solve(pp_deg, np_deg; return_wavefunctions=true)[1]
+@test all(isapprox.(e_deg[1:5], GEM3B1D_solve(pp_deg, np_deg)[1:5]; atol=1e-10))
+
 # 5. deprecated keyword aliases
 @test_logs (:warn, r"wf_bool is deprecated") GEM3B1D_solve(phys_params, num_params; wf_bool=false)
 @test_logs (:warn, r"csm_bool is deprecated") GEM3B1D_solve(phys_params, num_params; csm_bool=false)
@@ -83,6 +90,14 @@ pp_bad1ident1d = (masses=[1.0,1.0,1.0], species=[:b,:x,:y], interactions=[[],[],
 
 pp_badmasses1d = (masses=[1.0,2.0,1.0], species=[:b,:b,:y], interactions=[[],[],[]], parity=1)
 @test_throws ErrorException GEM3B1D_solve(pp_badmasses1d, num_params) # bosons with unequal masses
+
+pp_2inf1d = (masses=[Inf,1.0,Inf], species=[:x,:y,:z], interactions=[[],[],[]], parity=1)
+@test_throws ErrorException GEM3B1D_solve(pp_2inf1d, num_params) # two infinite masses: no unique limit
+
+# one infinite mass is the limit of a large finite mass
+e_inf1d = GEM3B1D_solve(make_phys_params3B1D(;masses=[Inf,1.0,1.0], species=[:x,:b,:b], interactions=[[v_gauss],[v_gauss],[v_gauss]]), num_params)
+e_big1d = GEM3B1D_solve(make_phys_params3B1D(;masses=[1e12,1.0,1.0], species=[:x,:b,:b], interactions=[[v_gauss],[v_gauss],[v_gauss]]), num_params)
+@test all(isapprox.(e_inf1d[1:3], e_big1d[1:3]; atol=1e-8))
 
 
 # 7. Complex-ranged basis functions: nu -> nu*(1 + i*omega), selectable per Jacobi coordinate.
@@ -106,6 +121,21 @@ for (mode,factor) in ((:r,2),(:R,2),(:both,4))
     @test all(isapprox.(e0[1:4], e_pt_ref0[1:4]; atol=1e-8))
     @test length(e0) == factor*length(e_pt_ref0) # each complex-ranged coordinate doubles its ranges
 end
+
+# 7b. without complex scaling the solver works in the real basis of the pairs phi, phi* (real cos/sin
+# combinations): same energies as the complex eigenproblem of the exported matrices, and wavefunctions in
+# the original basis
+np_rb = make_num_params3B1D(;gem_params=(;nmax=6,Nmax=5,r1=0.2,rnmax=8.0,R1=0.2,RNmax=7.0),omega_cr=0.9,kmax_interpol=150)
+for mode in (:r,:R,:both)
+    T,V,S = GEM3B1D_matrices(pp_pt,np_rb;complex_ranged=mode)
+    e_c = zeros(size(S,1)); FewBodyToolkit.eigen2step(e_c,T+V,S;threshold=np_rb.threshold)
+    e_rb,wf_rb = GEM3B1D_solve(pp_pt,np_rb;complex_ranged=mode,return_wavefunctions=true)
+    @test all(isapprox.(e_rb[1:5], e_c[1:5]; atol=1e-10))
+    x = wf_rb[:,1]
+    @test isapprox(x'*S*x, 1; atol=1e-10) && isapprox(x'*(T+V)*x, e_rb[1]; atol=1e-8)
+end
+# parallel fill (threads with julia -t n): the same matrices
+@test GEM3B1D_matrices(pp_pt,np_rb;complex_ranged=:both,parallel=true) == GEM3B1D_matrices(pp_pt,np_rb;complex_ranged=:both)
 
 
 # 8. Accuracy of the two-dimensional (sector) interpolation itself: compare the interpolant against
@@ -199,3 +229,13 @@ lam3 = inverse_solve(Tm3,Vm3,Sm3;target_energy=-30.0,threshold=np_inv3.threshold
 e_m3 = zeros(size(Tm3,1))
 FewBodyToolkit.eigen2step(e_m3,Tm3.+Vm3,Sm3;threshold=np_inv3.threshold)
 @test isapprox(e_m3[1], GEM3B1D_solve(pp_inv3(1.0),np_inv3)[1]; rtol=1e-10)
+
+# lmax = Lmax = 3 with a small basis: the gamma table was too short (KeyError) up to v0.5.4
+pp_l3 = make_phys_params3B1D(;masses=[1.0,5.0,5.0],species=[:x,:b,:b],interactions=[[],[GaussianPotential(-3.0,0.8)],[GaussianPotential(-3.0,0.8)]])
+@test all(isfinite, GEM3B1D_solve(pp_l3, make_num_params3B1D(;lmax=3,Lmax=3,gem_params=(;nmax=5,Nmax=5,r1=0.1,rnmax=10.0,R1=0.15,RNmax=12.0)))[1:2])
+
+# three equal masses with complex ranges: lookups at the exact bound of the interpolation mesh fell off it
+# by one ulp (BoundsError up to v0.5.4)
+pp_3b = make_phys_params3B1D(;species=[:b,:b,:b],interactions=[[r -> -4.0*exp(-r^2)] for _ in 1:3])
+np_3b = make_num_params3B1D(;gem_params=(;nmax=4,Nmax=4,r1=0.1,rnmax=10.0,R1=0.15,RNmax=12.0),kmax_interpol=150)
+@test all(isfinite, GEM3B1D_solve(pp_3b, np_3b; complex_ranged=:both)[1:2])

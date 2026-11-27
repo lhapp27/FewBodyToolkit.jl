@@ -64,6 +64,13 @@ energies_obs, wfs_obs, centobs_out, R2_out = ISGL_solve(phys_params, num_params;
 energies_wf, wfs_wf, co_wf, r2_wf = ISGL_solve(phys_params, num_params; return_wavefunctions=true)
 @test size(wfs_wf, 1) == size(wfs_wf, 2)
 
+# 6a. regression: real basis with exactly degenerate levels (equal masses, distinguishable particles);
+# the wavefunction path threw an InexactError in v0.5.4 (general eigensolver, complex eigenvectors)
+pp_deg = make_phys_params3B3D(;interactions=[[vga],[vga],[vga]])
+np_deg = make_num_params3B3D(;lmax=0,Lmax=0,gem_params=(;nmax=6,Nmax=6,r1=0.3,rnmax=10.0,R1=0.3,RNmax=10.0))
+e_deg = ISGL_solve(pp_deg, np_deg; return_wavefunctions=true)[1]
+@test all(isapprox.(e_deg[1:5], ISGL_solve(pp_deg, np_deg)[1:5]; atol=1e-10))
+
 # 7. deprecated keyword aliases
 @test_logs (:warn, r"wf_bool is deprecated") ISGL_solve(phys_params, num_params; wf_bool=false)
 @test_logs (:warn, r"csm_bool is deprecated") ISGL_solve(phys_params, num_params; csm_bool=false)
@@ -80,6 +87,14 @@ pp_bad1ident = (masses=[m,m,m], species=[:b,:x,:y], interactions=[[],[],[]], J_t
 
 pp_badmasses = (masses=[m,2m,m], species=[:b,:b,:y], interactions=[[],[],[]], J_tot=0, parity=1)
 @test isnothing(ISGL_solve(pp_badmasses, num_params))  # bosons with unequal masses
+
+pp_2inf = (masses=[Inf,Inf,m], species=[:x,:y,:z], interactions=[[],[],[]], J_tot=0, parity=1)
+@test isnothing(ISGL_solve(pp_2inf, num_params))  # two infinite masses: no unique limit
+
+# one infinite mass is the limit of a large finite mass
+e_inf = ISGL_solve(make_phys_params3B3D(;masses=[1.0,Inf,2.0], species=[:x,:y,:z], interactions=[[vga],[vga],[vga]]), num_params)
+e_big = ISGL_solve(make_phys_params3B3D(;masses=[1.0,1e12,2.0], species=[:x,:y,:z], interactions=[[vga],[vga],[vga]]), num_params)
+@test all(isapprox.(e_inf[1:3], e_big[1:3]; atol=1e-8))
 
 # 10. regression: mixed potential lists with wrapped functions should not fail,
 # and equivalent combinations should produce the same low-lying energies.
@@ -275,6 +290,21 @@ for mode in (:r,:R,:both)
     ecr = ISGL_solve(pp_cr_gauss,np_cr;complex_ranged=mode)
     @test isapprox(ecr[1], e_ref[1]; atol=3e-3)   # same state, not a spurious one
 end
+
+# 12g. without complex scaling the solver works in the real basis of the pairs phi, phi* (real cos/sin
+# combinations): same energies as the complex eigenproblem of the exported matrices, and wavefunctions in
+# the original basis
+pp_cr_xyz = make_phys_params3B3D(;masses=[1.0,2.0,3.0], species=[:x,:y,:z], interactions=[[vga],[vga],[vga]])
+for mode in (:r,:R,:both)
+    T,V,S = ISGL_matrices(pp_cr_xyz,np_cr;complex_ranged=mode)
+    e_c = zeros(size(S,1)); FewBodyToolkit.eigen2step(e_c,T+V,S;threshold=np_cr.threshold)
+    e_rb,wf_rb = ISGL_solve(pp_cr_xyz,np_cr;complex_ranged=mode,return_wavefunctions=true)
+    @test all(isapprox.(e_rb[1:5], e_c[1:5]; atol=1e-10))
+    x = wf_rb[:,1]
+    @test isapprox(x'*S*x, 1; atol=1e-10) && isapprox(x'*(T+V)*x, e_rb[1]; atol=1e-8)
+end
+# parallel fill (threads with julia -t n): the same matrices
+@test ISGL_matrices(pp_cr_xyz,np_cr;complex_ranged=:both,parallel=true) == ISGL_matrices(pp_cr_xyz,np_cr;complex_ranged=:both)
 
 # 12f'. a non-analytic central potential with complex ranges. This is the case the two-dimensional
 # sector interpolation exists for: vg is a plain function, so its radial integrals are obtained

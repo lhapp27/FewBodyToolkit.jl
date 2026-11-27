@@ -7,7 +7,7 @@
 # (norms, the overlap matrix S). It is Float64 for the usual real ranges and ComplexF64 as soon as
 # complex-ranged basis functions are used in at least one Jacobi coordinate.
 struct PrecomputeStruct{TR}
-    gamma_dict::Dict{Float64, Float64}
+    gamma_dict::HalfIntTable{1}
     jmat::Matrix{SMatrix{2, 2, Float64, 4}}
     murR_arr::MMatrix{2, 3, Float64, 6}
     nu_arr::Vector{TR}
@@ -50,6 +50,9 @@ struct TempArgs1D{TR}
     bvals::Vector{Int64}
 end
 
+# one basis function (a row/column of the matrices), see basis_list in fillTVS.jl
+const BasisFun = @NamedTuple{box::Int, l::Int, L::Int, n::Int, N::Int}
+
 # Outer constructor: takes TR from the ranges and lets the inner constructor convert the remaining
 # fields (in particular the integer factor_ab). The auto-generated constructor of a *parametric*
 # struct matches the declared field types exactly and would not perform that conversion.
@@ -66,8 +69,7 @@ struct FillStruct{T,TR}
     T::Matrix{T}
     V::Matrix{T}
     S::Matrix{TR}
-    temp_args_arr::Vector{TempArgs1D{TR}}
-    temp_fill_mat::Matrix{T}
+    basis::Vector{BasisFun}
     #wn_obs_interpol_arr::OffsetVector{Float64, Vector{Float64}}
 end
 
@@ -81,7 +83,7 @@ struct ResultStruct{TE,TW}
 end
 
 
-function preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false)
+function preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling::Bool,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,add_V::Bool=true)
     complex_ranged = complex_ranged_r || complex_ranged_R
 
     # TT: H, V, and everything that can carry the complex-scaling phase
@@ -103,7 +105,7 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     Nmax_eff = complex_ranged_R ? 2*Nmax : Nmax
     
     # Allocate factorials (gamma function)
-    gamma_dict = Dict{Float64, Float64}()
+    gamma_dict = HalfIntTable{1}()
     
     # Allocate Jacobi transofmration matrices jmat and reduced masses murR_arr
     jmat = Matrix{SMatrix{2, 2, Float64, 4}}(undef, 3, 3);
@@ -147,7 +149,8 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     # matrices S: for the norm overlap, T: for the kintetic energy (later for the Hamiltonian T+V), V: for the potential energy
     S = zeros(TR,nbasis_total,nbasis_total) # hermitian (not just symmetric) for complex ranges
     T = zeros(TT,nbasis_total,nbasis_total)
-    V = zeros(TT,nbasis_total,nbasis_total);
+    nV = add_V ? 0 : nbasis_total # separate V only for the matrix export (add_V=false); otherwise V is accumulated into T
+    V = zeros(TT,nV,nV)
     
     
     # for results:
@@ -156,20 +159,15 @@ function preallocate_data(phys_params,num_params,observ_params,size_params,compl
     #centobs_output = Array{Float64}(undef, 3, maxobs, lastindex(stateindices))
     #R2_output = zeros(3, lastindex(stateindices))
     
-    # temporary arrays for filling: function arguments and matrix
-    # Combined complex ranges and complex scaling leave H neither symmetric nor hermitian,
-    # so the full matrix has to be filled instead of only the lower triangle.
-    fill_full = complex_ranged && complex_scaling
-    ntot = fill_full ? Int64(nbasis_total^2) : Int64((nbasis_total^2+nbasis_total)/2)
-    temp_args_arr = Vector{TempArgs1D{TR}}(undef, ntot)
-    temp_fill_mat = Matrix{TT}(undef,nbasis_total, nbasis_total)
+    # basis functions in matrix order; the arguments of the matrix elements are generated from it on the fly
+    basis = basis_list(size_params,nmax_eff,Nmax_eff)
         
     
     # now constructing Structs for different steps in the program:
     precomp_arrs = PrecomputeStruct(gamma_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr)
     #temp_arrs = TempStruct(temp_clmk,temp_dlmk,temp_S,temp_D1,temp_D2)
     interpol_arrs = InterpolationStruct(alpha_arr,theta_arr,alpha_grid,v_arr,w_interpol_arr) # ,v_obs_arr,w_obs_arr,w_obs_interpol_arr
-    fill_arrs = FillStruct(wn_interpol_arr,T,V,S,temp_args_arr,temp_fill_mat) # ,wn_obs_interpol_arr
+    fill_arrs = FillStruct(wn_interpol_arr,T,V,S,basis) # ,wn_obs_interpol_arr
     result_arrs = ResultStruct(energies_arr,wavefun_arr) #,centobs_output,R2_output)
     
     return precomp_arrs,interpol_arrs,fill_arrs,result_arrs

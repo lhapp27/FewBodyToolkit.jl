@@ -1,0 +1,14 @@
+label = "v0.5.0_20261016-1722"
+blas = "LBTConfig([ILP64] libopenblas64_.so)"
+loadavg_start = "0.47 0.25 0.14 1/615 3482627"
+quick = false
+julia_version = "1.10.4"
+fbtk_spec = "0.5.0"
+cpu = "Intel(R) Xeon(R) CPU E5-2630 v3 @ 2.40GHz"
+blas_threads = 16
+fbtk_dirty = false
+date = "2026-10-16T17:22:16.835"
+julia_threads = 1
+fbtk_commit = "1c06c277ef8eac64c7ecb39cc53705c634b30e4b"
+logical_cores = 32
+fbtk_version = "0.5.0"

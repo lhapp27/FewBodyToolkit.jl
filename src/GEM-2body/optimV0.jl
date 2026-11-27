@@ -1,7 +1,7 @@
 ﻿# for finding a the value of v0 to achieve the energy target_e2 for the state defined by stateindex (with intermediate optimization of parameters)
 
 """
-    v0GEMOptim(phys_params, num_params, stateindex, target_e2; complex_ranged=0, rtol=1e-4, atol=10*eps(), g_tol=1e-9, output=false)
+    v0GEMOptim(phys_params, num_params, stateindex, target_e2; complex_ranged=0, rtol=1e-4, atol=10*eps(), g_tol=1e-9, output=false, inverse=false)
 
 Finds a value `v0crit` to globally scale the potential in order to achieve the target energy `target_e2` for the state specified by `stateindex`. Additionally, performs intermediate optimization of Gaussian Expansion Method (GEM) parameters.
 
@@ -17,6 +17,7 @@ Finds a value `v0crit` to globally scale the potential in order to achieve the t
 - `atol::Float64`: Absolute tolerance for energy convergence (default: 10*eps()).
 - `g_tol::Float64`: Tolerance for the optimizer (default: 1e-9).
 - `output::Bool`: If true, prints intermediate optimization results (default: false).
+- `inverse::Bool`: If true, the scaling factor at fixed GEM parameters is obtained from [`inverse_solve`](@ref) on matrices built once, instead of by a root search over repeated solves (default: false). Same results; the root search is limited to factors in (0, 200).
 
 # Returns
 - `phys_params::NamedTuple`: Updated physical parameters with optimized potential.
@@ -27,8 +28,10 @@ Finds a value `v0crit` to globally scale the potential in order to achieve the t
 ```julia
 phys_params_scaled,num_params_optimized,scalingfactor = v0GEMOptim(phys_params, num_params, 1, -2.5)
 ```
+
+Without the optimization of the GEM parameters, the scaling factor follows directly from the inverse problem: `inverse_solve(T, V, S; target_energy=target_e2)[stateindex]` with the matrices of `GEM2B_matrices`, see [`inverse_solve`](@ref).
 """
-function v0GEMOptim(phys_params, num_params, stateindex, target_e2; complex_ranged::Bool = false, rtol=10^-4, atol = 10*eps(), g_tol=10^-9,output=false)
+function v0GEMOptim(phys_params, num_params, stateindex, target_e2; complex_ranged::Bool = false, rtol=10^-4, atol = 10*eps(), g_tol=10^-9,output=false,inverse::Bool=false)
     
     # desctructuring:
     (;hbar,mur,interactions,lmax,lmin,dim) = phys_params
@@ -41,7 +44,7 @@ function v0GEMOptim(phys_params, num_params, stateindex, target_e2; complex_rang
     params = zeros(3).+1;
     iter = 0
     while abs(params[3] - target_e2) > max(abs(rtol*target_e2),abs(atol)) #changed to relative tolerance. previously: abs(params[3] - target_e2) > 10^-8
-        v0crit = find_v0crit(merge(phys_params, (;interactions)), num_params, stateindex, target_e2; complex_ranged=complex_ranged) # wait where is interactions updated?! this should be phys_params, no? ah ok no. only for GEMOptim we need to update phys_params!
+        v0crit = find_v0crit(merge(phys_params, (;interactions)), num_params, stateindex, target_e2; complex_ranged=complex_ranged, inverse=inverse) # wait where is interactions updated?! this should be phys_params, no? ah ok no. only for GEMOptim we need to update phys_params!
         function vint_updt(r)
             return v0crit*vint(r)
         end
@@ -100,9 +103,15 @@ function GEM_Optim_2B(phys_params, num_params, stateindex; complex_ranged::Bool=
 end
 
 # for finding the value of v0 to achieve the energy target_e2 for the state defined by stateindex (without intermediate optimization of parameters)
-function find_v0crit(phys_params, num_params, stateindex, target_e2; complex_ranged::Bool=false)
+# inverse=true: the stateindex-th strength of the inverse problem (one build, one solve) instead of the root search
+function find_v0crit(phys_params, num_params, stateindex, target_e2; complex_ranged::Bool=false, inverse::Bool=false)
     (;hbar,mur,interactions,lmax,lmin,dim) = phys_params
     vint = interactions[1]
+    
+    if inverse
+        T,V,S = GEM2B.GEM2B_matrices(merge(phys_params, (;interactions=Any[vint])), num_params; complex_ranged)
+        return inverse_solve(T,V,S; target_energy=target_e2, threshold=num_params.threshold)[stateindex]
+    end
     
     function fun1(v0)
         function vint_local(r)

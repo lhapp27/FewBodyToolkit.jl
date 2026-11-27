@@ -1,75 +1,59 @@
 ﻿## Function for calculating the matrix elements and filling the matrices T,V,S within the ISGL program
 
-@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,add_V::Bool=true)
+@views @inbounds function fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling::Bool,hbar,complex_ranged_r::Bool=false,complex_ranged_R::Bool=false,add_V::Bool=true,parallel::Bool=false)
 
     (;gem_params,mu0,c_shoulder,complex_scaling_angle) = num_params
     (;nmax,Nmax,r1,rnmax,R1,RNmax) = gem_params
-    (;abvals_arr,cvals,gauss_indices,central_indices,so_indices,pow_indices,groupindex_arr,abI,factor_bf,box_size_arr,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,lL_nested,maxlmax,mij_arr_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr) = size_params
+    (;abvals_arr,cvals,gauss_indices,central_indices,so_indices,pow_indices,groupindex_arr,abI,factor_bf,box_size_arr,nbasis_total,starts,ends,bvalsdiag,s_arr,JsS_arr,s_complete,JsS_complete,JlL_arr,lL_nested,maxlmax,mij_arr_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr) = size_params
     (;gamma_dict,spintrafo_dict,spinoverlap_dict,global6j_dict,facsymm_dict,jmat,murR_arr,nu_arr,NU_arr,norm_arr,NORM_arr,Clmk_arr,Dlmk_arr,S_arr,SSO_arr) = precomp_arrs
     (;alpha_arr,v_arr,A_mat,w_interpol_arr,Ainv_arr_kine,w_pow_arr) = interpol_arrs
-    (;w_arr_kine,wn_interpol_arr,kij_arr,gij_arr,T,V,S,temp_args_arr,temp_fill_mat) = fill_arrs
+    (;T,V,S,basis) = fill_arrs
     
     complex_ranged = complex_ranged_r || complex_ranged_R
     # With complex ranges the bra ranges are conjugated, so S, T and V become hermitian instead of
     # symmetric. Combined with complex scaling neither symmetry survives and the full matrix is filled.
     fill_full = complex_ranged && complex_scaling
+    add_V || size(V) == size(T) || error("fill_TVS: add_V=false needs a separate V, see preallocate_data")
 
-    # the effective numbers of ranges already include the doubling for a complex-ranged coordinate
-    nmax_eff = lastindex(nu_arr)
-    Nmax_eff = lastindex(NU_arr)
-
-    # reducing complicated many-loop structure to a single 1D loop:
-    flati = flattento1Dloop(temp_args_arr,groupindex_arr,bvalsdiag,abvals_arr,s_arr,JsS_arr,JlL_arr,lL_nested,nmax_eff,Nmax_eff,nu_arr,NU_arr,norm_arr,NORM_arr,mij_arr_dict,starts,fill_full)
-
-    ## Calculation of matrix elements and matrix filling via 1d loop (so we dont have redundant loops over all spin configs, lL combinations, and nmax)
-    for index in 1:flati
-        (;rowi,coli) = temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = sab(jmat,temp_args_arr[index],abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
+    ## Calculation of matrix elements and matrix filling: one loop over the elements of the lower triangle (full matrix
+    # for fill_full), mirrored in place afterwards. The arguments of each element are generated from the basis list.
+    # V is accumulated into T, which becomes the Hamiltonian H = T + V. Kept separately only for add_V=false (inverse problem, matrix export)
+    csmfac = exp(-2*im*complex_scaling_angle*pi/180)
+    function element(rowi,coli)
+        args = element_args(rowi,coli,basis,abvals_arr,bvalsdiag,nu_arr,NU_arr,norm_arr,NORM_arr,mij_arr_dict)
+        sel = sab(jmat,args,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
+        tel = convert(eltype(T), tab(jmat,murR_arr,Ainv_arr_kine,mu0,c_shoulder,args,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict,hbar))
+        complex_scaling && (tel *= csmfac)
+        vel = vab(jmat,mu0,c_shoulder,w_interpol_arr,w_pow_arr,args,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,pow_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr,complex_scaling) # do we need hbar^2 for SO?
+        return sel, tel, vel
     end
+    # complex ranges without complex scaling: conjugate-paired basis functions (see fill_partners)
+    partner = complex_scaling ? nothing : fill_partners(element,nbasis_total,gem_params,complex_ranged_r,complex_ranged_R)
+    function fill_columns(cols)
+        for coli in cols, rowi in (fill_full ? 1 : coli):nbasis_total
+            if !isnothing(partner)
+                pr, pc, cj = pair_position(rowi,coli,partner)
+                (pc, pr) < (coli, rowi) && continue # already filled together with its partner element
+            end
+            sel, tel, vel = element(rowi,coli)
+            store_element!(S,T,V,rowi,coli,sel,tel,vel,add_V)
+            !isnothing(partner) && (pr, pc) != (rowi, coli) && store_element!(S,T,V,pr,pc,sel,tel,vel,add_V,cj)
+        end
+    end
+    fill_parallel(fill_columns,nbasis_total,parallel)
     # transpose fill: the overlap is hermitian for complex ranges (also together with complex scaling,
     # since the ISGL complex-scaling rotates the potential and leaves the ranges alone)
-    if complex_ranged
-        hermitian_fill!(S,temp_fill_mat);
-    else
-        S .= Symmetric(temp_fill_mat,:L);
+    hermitian_fill!(S,complex_ranged)
+    if !fill_full
+        hermitian_fill!(T,complex_ranged)
+        add_V || hermitian_fill!(V,complex_ranged)
     end
-
-    #combined t and v for some speedup: reverted combination for CSM
-    for index in 1:flati
-        (;rowi,coli) = temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_arr[index],abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict,hbar)
-    end
-    # transpose fill:
-    if fill_full
-        T .= temp_fill_mat;
-    elseif complex_ranged
-        hermitian_fill!(T,temp_fill_mat);
-    else
-        T .= Symmetric(temp_fill_mat,:L);
-    end
-
-    if complex_scaling
-        T .*= exp(-2*im*complex_scaling_angle*pi/180)
-    end
-    
-    #v
-    for index in 1:flati
-        (;rowi,coli) = temp_args_arr[index]
-        temp_fill_mat[rowi,coli] = vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_arr,temp_args_arr[index],abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,pow_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr,complex_scaling) # do we need hbar^2 for SO?
-    end
-    # transpose fill:
-    if fill_full
-        V .= temp_fill_mat;
-    elseif complex_ranged
-        hermitian_fill!(V,temp_fill_mat);
-    else
-        V .= Symmetric(temp_fill_mat,:L);
-    end
-
-    add_V && (T .+= V) # T becomes the full Hamiltonian matrix H = T + V. Skipped when the kinetic energy is needed separately (inverse problem, matrix export)
     
 end
 
+
+# pairs (i,j) of the shoulder sums, in the order of the exponents (m12,m13,m14,m23,m24,m34) in mij_arr
+const IJ_PAIRS = ((1,2),(1,3),(1,4),(2,3),(2,4),(3,4))
 
 ## functions to calculate one matrix element, summing over the necessary a,b,c values:
 function sab(jmat,temp_args_i,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
@@ -92,9 +76,9 @@ function sab(jmat,temp_args_i,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict)
     return tempS
 end
 
-function tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_args_i,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict,hbar)
+function tab(jmat,murR_arr,Ainv_arr_kine,mu0,c_shoulder,temp_args_i,abI,factor_bf,S_arr,spintrafo_dict,facsymm_dict,hbar)
     (;avals_new,bvals_new,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,Lsum,JlLa,JlLb) = temp_args_i
-    tempT = zero(promote_type(typeof(norm4),eltype(w_arr_kine)))
+    tempT = zero(norm4)
     
     # maybe easier:
     (JsSa != JsSb || JlLa != JlLb) && return tempT #immediately skip if either one is violated
@@ -106,19 +90,19 @@ function tab(jmat,murR_arr,w_arr_kine,Ainv_arr_kine,kij_arr,mu0,c_shoulder,temp_
             uab = spintrafo_dict[a,b,JsSa,sa,sb]
             JlL = JlLa
             
-            tempT += hbar^2*factor_ab*factor_symm*uab*element_T(ranges,norm4,jmat[a,b],murR_arr,mij_arr,S_arr,la,La,lb,Lb,w_arr_kine,Ainv_arr_kine,kij_arr,b,mu0,c_shoulder,Lsum,JlL)
+            tempT += hbar^2*factor_ab*factor_symm*uab*element_T(ranges,norm4,jmat[a,b],murR_arr,mij_arr,S_arr,la,La,lb,Lb,Ainv_arr_kine,b,mu0,c_shoulder,Lsum,JlL)
         end
     end
     return tempT
 end
 
-function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_arr,temp_args_i,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,pow_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr,complex_scaling)
+function vab(jmat,mu0,c_shoulder,w_interpol_arr,w_pow_arr,temp_args_i,abI,factor_bf,S_arr,SSO_arr,cvals,spintrafo_dict,spinoverlap_dict,facsymm_dict,gauss_indices,central_indices,so_indices,pow_indices,s_arr,global6j_dict,mijSO_arr_dict,gaussopt_arr,powopt_arr,complex_scaling)
     (;rowi,coli,avals_new,bvals_new,factor_ab,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,la,La,lb,Lb,Lsum,JlLa,JlLb) = temp_args_i
     # only the mesh over arg(etaprc) >= 0 is tabulated unless complex scaling made the potential
     # complex and broke the Schwarz reflection (see theta_mesh)
     reflect = !complex_scaling
-    # complex for complex ranges (via norm4/gij_arr) and/or complex scaling (via wn_interpol_arr)
-    tempV = zero(promote_type(typeof(norm4),eltype(gij_arr),eltype(wn_interpol_arr)))
+    # complex for complex ranges (via norm4) and/or complex scaling (via the interpolated and power-law weights)
+    tempV = zero(promote_type(typeof(norm4),eltype(w_pow_arr)))
     
     for a in avals_new
         for b in bvals_new
@@ -135,17 +119,17 @@ function vab(jmat,gij_arr,mu0,c_shoulder,w_interpol_arr,wn_interpol_arr,w_pow_ar
                     (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
                     v0,mu_g = gaussopt_arr[c][ivg]
 
-                    tempV += factor_ab*factor_symm*uab*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,Lsum,wn_interpol_arr,v0,mu_g,JlLa)
+                    tempV += factor_ab*factor_symm*uab*element_VGauss(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,mu0,c_shoulder,Lsum,v0,mu_g,JlLa)
                 end
                 for ivp in pow_indices[c] #loop over the power-law interactions for this c.
                     (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
                     v0,p_pow = powopt_arr[c][ivp]
 
-                    tempV += factor_ab*factor_symm*uab*element_VPow(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,Lsum,w_pow_arr,v0,p_pow,JlLa,ivp)
+                    tempV += factor_ab*factor_symm*uab*element_VPow(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,mu0,c_shoulder,Lsum,w_pow_arr,v0,p_pow,JlLa,ivp)
                 end
                 for ivc in central_indices[c] #loop over the central interactions for this c.
                     (JsSa != JsSb || JlLa != JlLb) && return tempV #immediately skip if it is violated.
-                    tempV += factor_ab*factor_symm*uab*element_V(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlLa,ivc,reflect)
+                    tempV += factor_ab*factor_symm*uab*element_V(c,ranges,norm4,jmat[a,c],jmat[b,c],mij_arr,S_arr,la,La,lb,Lb,mu0,c_shoulder,w_interpol_arr,Lsum,JlLa,ivc,reflect)
                 end
                 #= commented out; spin-orbit is moved to future development
                 for ivso in so_indices[c] # loop over the spin-orbit interactions for this c.
@@ -196,7 +180,7 @@ end
 
 
 # calculation of a single matrix element: kinetic energy T
-function element_T(ranges,norm4,jab,murR_arr,mij_arr_i,S_arr,la,La,lb,Lb,w_arr_kine,Ainv_arr_kine,kij_arr,b,mu0,c_shoulder,Lsum,JlL)
+function element_T(ranges,norm4,jab,murR_arr,mij_arr_i,S_arr,la,La,lb,Lb,Ainv_arr_kine,b,mu0,c_shoulder,Lsum,JlL)
     
     (;nua,nub,NUa,NUb) = ranges;
     (alpha,gamma,beta,delta) = jab # careful with order (gamma before beta)
@@ -226,35 +210,25 @@ function element_T(ranges,norm4,jab,murR_arr,mij_arr_i,S_arr,la,La,lb,Lb,w_arr_k
     
     Kij_arr = @SMatrix[8*tr*nub^2/etapr*(q[i]*q[j]/etapr - q[1]*I[i,1]*I[j,3] - q[2]*I[i,2]*I[j,3] - q[4]*I[i,3]*I[j,4]) + 8*tR*NUb^2/zetapr*(qpr[i]*qpr[j]/zetapr - qpr[1]*I[i,1]*I[j,4] - qpr[2]*I[i,2]*I[j,4] - qpr[3]*I[i,3]*I[j,4]) for i=1:4, j=1:4]
     
-    for n = 0:Lsum
-        mun = mu0*c_shoulder^n
-        w_arr_kine[n] = K0*Ainv_arr_kine[Lsum,n]
-        
-        for i=1:3
-            for j=(i+1):4
-                kij_arr[i,j,n] = 2*p[i]*p[j]/zeta + 2*q[i]*q[j]/etapr + mun*Kij_arr[i,j]/K0
-            end
-        end
-    end
-        
     prefac = norm4 * (pi/zeta)^(3/2)*(pi/etapr)^(3/2)/(nua^la*NUa^La*nub^lb*NUb^Lb);
 
-    sum = zero(promote_type(typeof(prefac),eltype(w_arr_kine)))
-    for ii = 1:lastindex(mij_arr_i)
-        (m12,m13,m14,m23,m24,m34) = mij_arr_i[ii]
-
-        sum2 = zero(promote_type(eltype(w_arr_kine),eltype(kij_arr)))
-        for n=0:Lsum
-            sum2 +=w_arr_kine[n]*kij_arr[1,2,n]^m12*kij_arr[1,3,n]^m13*kij_arr[1,4,n]^m14*kij_arr[2,3,n]^m23*kij_arr[2,4,n]^m24*kij_arr[3,4,n]^m34
+    # per n: shoulder weight wn and the pair values kn (see IJ_PAIRS)
+    sum = zero(promote_type(typeof(prefac),typeof(K0)))
+    for n = 0:Lsum
+        mun = mu0*c_shoulder^n
+        wn = K0*Ainv_arr_kine[Lsum,n]
+        kn = map(((i,j),) -> 2*p[i]*p[j]/zeta + 2*q[i]*q[j]/etapr + mun*Kij_arr[i,j]/K0, IJ_PAIRS)
+        for ii = 1:lastindex(mij_arr_i)
+            (m12,m13,m14,m23,m24,m34) = mij_arr_i[ii]
+            sum += S_arr[la,La,lb,Lb,JlL,ii]*wn*kn[1]^m12*kn[2]^m13*kn[3]^m14*kn[4]^m23*kn[5]^m24*kn[6]^m34
         end
-        sum += S_arr[la,La,lb,Lb,JlL,ii]*sum2        
     end
     
     return prefac*sum
 end
 
 # calculation of a single matrix element: interaction V(r_c)
-function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,w_interpol_arr,Lsum,wn_interpol_arr,JlL,iv,reflect::Bool)
+function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,mu0,c_shoulder,w_interpol_arr,Lsum,JlL,iv,reflect::Bool)
     
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
@@ -272,36 +246,21 @@ function element_V(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu
     #fpr = xic/etac
     q = ppr .- f*p
     
-    #gij_arr:
-    for n = 0:Lsum
-        mun = mu0*c_shoulder^n
-        for i=1:3
-            for j=(i+1):4
-                gij_arr[i,j,n] = 2*p[i]*p[j]/zetac + 2*mun*q[i]*q[j]/etaprc
-            end
-        end
-    end
-        
     prefac = norm4 * (pi/zetac)^(3/2)*(pi/etaprc)^(3/2)/(nua^la*NUa^La*nub^lb*NUb^Lb);
 
-    # here, interpolation is called (outside of ii-loop).
+    # per n: interpolated weight wn (once per n, outside of the ii-loop) and the pair values gn (see IJ_PAIRS).
     # For real ranges this is the usual lookup at log(etaprc). For complex ranges etaprc is complex
     # but confined to the sector |arg| <= atan(omega), over which the interpolant is tabulated in
     # two dimensions; interpol_lookup picks the right variant (see common/auxiliary.jl).
+    summe = zero(promote_type(typeof(prefac),eltype(eltype(w_interpol_arr))))
     for n = 0:Lsum
-        wn_interpol_arr[n] = interpol_lookup(w_interpol_arr[c,iv,Lsum,n],etaprc,reflect)
-    end
-
-    summe = zero(promote_type(typeof(prefac),eltype(wn_interpol_arr),eltype(gij_arr)))
-    for ii = 1:lastindex(mij_arr_i) # the correct mij_arr is already selected in the flatento1Dloop function
-        (m12,m13,m14,m23,m24,m34) = mij_arr_i[ii]
-
-        sum2 = zero(promote_type(eltype(wn_interpol_arr),eltype(gij_arr)))
-        for n=0:Lsum
-            sum2 += wn_interpol_arr[n]*gij_arr[1,2,n]^m12*gij_arr[1,3,n]^m13*gij_arr[1,4,n]^m14*gij_arr[2,3,n]^m23*gij_arr[2,4,n]^m24*gij_arr[3,4,n]^m34
+        mun = mu0*c_shoulder^n
+        wn = interpol_lookup(w_interpol_arr[c,iv,Lsum,n],etaprc,reflect)
+        gn = map(((i,j),) -> 2*p[i]*p[j]/zetac + 2*mun*q[i]*q[j]/etaprc, IJ_PAIRS)
+        for ii = 1:lastindex(mij_arr_i)
+            (m12,m13,m14,m23,m24,m34) = mij_arr_i[ii]
+            summe += S_arr[la,La,lb,Lb,JlL,ii]*wn*gn[1]^m12*gn[2]^m13*gn[3]^m14*gn[4]^m23*gn[5]^m24*gn[6]^m34
         end
-        
-        summe += S_arr[la,La,lb,Lb,JlL,ii]*sum2
     end
     
     return prefac*summe
@@ -312,7 +271,7 @@ end
 # Same structure as element_V, but the interpolated weights w_interpol_arr[c,iv,Lsum,n](log(etaprc))
 # are replaced by the exact w_n(etaprc) = etaprc^(-p/2) * w_pow_arr[c,iv,Lsum,n]. The common factor
 # etaprc^(-p/2) is independent of n and is therefore absorbed into prefac.
-function element_VPow(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,Lsum,w_pow_arr,v0,p_pow,JlL,iv)
+function element_VPow(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,mu0,c_shoulder,Lsum,w_pow_arr,v0,p_pow,JlL,iv)
     
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
@@ -330,33 +289,22 @@ function element_VPow(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr
     #fpr = xic/etac
     q = ppr .- f*p
     
-    #gij_arr:
-    for n = 0:Lsum
-        mun = mu0*c_shoulder^n
-        for i=1:3
-            for j=(i+1):4
-                gij_arr[i,j,n] = 2*p[i]*p[j]/zetac + 2*mun*q[i]*q[j]/etaprc
-            end
-        end
-    end
-    
     # etaprc^(-p/2) uses the principal branch. For complex ranges arg(etaprc) is bounded by
     # atan(omega) < pi/2, so the principal branch is the continuous continuation of the real-range
     # result; x^y is evaluated as exp(y*log(x)) with the principal log of the *base*, so no wrapping
     # occurs even for large |p|.
     prefac = norm4 * (pi/zetac)^(3/2)*(pi/etaprc)^(3/2) * etaprc^(-p_pow/2)/(nua^la*NUa^La*nub^lb*NUb^Lb);
 
-    # no interpolation necessary here: w_pow_arr is exact and alpha-independent
-    summe = zero(promote_type(typeof(prefac),eltype(w_pow_arr),eltype(gij_arr)))
-    for ii = 1:lastindex(mij_arr_i) # the correct mij_arr is already selected in the flatento1Dloop function
-        (m12,m13,m14,m23,m24,m34) = mij_arr_i[ii]
-
-        sum2 = zero(promote_type(eltype(w_pow_arr),eltype(gij_arr)))
-        for n=0:Lsum
-            sum2 += w_pow_arr[c,iv,Lsum,n]*gij_arr[1,2,n]^m12*gij_arr[1,3,n]^m13*gij_arr[1,4,n]^m14*gij_arr[2,3,n]^m23*gij_arr[2,4,n]^m24*gij_arr[3,4,n]^m34
+    # no interpolation necessary here: w_pow_arr is exact and alpha-independent. Per n: pair values gn (see IJ_PAIRS)
+    summe = zero(promote_type(typeof(prefac),eltype(w_pow_arr)))
+    for n = 0:Lsum
+        mun = mu0*c_shoulder^n
+        wn = w_pow_arr[c,iv,Lsum,n]
+        gn = map(((i,j),) -> 2*p[i]*p[j]/zetac + 2*mun*q[i]*q[j]/etaprc, IJ_PAIRS)
+        for ii = 1:lastindex(mij_arr_i)
+            (m12,m13,m14,m23,m24,m34) = mij_arr_i[ii]
+            summe += S_arr[la,La,lb,Lb,JlL,ii]*wn*gn[1]^m12*gn[2]^m13*gn[3]^m14*gn[4]^m23*gn[5]^m24*gn[6]^m34
         end
-        
-        summe += S_arr[la,La,lb,Lb,JlL,ii]*sum2
     end
     
     return v0*prefac*summe
@@ -416,7 +364,7 @@ function element_VSO(c,ranges,norm4,jac,jbc,mijSO_arr_dict,SSO_arr,la,La,lb,Lb,g
     
     summe = 0.0 # total sum, could also be named sumv, since sum over v (or iv,jv)
     for (v,(iv,jv)) in enumerate(ivjv_arr)
-        mij_arr_i = mijSO_arr_dict[((la,La),(lb,Lb),v)] # this is a different approach. for Vcent, the mij_arr_i is already selected within the flattento1Dloop function.
+        mij_arr_i = mijSO_arr_dict[((la,La),(lb,Lb),v)] # this is a different approach. for Vcent, the mij_arr_i is already selected in element_args.
         
         sumi = 0.0 # sum over i
         for ii = 1:lastindex(mij_arr_i) # imax
@@ -444,7 +392,7 @@ end =#
 
 
 # calculation of a single matrix element: interaction VGauss(r_c)
-function element_VGauss(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_arr,mu0,c_shoulder,Lsum,wn_interpol_arr,v0,mu_g,JlL)
+function element_VGauss(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,mu0,c_shoulder,Lsum,v0,mu_g,JlL)
     
     (;nua,nub,NUa,NUb) = ranges;
     (alphaAC,gammaAC,betaAC,deltaAC) = jac
@@ -478,91 +426,49 @@ function element_VGauss(c,ranges,norm4,jac,jbc,mij_arr_i,S_arr,la,La,lb,Lb,gij_a
 end
 
 
-# returns flati and fills temp_args_arr
-function flattento1Dloop(temp_args_arr,groupindex_arr,bvalsdiag,abvals_arr,s_arr,JsS_arr,JlL_arr,lL_nested,nmax,Nmax,nu_arr,NU_arr,norm_arr,NORM_arr,mij_arr_dict,starts,fill_full::Bool=false)
-    # Keep loop-structure and write necessary functions arguments for matrix-element-calculation into 1-dim array temp_args_arr
-    # nmax,Nmax are the *effective* numbers of ranges here, i.e. already doubled for a complex-ranged coordinate.
-    flati = 0
-    # Iterate over boxes:
-    for boxC in groupindex_arr
-        for boxR in groupindex_arr
-            # fill only lower-triangular (boxes, not elements!). Valid for real-symmetric, complex-symmetric
-            # (CSM) and hermitian (complex ranges) matrices, but not for CSM and complex ranges together.
-            !fill_full && boxR < boxC && continue
-
-            # if there are some identical particles: we can ignore the sum over a-values and simply multiply by a factor which is equal to the number of a-values. ONLY ON THE BOX-DIAGONAL! (boxC = boxR)
-            if boxC == boxR
-                bvals_new = bvalsdiag[boxC] # for changing the role of a,b to be in line with lower triangular!
-                factor_ab = lastindex(abvals_arr[boxR]) # factor for amount of a-values normally
-                diag_bool = fill_full ? 0 : 1 # for skipping lower-triangular calculation within each box!
-            else
-                #avals_new = abvals_arr[boxR]
-                bvals_new = abvals_arr[boxC]
-                factor_ab = 1
-                diag_bool = 0
-            end
-            #bvals_new = abvals_arr[boxC] # for more consistent naming...
-            avals_new = abvals_arr[boxR] # a bit unneccessary, but for more consistent naming. effectively only used here in fillTVS
-            avals = abvals_arr[boxR] # necessary for observables
-            bvals = abvals_arr[boxC] # necessary for observables
-            
-            
-            alphab = 0; # this is actually beta
-            for (isb,sb) in enumerate(s_arr[bvals_new[1]]) # why bvals_new[1]? -> cuz either only 1 value in it, or the particles are identical and all entries are the same!
-                for (ijssb,JsSb) in enumerate(JsS_arr[bvals_new[1]][isb])
-                    for (ijllb,JlLb) in enumerate(JlL_arr[bvals_new[1]][isb][ijssb])
-                        for (lb,Lb) in lL_nested[bvals_new[1]][isb][ijssb][ijllb]
-                            for nb = 1:nmax
-                                nub = nu_arr[nb]
-                                normb = norm_arr[lb,nb]
-                                for Nb = 1:Nmax
-                                    NUb = NU_arr[Nb]
-                                    NORMb = NORM_arr[Lb,Nb]
-                                    
-                                    alphab += 1                        
-                                    alpha = 0
-                                    
-                                    for (isa,sa) in enumerate(s_arr[avals_new[1]])
-                                        for (ijssa,JsSa) in enumerate(JsS_arr[avals_new[1]][isa])
-                                            for (ijlla,JlLa) in enumerate(JlL_arr[avals_new[1]][isa][ijssa])
-                                                for (la,La) in lL_nested[avals_new[1]][isa][ijssa][ijlla]
-                                                    Lsum=Int64((la+La+lb+Lb)/2)
-                                                    mij_arr = mij_arr_dict[(la,La),(lb,Lb)]
-                                                    for na = 1:nmax
-                                                        # the bra ranges enter conjugated. This is a no-op for real
-                                                        # ranges and is what makes S,T,V hermitian for complex ones.
-                                                        nua = conj(nu_arr[na])
-                                                        norma = conj(norm_arr[la,na])
-                                                        for Na = 1:Nmax
-                                                            NUa = conj(NU_arr[Na])
-                                                            NORMa = conj(NORM_arr[La,Na])
-                                                            
-                                                            alpha += 1
-                                                            diag_bool == 1 && alpha < alphab && continue # skip upper triangular only on diagonal boxes
-                                                            
-                                                            norm4 = norma*normb*NORMa*NORMb;
-                                                            ranges = (;nua,nub,NUa,NUb);                                    
-                                                            
-                                                            # alpha, alphab are row and column within a given box defined by boxR,boxC. Now transforming into the row- and column indices of the big matrix:
-                                                            rowi = starts[boxR] + alpha - 1
-                                                            coli = starts[boxC] + alphab - 1
-                                                            
-                                                            flati += 1
-
-                                                            temp_args_arr[flati] = TempArgs(rowi,coli,ranges,norm4,mij_arr,sa,JsSa,sb,JsSb,JlLa,JlLb,la,La,lb,Lb,Lsum,avals_new,bvals_new,factor_ab,avals,bvals) # write all loop-index-depending function-arguments into a temporary 1D array
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end
-                                    end                                    
-                                end
+# Basis functions in matrix order, one entry per row/column: box, spin and angular-momentum channel, and the
+# range indices n,N (effective ones, i.e. doubled for a complex-ranged coordinate). Same loop order as the matrix.
+function basis_list(size_params,nmax,Nmax)
+    (;groupindex_arr,abvals_arr,s_arr,JsS_arr,JlL_arr,lL_nested,starts,nbasis_total) = size_params
+    basis = Vector{BasisFun}(undef,nbasis_total)
+    for box in groupindex_arr
+        a = abvals_arr[box][1] # either only 1 value in it, or the particles are identical and all entries are the same
+        alpha = 0
+        for (is,s) in enumerate(s_arr[a])
+            for (ijss,JsS) in enumerate(JsS_arr[a][is])
+                for (ijll,JlL) in enumerate(JlL_arr[a][is][ijss])
+                    for (l,L) in lL_nested[a][is][ijss][ijll]
+                        for n = 1:nmax
+                            for N = 1:Nmax
+                                alpha += 1
+                                basis[starts[box] + alpha - 1] = (;box,s,JsS,JlL,l,L,n,N)
                             end
                         end
                     end
                 end
-            end                
+            end
         end
     end
-    return flati
+    return basis
+end
+
+# arguments of the matrix element between the basis functions rowi (bra) and coli (ket), see TempArgs
+function element_args(rowi,coli,basis,abvals_arr,bvalsdiag,nu_arr,NU_arr,norm_arr,NORM_arr,mij_arr_dict)
+    a, b = basis[rowi], basis[coli]
+    # if there are some identical particles: we can ignore the sum over a-values and simply multiply by a factor which is equal to the number of a-values. ONLY ON THE BOX-DIAGONAL!
+    if a.box == b.box
+        bvals_new = bvalsdiag[b.box]
+        factor_ab = lastindex(abvals_arr[a.box])
+    else
+        bvals_new = abvals_arr[b.box]
+        factor_ab = 1
+    end
+    # the bra ranges enter conjugated. This is a no-op for real ranges and is what makes S,T,V hermitian for complex ones.
+    nua, norma = conj(nu_arr[a.n]), conj(norm_arr[a.l,a.n])
+    NUa, NORMa = conj(NU_arr[a.N]), conj(NORM_arr[a.L,a.N])
+    nub, normb = nu_arr[b.n], norm_arr[b.l,b.n]
+    NUb, NORMb = NU_arr[b.N], NORM_arr[b.L,b.N]
+    norm4 = norma*normb*NORMa*NORMb
+    Lsum = Int64((a.l+a.L+b.l+b.L)/2)
+    return TempArgs(rowi,coli,(;nua,nub,NUa,NUb),norm4,mij_arr_dict[a.l,a.L,b.l,b.L],a.s,a.JsS,b.s,b.JsS,a.JlL,b.JlL,a.l,a.L,b.l,b.L,Lsum,abvals_arr[a.box],bvals_new,factor_ab,abvals_arr[a.box],abvals_arr[b.box])
 end

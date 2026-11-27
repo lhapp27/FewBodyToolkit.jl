@@ -22,7 +22,7 @@ function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_ar
     end
         
     
-    precompute_gamma(gamma_dict,max(nmax,2*max(lmax,Lmax)+1+2)) #spin-orbit needs higher values, so let's give it +2...
+    precompute_gamma!(gamma_dict,max(nmax,4*max(lmax,Lmax)+5)) # generous (spin-orbit needs higher values); the table is tiny
     
     precompute_cleb(cleb_arr,JlL_complete,nl,l_complete)
     #@show(cleb_arr)
@@ -47,15 +47,6 @@ function precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_ar
     
     
 end
-
-### gamma functions
-function precompute_gamma(gamma_dict,ende)
-    # returns the dict gamma_dict with keys "n" for each value of n between 0.5 and ende in steps of 0.5
-    for i=0.5:0.5:ende+0.5
-        gamma_dict[i] = gamma(i)
-    end
-end
-
 
 ### clebsch-gordan coefficients: for l-L coupling
 @views @inbounds function precompute_cleb(cleb_arr,JlL_complete,nl,l_complete)
@@ -101,9 +92,16 @@ end
 
 function jcbtr(i::Int64,f::Int64,m_arr::Array{<:Real}) # For fixed m1,m2,m3. 
     ma = m_arr[i];mb = m_arr[mod(i,3)+1];mc = m_arr[mod(i+1,3)+1]
-    if f==i
-        return SA[1.0 0.0;0.0 1.0]
-    elseif mod(f-i,3)==1    # trafo a->b (+1), also if f = i+1
+    f==i && return SA[1.0 0.0;0.0 1.0]
+    # one infinite mass: written in inverse masses w = 1/m, such that w = 0 stays finite. Not for finite masses,
+    # where some entries are then off by ~1 ulp, which V amplifies (5e-8 relative at mass ratio 1836)
+    if any(isinf, (ma,mb,mc))
+        wa = 1/ma;wb = 1/mb;wc = 1/mc
+        w3 = wa*wb + wb*wc + wa*wc # = (ma+mb+mc)*wa*wb*wc
+        mod(f-i,3)==1 && return SA[-wc/(wa+wc) 1.0; -w3/(wa+wc)/(wb+wc) -wc/(wb+wc)]
+        return SA[-wb/(wa+wb) -1.0; +w3/(wa+wb)/(wb+wc) -wb/(wb+wc)]
+    end
+    if mod(f-i,3)==1    # trafo a->b (+1), also if f = i+1
         return SA[-ma/(ma+mc) 1.0; -mc*(ma+mb+mc)/(ma+mc)/(mb+mc) -mb/(mb+mc)]
     elseif mod(f-i,3)==2    # trafo a->c (+2), also if f = i+2
         return SA[-ma/(ma+mb) -1.0; +mb*(ma+mb+mc)/(ma+mb)/(mb+mc) -mc/(mb+mc)]
@@ -117,8 +115,14 @@ function precompute_murR(murR_arr,m_arr)
         ma = m_arr[mod(b+1,3)+1] # mapps 1,2,3 auf 3,1,2.
         mb = m_arr[b];
         mc = m_arr[mod(b,3)+1] # mapps 1,2,3 auf 2,3,1
-        murR_arr[1,b] = mc*ma/(mc+ma); # mur
-        murR_arr[2,b] = mb*(ma+mc)/(ma+mb+mc); # muR
+        if any(isinf, (ma,mb,mc)) # in inverse masses, such that one infinite mass stays finite
+            wa,wb,wc = 1/ma,1/mb,1/mc
+            murR_arr[1,b] = 1/(wa+wc); # mur
+            murR_arr[2,b] = (wa+wc)/(wa*wb + wb*wc + wa*wc); # muR = 1/(wb + 1/(ma+mc))
+        else
+            murR_arr[1,b] = mc*ma/(mc+ma); # mur
+            murR_arr[2,b] = mb*(ma+mc)/(ma+mb+mc); # muR
+        end
     end
 end
 
@@ -395,7 +399,7 @@ end
             for j in keys(lL_complete)
                 (lb,Lb) = lL_complete[j]
 
-                S_arr[la,La,lb,Lb,JlL,:] .= Si_fun(JlL,la,La,lb,Lb,imax_dict[((la,La),(lb,Lb))],mij_arr_dict[((la,La),(lb,Lb))],kmax_dict,gamma_dict,cleb_arr,Clmk_arr,Dlmk_arr,temp_arr,tempD1,tempD2)
+                S_arr[la,La,lb,Lb,JlL,:] .= Si_fun(JlL,la,La,lb,Lb,imax_dict[la,La,lb,Lb],mij_arr_dict[la,La,lb,Lb],kmax_dict,gamma_dict,cleb_arr,Clmk_arr,Dlmk_arr,temp_arr,tempD1,tempD2)
             end
         end
     end

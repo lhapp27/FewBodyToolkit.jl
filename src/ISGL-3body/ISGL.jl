@@ -10,7 +10,7 @@
 module ISGL
 
 using .. FewBodyToolkit
-using ..FewBodyToolkit: parse_complex_ranged, hermitian_fill!, theta_mesh, interpol_lookup, check_cr_csm_sector, quadgk_scaled # shared with GEM3B1D, see common/auxiliary.jl
+using ..FewBodyToolkit: parse_complex_ranged, hermitian_fill!, theta_mesh, interpol_lookup, check_cr_csm_sector, quadgk_scaled, HalfIntTable, precompute_gamma!, cr_partners, conj_pair_dev, realbasis, realbasis_back!, fill_partners, pair_position, store_element!, fill_parallel # shared with GEM3B1D, see common/auxiliary.jl
 using LinearAlgebra,StaticArrays,OffsetArrays,Interpolations, SpecialFunctions,QuadGK,PartialWaveFunctions, WignerSymbols
 using Printf: @printf
 
@@ -35,7 +35,7 @@ const DEFAULT_OBS = (
 )
 
 """
-    ISGL_solve(phys_params, num_params; return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]))
+    ISGL_solve(phys_params, num_params; return_wavefunctions=false, complex_scaling=false, complex_ranged=:none, observ_params=(;stateindices=[],centobs_arr=[[],[],[]],R2_arr=[0,0,0]), parallel=false, hermitian_solver=false)
 
 Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
 
@@ -54,17 +54,22 @@ Solves the 3D three-body problem using the Gaussian Expansion Method (GEM).
   are interpolated over the sector of the complex plane in which the effective Gaussian range lives,
   with `kmax_theta` angular nodes (see `make_num_params3B3D`).
   Observables are not supported with complex ranges.
+- `hermitian_solver`: (optional) If `true`, the reduced eigenproblem is solved with the hermitian instead of the general eigensolver (only without complex scaling). About three times faster for the diagonalization, but less accurate for the low states of large, ill-conditioned bases (errors of order `1e-9`, up to spurious states at very small `threshold`). Default is `false`.
 - `observ_params`: (optional) Parameters for observable calculations.
     + `stateindices`: Indices of states for which observables are calculated.
     + `centobs_arr`: Array of central (only dependent on `` r ``; must be defined as functions) observables, for each Jacobi set (similar to `interactions` in `phys_params`).
     + `R2_arr`: Array which indicates whether the observable `` \\langle R^2 \\rangle `` should be calculated (1) for any of the three Jacobi sets, or not (0).
+- `parallel`: (optional) If `true`, the matrix elements and the radial integrals of the range interpolation are
+  computed in `Threads.nthreads()` tasks (start julia with `-t <n>`). Same results; user-supplied potentials
+  are then called from several threads and must not modify shared state. Default is `false`; for many independent calculations, running them in parallel is
+  usually the better choice.
 
 # Returns
 - If `return_wavefunctions=false`: Returns an array of computed energies.
 - If `return_wavefunctions=true`: Returns a tuple `(energies, wavefunctions, centobs_output, R2_output)`.
     + `energies`: Vector of computed energies.
     + `wavefunctions`: Matrix of eigenvectors (column-wise) which contain the coefficients of the basis functions.
-    + `centobs_output`: Mean values of central observables for the specified states. The first dimension corresponds to the Jacobi sets, the second to the observables, and the third to the states.
+    + `centobs_output`: Mean values of central observables for the specified states. The first dimension corresponds to the Jacobi sets, the second to the observables, and the third to the states. Entries beyond the number of observables of a Jacobi set are `NaN`.
     + `R2_output`: Mean squared radii for the R-coordinate. Rows corresond to the Jacobi sets, columns to the states.
 
 # Example
@@ -75,8 +80,8 @@ energies = ISGL_solve(phys_params, num_params) #solving with default parameters:
 ```
 """
 function ISGL_solve(phys_params, num_params;
-    return_wavefunctions = false, complex_scaling = false, complex_ranged = :none, observ_params=DEFAULT_OBS,
-    wf_bool=nothing, csm_bool=nothing)
+    return_wavefunctions = false, complex_scaling = false, complex_ranged = :none, observ_params=DEFAULT_OBS, parallel=false,
+    hermitian_solver = false, wf_bool=nothing, csm_bool=nothing)
 
     complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
 
@@ -99,12 +104,13 @@ function ISGL_solve(phys_params, num_params;
     end
     
     ## 2. - 7. sanity checks, preallocation, precomputation and matrix elements:
-    build = build_TVS(phys_params,num_params,observ_params,return_wavefunctions,complex_scaling,complex_ranged_r,complex_ranged_R)
+    build = build_TVS(phys_params,num_params,observ_params,return_wavefunctions,complex_scaling,complex_ranged_r,complex_ranged_R,true,parallel)
     isnothing(build) && return
     size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs = build
 
     ## 8. Solving the generalized eigenproblem:
-    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions)
+    partner = complex_scaling ? nothing : cr_partners(size(fill_arrs.S,1),num_params.gem_params,complex_ranged_r,complex_ranged_R)
+    solveHS(num_params,fill_arrs,result_arrs,return_wavefunctions,partner,hermitian_solver)
     
     ## 9. Calculate observables: (limited to "central" observables at the moment)
     if !return_wavefunctions
@@ -118,7 +124,7 @@ end
 
 
 """
-    ISGL_matrices(phys_params, num_params; complex_scaling=false, complex_ranged=:none)
+    ISGL_matrices(phys_params, num_params; complex_scaling=false, complex_ranged=:none, parallel=false)
 
 Builds and returns the matrices of a 3D three-body problem without solving it: `(; T, V, S)`, where `T` is the kinetic energy (*not* the Hamiltonian `T+V`), `V` the interaction, and `S` the norm-overlap of the basis functions.
 
@@ -131,9 +137,9 @@ With `complex_scaling=true`, `T` already carries the factor `exp(-2*i*theta)` an
 T,V,S = ISGL_matrices(phys_params, num_params)
 ```
 """
-function ISGL_matrices(phys_params, num_params; complex_scaling=false, complex_ranged=:none)
+function ISGL_matrices(phys_params, num_params; complex_scaling=false, complex_ranged=:none, parallel=false)
     complex_ranged_r, complex_ranged_R = parse_complex_ranged(complex_ranged)
-    build = build_TVS(phys_params,num_params,DEFAULT_OBS,false,complex_scaling,complex_ranged_r,complex_ranged_R,false)
+    build = build_TVS(phys_params,num_params,DEFAULT_OBS,false,complex_scaling,complex_ranged_r,complex_ranged_R,false,parallel)
     isnothing(build) && error("ISGL_matrices: erroneous inputs, see the sanity checks.")
     fill_arrs = build[4]
     return (;T=fill_arrs.T, V=fill_arrs.V, S=fill_arrs.S)
@@ -142,7 +148,7 @@ end
 # steps 2. - 7. of ISGL_solve: sanity checks, preallocation, precomputation and matrix elements.
 # add_V=false leaves the kinetic energy in fill_arrs.T instead of the Hamiltonian T+V (matrix export).
 # Returns nothing if the sanity checks fail.
-function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged_r::Bool,complex_ranged_R::Bool,add_V::Bool=true)
+function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bool,complex_scaling::Bool,complex_ranged_r::Bool,complex_ranged_R::Bool,add_V::Bool=true,parallel::Bool=false)
 
     cr_any = complex_ranged_r || complex_ranged_R
 
@@ -157,16 +163,16 @@ function build_TVS(phys_params,num_params,observ_params,return_wavefunctions::Bo
     size_params = size_estimate(phys_params,num_params,observ_params,complex_scaling,complex_ranged_r,complex_ranged_R)
 
     ## 4. preallocation: #is it really necessary? and/or can it not simply be done within the precomputation? better like this for performance analysis
-    precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling,complex_ranged_r,complex_ranged_R)
+    precomp_arrs,temp_arrs,interpol_arrs,fill_arrs,result_arrs = preallocate_data(phys_params,num_params,observ_params,size_params,complex_scaling,complex_ranged_r,complex_ranged_R,add_V)
 
     ## 5. precomputation:
     precompute_ISGL(phys_params,num_params,size_params,precomp_arrs,temp_arrs,complex_ranged_r,complex_ranged_R)
 
     ## 6. preparation of interpolation & shoulder:
-    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling,cr_any)
+    interpolNshoulder(phys_params,num_params,observ_params,size_params,precomp_arrs,interpol_arrs,return_wavefunctions,complex_scaling,cr_any,parallel)
 
     ## 7. Calculation of matrix elements
-    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,complex_ranged_r,complex_ranged_R,add_V)
+    fill_TVS(num_params,size_params,precomp_arrs,interpol_arrs,fill_arrs,complex_scaling,phys_params.hbar,complex_ranged_r,complex_ranged_R,add_V,parallel)
 
     return size_params,precomp_arrs,interpol_arrs,fill_arrs,result_arrs
 end

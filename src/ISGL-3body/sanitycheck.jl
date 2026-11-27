@@ -11,6 +11,13 @@ function sanity_checks(phys_params,complex_ranged::Bool=false,observ_params=noth
         error_code = 0
     end
     
+    # one infinite mass is fine (inverse masses in jcbtr), two or more have no unique limit (0/0)
+    if any(masses .<= 0) || count(isinf, masses) > 1
+        println("masses must be positive, and at most one of them may be infinite")
+        error_code = 5
+        return error_code
+    end
+    
     fasb = findall(species .== :b)
     fasf = findall(species .== :f)
     if (lastindex(fasb) in [0,2,3]) && (lastindex(fasf) in [0,2,3])
